@@ -1,0 +1,21 @@
+{
+  "name": "GearFlow",
+  "appid": "",
+  "description": "个人数码设备资产管理",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "touristappid",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
+    "usingComponents": true
+  },
+  "uniStatistics": {
+    "enable": false
+  },
+  "vueVersion": "3"
+}
