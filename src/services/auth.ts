@@ -35,7 +35,9 @@ function parseUid(raw: unknown): string {
 /** 建立微信可信身份会话，返回 CloudBase 身份 UID（即 users.identity_id） */
 export async function signInSilently(): Promise<string> {
   const auth = getAuth()
-  const signInResult = asSdkResult<unknown>(await auth.signInWithOpenId())
+  // 非 wx.cloud 通道：走 CloudBase 认证服务的 HTTP 路径，会话令牌在 HTTP 网关上映射为
+  // authenticated 角色，使 RLS 按设计生效（wx.cloud 通道会以特权上下文执行、绕过 RLS）
+  const signInResult = asSdkResult<unknown>(await auth.signInWithOpenId({ useWxCloud: false }))
   throwIfError(signInResult.error, '微信身份登录失败')
   return parseUid(signInResult)
 }
