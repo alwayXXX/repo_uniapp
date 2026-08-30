@@ -165,10 +165,11 @@ async function checkDiag(): Promise<void> {
   const check = findCheck('diag')
   check.state = 'loading'
   try {
-    const result = asSdkResult<unknown>(await getRdb().rpc('gf_diag'))
+    const result = asSdkResult<unknown>(await getRdb().from('gf_diag_view').select('*'))
     throwIfError(result.error, '诊断调用失败')
-    check.message = JSON.stringify(result.data)
-    check.state = 'success'
+    const row = Array.isArray(result.data) ? result.data[0] : null
+    check.message = row ? JSON.stringify(row) : '视图无返回行'
+    check.state = row ? 'success' : 'error'
   } catch (err) {
     failCheck('diag', err)
   }
