@@ -30,6 +30,12 @@ pnpm format             # Prettier 格式化
 3. 用微信开发者工具导入 `dist/dev/mp-weixin`（或 `dist/build/mp-weixin`）目录。
 4. 云函数目录已通过构建插件同步到产物内（`cloudfunctions/`），可直接在开发者工具中上传部署。
 
+## Git 提交规范
+
+- 提交信息使用 `type(scope): summary` 格式，见 [AGENTS.md](AGENTS.md)。
+- 已配置 Husky：pre-commit 对暂存文件自动执行 ESLint 修复与 Prettier 格式化（lint-staged）。
+- 全量类型检查不在钩子中执行，提交前请手动运行 `pnpm type-check`。
+
 ## CloudBase 配置
 
 - 复制 `.env.example` 为 `.env`，填入 `CLOUDBASE_ENV_ID`（公开配置，可安全放在客户端）。

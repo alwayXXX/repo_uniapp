@@ -14,6 +14,9 @@ unpackage/
 .DS_Store
 *.log
 
+# husky 自动生成的包装脚本
+.husky/_/
+
 # 编辑器
 .idea/
 .vscode/
