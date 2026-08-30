@@ -1,1 +1,0 @@
-CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), identity_id varchar(64) NOT NULL UNIQUE, nickname varchar(64), avatar_url text, status varchar(16) NOT NULL DEFAULT 'ACTIVE', last_login_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());

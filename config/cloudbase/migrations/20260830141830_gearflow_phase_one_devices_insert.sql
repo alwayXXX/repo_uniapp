@@ -1,1 +1,0 @@
-CREATE POLICY devices_insert_own ON devices FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());

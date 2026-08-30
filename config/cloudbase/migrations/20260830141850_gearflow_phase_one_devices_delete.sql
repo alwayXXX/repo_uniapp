@@ -1,1 +1,0 @@
-CREATE POLICY devices_delete_own ON devices FOR DELETE TO authenticated USING (user_id = auth.uid());

@@ -20,3 +20,6 @@ unpackage/
 # 编辑器
 .idea/
 .vscode/
+
+# CloudBase MCP 本地缓存（迁移镜像等，工具自动管理）
+config/cloudbase/
