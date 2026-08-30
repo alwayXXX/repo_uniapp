@@ -22,6 +22,8 @@
 
 ## Phase 1：项目初始化
 
+**状态：已完成（2026-08-31，验证记录见 docs/PHASE1-FINDINGS.md）**
+
 - 目标：建立可运行工程骨架
 - 功能：uni-app 项目、TypeScript strict、ESLint、Prettier、目录结构、环境变量示例、Git 仓库、CloudBase 环境
 - 涉及文件：`package.json`、`src/`、`.env.example`、配置文件、CloudBase 控制台配置
@@ -31,6 +33,8 @@
 - 独立 commit：可以，至少拆为工程初始化、规范配置、CloudBase 环境配置
 
 ## Phase 2：UI 基础架构
+
+**状态：已完成（2026-08-31）；组件渲染自动化测试按规划延至 Phase 9，本阶段以人工视觉检查验收**
 
 - 目标：建立统一视觉与状态组件
 - 功能：主题 Token、页面布局、TabBar、Loading、Empty、Error、表单基础组件
