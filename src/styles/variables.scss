@@ -1,0 +1,42 @@
+/**
+ * GearFlow 主题 Token（SCSS 单一来源）。
+ * uni.scss 统一引入本文件注入全部 scss 编译；
+ * TS 侧常量见 src/styles/tokens.ts，两处值必须保持一致。
+ */
+
+/* 品牌与语义色 */
+$gf-color-primary: #165dff;
+$gf-color-primary-weak: #e8f0ff;
+$gf-color-success: #00b578;
+$gf-color-warning: #ff8f1f;
+$gf-color-danger: #f53f3f;
+
+/* 文字 */
+$gf-text-1: #1f2329;
+$gf-text-2: #4e5969;
+$gf-text-3: #86909c;
+$gf-text-4: #c9cdd4;
+
+/* 背景与分割 */
+$gf-bg-page: #f6f7f9;
+$gf-bg-card: #ffffff;
+$gf-line: #f0f1f3;
+
+/* 圆角 */
+$gf-radius-sm: 8rpx;
+$gf-radius-md: 16rpx;
+$gf-radius-lg: 24rpx;
+
+/* 间距 */
+$gf-space-xs: 8rpx;
+$gf-space-sm: 16rpx;
+$gf-space-md: 24rpx;
+$gf-space-lg: 32rpx;
+$gf-space-xl: 48rpx;
+
+/* 字号 */
+$gf-font-xs: 22rpx;
+$gf-font-sm: 24rpx;
+$gf-font-md: 28rpx;
+$gf-font-lg: 32rpx;
+$gf-font-xl: 40rpx;

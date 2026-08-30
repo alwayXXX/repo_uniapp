@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { asSdkResult, getCloudbaseApp, getRdb, throwIfError } from '@/services/cloudbase'
+import { getCloudbaseApp } from '@/services/cloudbase'
 import { createDevice, listDevices, renameDevice, removeDevice } from '@/services/device'
 import { AppError, toAppError } from '@/utils/error'
 import type { PageState } from '@/types/api/common'
@@ -56,7 +56,6 @@ const checks = reactive<CheckItem[]>([
   { key: 'cloudbase', label: 'CloudBase 初始化', state: 'idle', message: '' },
   { key: 'identity', label: '身份验证（云函数）', state: 'idle', message: '' },
   { key: 'database', label: '数据库读写（devices）', state: 'idle', message: '' },
-  { key: 'diag', label: '执行上下文诊断（临时）', state: 'idle', message: '' },
 ])
 
 function findCheck(key: string): CheckItem {
@@ -161,20 +160,6 @@ async function checkDatabase(): Promise<void> {
   }
 }
 
-async function checkDiag(): Promise<void> {
-  const check = findCheck('diag')
-  check.state = 'loading'
-  try {
-    const result = asSdkResult<unknown>(await getRdb().from('gf_diag_view').select('*'))
-    throwIfError(result.error, '诊断调用失败')
-    const row = Array.isArray(result.data) ? result.data[0] : null
-    check.message = row ? JSON.stringify(row) : '视图无返回行'
-    check.state = row ? 'success' : 'error'
-  } catch (err) {
-    failCheck('diag', err)
-  }
-}
-
 async function runAllChecks(): Promise<void> {
   if (running.value) return
   running.value = true
@@ -187,7 +172,6 @@ async function runAllChecks(): Promise<void> {
   await checkCloudbase()
   await checkIdentity()
   await checkDatabase()
-  await checkDiag()
 
   running.value = false
 }
