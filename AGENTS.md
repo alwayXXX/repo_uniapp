@@ -29,7 +29,7 @@ GearFlow 的 **Phase 0 立项与规划已完成**，当前等待进入 Phase 1�
 
 - NestJS：保留为未来复杂业务层的可选技术，不属于当前 MVP
 - Prisma：保留为未来关系型数据库 ORM 的可选技术，不属于当前 MVP
-- MySQL / PostgreSQL：当前不自行部署关系型数据库
+- MySQL / PostgreSQL：不自行部署关系型数据库（CloudBase 平台托管的 PostgreSQL 服务属于 BaaS 能力，已于 2026-08-30 确认使用，见 docs/DATABASE.md 存储引擎决策）
 - Redis：当前无高频读写、任务队列或复杂缓存需求
 - Nginx：当前不自行维护反向代理和 HTTPS 基础设施
 - 独立服务器 / VPS：当前不购买或维护后端服务器

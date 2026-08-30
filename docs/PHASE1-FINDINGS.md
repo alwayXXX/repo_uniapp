@@ -7,15 +7,15 @@
 
 ## 1. 已完成并验证
 
-| 项目 | 结果 |
-|---|---|
-| uni-app（Vue 3 + TypeScript strict + Vite + Pinia） | `pnpm build:mp-weixin` 构建成功，产物 `dist/build/mp-weixin` |
-| ESLint / Prettier / vue-tsc | 全部通过，0 错误 |
-| Git | 已初始化，按工程/CloudBase 分 commit 提交 |
-| CloudBase 登录 | MCP 设备码授权成功（账号级） |
-| CloudBase 环境 | `myrepo-d1gfju7se642a63ce`（别名 myrepo，体验版，ap-shanghai，状态 NORMAL） |
-| 云函数 auth-bootstrap | 已部署并调用成功，无微信上下文时按 API.md 契约返回 `UNAUTHORIZED` |
-| 前端服务层 | `services/cloudbase.ts`（初始化/云函数/数据库封装/错误转换）、`stores/user.ts`、验证页面就绪 |
+| 项目                                                | 结果                                                                                         |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| uni-app（Vue 3 + TypeScript strict + Vite + Pinia） | `pnpm build:mp-weixin` 构建成功，产物 `dist/build/mp-weixin`                                 |
+| ESLint / Prettier / vue-tsc                         | 全部通过，0 错误                                                                             |
+| Git                                                 | 已初始化，按工程/CloudBase 分 commit 提交                                                    |
+| CloudBase 登录                                      | MCP 设备码授权成功（账号级）                                                                 |
+| CloudBase 环境                                      | `myrepo-d1gfju7se642a63ce`（别名 myrepo，体验版，ap-shanghai，状态 NORMAL）                  |
+| 云函数 auth-bootstrap                               | 已部署并调用成功，无微信上下文时按 API.md 契约返回 `UNAUTHORIZED`                            |
+| 前端服务层                                          | `services/cloudbase.ts`（初始化/云函数/数据库封装/错误转换）、`stores/user.ts`、验证页面就绪 |
 
 ## 2. 冲突：环境无文档型数据库
 
@@ -68,3 +68,13 @@ RuntimeBackends: { postgresql: true, nosql: false, mysql: false }
 
 - 指令要求「如果 CloudBase 某项能力与当前文档存在冲突：先停止该部分实现并报告冲突，不要自行猜测」——本节即该报告。
 - 未修改任何 Phase 0 文档；未引入 NestJS / Prisma / MySQL / Redis / Nginx 等禁用项。
+
+## 6. 决策记录（2026-08-30）
+
+**已确认走路线 B**：使用现有 PG 模式环境 + JS SDK v3 `app.rdb()` + RLS 行级安全。
+
+理由：对终端用户产品效果与路线 A 一致；与 Phase 0「简单读走 SDK、写走云函数」的分层最接近，仅替换存储引擎；是平台对 PG 模式新业务的官方推荐路径；与未来 NestJS + Prisma + PostgreSQL 演进方向同引擎。
+
+已同步修改文档（先文档后编码）：`docs/DATABASE.md`（存储引擎决策 + PG 实现原则 + Phase 1 表结构）、`docs/ARCHITECTURE.md`（架构图 / 调用分层 / 身份与权限）、`AGENTS.md`（PG 边界说明）。
+
+遗留事项不变：小程序 AppID、微信开发者工具安装、小程序端闭环与 A/B 双账号实测（另需在 CloudBase 身份认证中配置微信小程序登录 provider）。
