@@ -1,0 +1,9 @@
+{
+  "name": "auth-bootstrap",
+  "version": "0.1.0",
+  "description": "GearFlow 身份初始化：从微信可信上下文创建/查询 GearFlow 用户",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app';
+import { onLaunch } from '@dcloudio/uni-app'
+import { initCloudbase } from '@/services/cloudbase'
 
 onLaunch(() => {
-  console.log('GearFlow launched');
-});
+  try {
+    initCloudbase()
+  } catch (err) {
+    // 初始化失败不阻塞启动；验证页面会展示具体错误与修复方式
+    console.error('CloudBase init failed:', err instanceof Error ? err.message : String(err))
+  }
+})
 </script>
 
 <style>
