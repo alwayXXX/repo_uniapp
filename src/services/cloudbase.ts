@@ -28,6 +28,17 @@ export function getAuth() {
   return getCloudbaseApp().auth({ persistence: 'local' })
 }
 
+/**
+ * 调用 PG RPC 函数（SECURITY DEFINER 服务端边界）。
+ * 运行时 rdb 客户端支持 rpc，但 SDK 类型未声明，此处做第三方边界窄化。
+ */
+export async function callRpc(fn: string, args: Record<string, unknown> = {}): Promise<unknown> {
+  const client = getRdb() as unknown as {
+    rpc: (name: string, args?: Record<string, unknown>) => Promise<unknown>
+  }
+  return client.rpc(fn, args)
+}
+
 /** app.rdb / auth 统一返回结构（SDK 判别联合的第三方边界快照） */
 export interface SdkResult<TData> {
   data: TData | null

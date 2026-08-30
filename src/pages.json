@@ -35,6 +35,19 @@
       "style": {
         "navigationBarTitleText": "Phase 1 验证"
       }
+    },
+    {
+      "path": "pages/onboarding/index",
+      "style": {
+        "navigationBarTitleText": "欢迎使用 GearFlow",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/agreement",
+      "style": {
+        "navigationBarTitleText": "协议"
+      }
     }
   ],
   "tabBar": {

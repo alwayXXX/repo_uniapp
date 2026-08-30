@@ -94,7 +94,7 @@ async function checkPinia(): Promise<void> {
   const check = findCheck('pinia')
   check.state = 'loading'
   try {
-    userStore.reset()
+    userStore.logout()
     check.message = `store=${userStore.$id}，初始状态=${userStore.status}`
     check.state = 'success'
   } catch (err) {

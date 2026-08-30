@@ -13,8 +13,18 @@
 </template>
 
 <script setup lang="ts">
+import { onShow } from '@dcloudio/uni-app'
 // Phase 3+ 接入首页看板业务（ROADMAP Phase 7 首页临期展示）
 import StatusView from '@/components/StatusView.vue'
+
+const ONBOARDED_KEY = 'gf_onboarded'
+
+onShow(() => {
+  // 首次使用引导（PRD 4.1）：未完成引导时进入 onboarding
+  if (uni.getStorageSync(ONBOARDED_KEY) !== '1') {
+    uni.reLaunch({ url: '/pages/onboarding/index' })
+  }
+})
 </script>
 
 <style scoped lang="scss">

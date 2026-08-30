@@ -4,5 +4,5 @@ allowBuilds:
   esbuild: true
   vue-demi: true
   sass: true
-  "@parcel/watcher": true
+  '@parcel/watcher': true
 shamefullyHoist: true
