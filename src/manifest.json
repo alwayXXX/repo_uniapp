@@ -6,7 +6,7 @@
   "versionCode": "100",
   "transformPx": false,
   "mp-weixin": {
-    "appid": "touristappid",
+    "appid": "wx8f26567f4d54b3f7",
     "setting": {
       "urlCheck": false,
       "es6": true,
