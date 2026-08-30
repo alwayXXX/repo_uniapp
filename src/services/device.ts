@@ -52,8 +52,12 @@ function parseRows(raw: unknown): DeviceRow[] {
 
 export async function createDevice(input: CreateDeviceInput): Promise<string> {
   const rdb = getRdb()
+  // postgREST 风格客户端默认不返回写入行，必须链式 .select() 才能拿到新行 id
   const result = asSdkResult<unknown>(
-    await rdb.from(DEVICES).insert({ name: input.name, status: input.status ?? 'IN_USE' }),
+    await rdb
+      .from(DEVICES)
+      .insert({ name: input.name, status: input.status ?? 'IN_USE' })
+      .select(),
   )
   throwIfError(result.error, '创建设备失败')
   const rows = parseRows(result.data)
