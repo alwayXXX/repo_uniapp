@@ -13,7 +13,7 @@ export function getCloudbaseApp(): ReturnType<typeof cloudbase.init> {
     if (!envId) {
       throw new AppError('INTERNAL_ERROR', '缺少 CLOUDBASE_ENV_ID，请检查 .env 配置')
     }
-    cloudbaseApp = cloudbase.init({ env: envId, useWxCloud: false })
+    cloudbaseApp = cloudbase.init({ env: envId })
   }
   return cloudbaseApp
 }
