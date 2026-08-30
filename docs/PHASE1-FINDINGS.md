@@ -78,3 +78,27 @@ RuntimeBackends: { postgresql: true, nosql: false, mysql: false }
 已同步修改文档（先文档后编码）：`docs/DATABASE.md`（存储引擎决策 + PG 实现原则 + Phase 1 表结构）、`docs/ARCHITECTURE.md`（架构图 / 调用分层 / 身份与权限）、`AGENTS.md`（PG 边界说明）。
 
 遗留事项不变：小程序 AppID、微信开发者工具安装、小程序端闭环与 A/B 双账号实测（另需在 CloudBase 身份认证中配置微信小程序登录 provider）。
+
+## 7. 最终闭环验证结果（2026-08-31）
+
+真实微信小程序端闭环全部打通：
+
+| 验证项                                 | 结果                                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| uni-app 构建产物在微信开发者工具运行   | 通过                                                                            |
+| CloudBase 初始化（js-sdk v3，PG 环境） | 通过                                                                            |
+| signInWithOpenId 真实用户静默登录      | 通过（uid 20940877…，JWT role=authenticated，经小程序认证的 wx.cloud 通道签发） |
+| devices 表客户端 CRUD（app.rdb）       | 通过（创建/读取/更新/删除）                                                     |
+| 用户隔离（真实链路）                   | 通过：真实用户仅能看到自己名下数据；预置的其他用户（gf-user-a/b）设备完全不可见 |
+| 服务端 RLS 矩阵（角色模拟 T1-T9）      | 通过                                                                            |
+
+关键事实记录：
+
+1. rdb 查询在数据库侧以 `authenticated` 角色执行，JWT claims（sub=用户 uid）完整传递，`auth.uid()` 生效。
+2. 小程序认证（appid ↔ 环境绑定）是 wx.cloud 通道身份签发的前提；无需在 CloudBase 手工配置 AppSecret provider。
+3. 曾误启用「微信开放平台登录」（OAUTH 网页通道，不适用于小程序）并已删除；其中出现过一次 AppSecret 明文（工具输出），因当前架构不依赖 AppSecret，建议在小程序后台直接「重置」使其失效即可，无需其他操作。
+4. 数据库遗留：`gf_diag_view` 诊断视图保留（只读、无敏感信息），验证页含临时诊断项，Phase 2 重做页面时移除。
+
+## 8. Phase 1 完成结论
+
+除「双账号多开互测」（可选加强项，工具路径：开发者工具 → 多账号调试）外，Phase 1 完成标准全部满足。
