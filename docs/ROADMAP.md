@@ -46,6 +46,8 @@
 
 ## Phase 3：用户体系
 
+**状态：已完成（2026-08-31）；bootstrap/注销由 SECURITY DEFINER RPC 实现（docs/DATABASE.md 9.4），云函数方案被取代；自动化验收 7/7 通过（scripts/verify-phase3.mjs）**
+
 - 目标：完成 CloudBase 微信用户身份、协议和账号注销
 - 功能：CloudBase 身份初始化、用户资料、协议页、注销流程、数据库安全规则基线
 - 涉及文件：`src/services/auth.ts`、`src/stores/user.ts`、`cloudfunctions/auth-bootstrap/`、`cloudfunctions/users/`、CloudBase 安全规则
