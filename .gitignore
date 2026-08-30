@@ -27,3 +27,6 @@ config/cloudbase/
 # 微信开发者工具误导入根目录时生成的配置（正确项目目录是 dist/build/mp-weixin）
 /project.config.json
 /project.private.config.json
+
+# 自动化验收产物
+.e2e/
