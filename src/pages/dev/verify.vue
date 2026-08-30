@@ -37,7 +37,14 @@
 import { reactive, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { getCloudbaseApp } from '@/services/cloudbase'
-import { createDevice, listDevices, renameDevice, removeDevice } from '@/services/device'
+import {
+  createDevice,
+  getDevice,
+  listDevices,
+  softDeleteDevice,
+  updateDevice,
+} from '@/services/device'
+import { listCategories } from '@/services/category'
 import { AppError, toAppError } from '@/utils/error'
 import type { PageState } from '@/types/api/common'
 
@@ -132,28 +139,74 @@ async function checkDatabase(): Promise<void> {
   const check = findCheck('database')
   check.state = 'loading'
   try {
+    const categories = await listCategories()
+    const category = categories[0]
+    if (!category) {
+      throw new AppError('CATEGORY_NOT_FOUND', '系统分类未初始化')
+    }
     const stamp = new Date().toISOString().slice(11, 19)
-    const createdId = await createDevice({ name: `Phase1验证设备 ${stamp}` })
+    const createdId = await createDevice({
+      categoryId: category.id,
+      name: `验证设备 ${stamp}`,
+      status: 'IN_USE',
+      brand: null,
+      model: null,
+      serialNumber: null,
+      purchaseDate: null,
+      purchaseChannel: null,
+      purchasePriceCents: null,
+      notes: null,
+    })
 
-    let devices = await listDevices()
-    if (!devices.some((doc) => doc._id === createdId)) {
+    let devices = await listDevices({
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      page: 1,
+      pageSize: 20,
+    })
+    if (!devices.items.some((doc) => doc.id === createdId)) {
       throw new AppError('RESOURCE_NOT_FOUND', '创建后读取不到该设备')
     }
 
-    const renamed = `Phase1验证设备-已更新 ${stamp}`
-    await renameDevice(createdId, renamed)
-    devices = await listDevices()
-    if (!devices.some((doc) => doc._id === createdId && doc.name === renamed)) {
+    const renamed = `验证设备-已更新 ${stamp}`
+    await updateDevice(createdId, {
+      categoryId: category.id,
+      name: renamed,
+      status: 'IN_USE',
+      brand: null,
+      model: null,
+      serialNumber: null,
+      purchaseDate: null,
+      purchaseChannel: null,
+      purchasePriceCents: null,
+      notes: null,
+    })
+    devices = await listDevices({
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      page: 1,
+      pageSize: 20,
+    })
+    if (!devices.items.some((doc) => doc.id === createdId && doc.name === renamed)) {
       throw new AppError('VALIDATION_ERROR', '更新后读取结果不正确')
     }
 
-    await removeDevice(createdId)
-    devices = await listDevices()
-    if (devices.some((doc) => doc._id === createdId)) {
+    await softDeleteDevice(createdId)
+    devices = await listDevices({
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+      page: 1,
+      pageSize: 20,
+    })
+    if (devices.items.some((doc) => doc.id === createdId)) {
       throw new AppError('INTERNAL_ERROR', '删除后仍然能读取到该设备')
     }
+    const removed = await getDevice(createdId)
+    if (removed !== null) {
+      throw new AppError('INTERNAL_ERROR', '软删除后单查仍可见')
+    }
 
-    check.message = `创建 / 读取 / 更新 / 删除 全部通过（当前 ${devices.length} 条设备数据）`
+    check.message = `创建 / 读取 / 更新 / 软删除 / 单查 全部通过`
     check.state = 'success'
   } catch (err) {
     failCheck('database', err)

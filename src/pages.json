@@ -9,7 +9,14 @@
     {
       "path": "pages/devices/index",
       "style": {
-        "navigationBarTitleText": "设备"
+        "navigationBarTitleText": "设备",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/devices/edit",
+      "style": {
+        "navigationBarTitleText": "设备信息"
       }
     },
     {

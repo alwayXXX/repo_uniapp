@@ -40,6 +40,18 @@ export async function signInSilently(): Promise<string> {
   return parseUid(signInResult)
 }
 
+/**
+ * 确保存在有效会话（幂等）：访问令牌有效期约 2 小时，
+ * 冷启动恢复的过期会话由这里静默续期，避免各页面各自处理 401。
+ */
+export async function ensureSession(): Promise<void> {
+  const auth = getAuth()
+  const result = asSdkResult<unknown>(await auth.getSession())
+  if (!isRecord(result.data) || !isRecord(result.data.session)) {
+    await signInSilently()
+  }
+}
+
 function toGearFlowUser(row: UserRow): GearFlowUser {
   return { id: row.id, nickname: row.nickname, avatarUrl: row.avatar_url }
 }

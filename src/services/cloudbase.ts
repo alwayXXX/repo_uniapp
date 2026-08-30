@@ -39,9 +39,10 @@ export async function callRpc(fn: string, args: Record<string, unknown> = {}): P
   return client.rpc(fn, args)
 }
 
-/** app.rdb / auth 统一返回结构（SDK 判别联合的第三方边界快照） */
+/** app.rdb / auth 统一返回结构（SDK 判别联合的第三方边界快照；count 仅列表查询携带） */
 export interface SdkResult<TData> {
   data: TData | null
+  count?: number | null
   error: { message: string; code?: string } | null
 }
 
