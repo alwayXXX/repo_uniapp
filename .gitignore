@@ -30,3 +30,6 @@ config/cloudbase/
 
 # 自动化验收产物
 .e2e/
+
+# 本机专用清理脚本（含机器特定路径，不入库）
+scripts/clean-local.mjs
