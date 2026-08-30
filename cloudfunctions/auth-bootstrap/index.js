@@ -1,3 +1,6 @@
+// 路线说明：本项目数据层已切换为 CloudBase PostgreSQL（docs/PHASE1-FINDINGS.md）。
+// 本函数为 wx.cloud 文档数据库变体（Phase 0 原方案），保留作为参考；
+// PG 路线下的用户行创建由 Phase 3 的服务端边界（cloudfunctions/users）实现。
 const cloud = require('wx-server-sdk')
 const crypto = require('crypto')
 

@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { initCloudbase } from '@/services/cloudbase'
+import { getCloudbaseApp } from '@/services/cloudbase'
 import { createDevice, listDevices, renameDevice, removeDevice } from '@/services/device'
 import { AppError, toAppError } from '@/utils/error'
 import type { PageState } from '@/types/api/common'
@@ -104,7 +104,7 @@ async function checkCloudbase(): Promise<void> {
   const check = findCheck('cloudbase')
   check.state = 'loading'
   try {
-    initCloudbase()
+    getCloudbaseApp()
     check.message = `env=${import.meta.env.CLOUDBASE_ENV_ID}，appEnv=${import.meta.env.APP_ENV}`
     check.state = 'success'
   } catch (err) {
@@ -117,8 +117,9 @@ async function checkIdentity(): Promise<void> {
   check.state = 'loading'
   try {
     await userStore.bootstrap()
-    const userId = userStore.user?.id ?? ''
-    check.message = `${userStore.isNewUser ? '新用户已创建' : '已有用户'}，userId 前 8 位：${userId.slice(0, 8)}…`
+    const identityId = userStore.identityId ?? ''
+    const userNote = userStore.user ? '用户行已读取' : '用户行待服务端创建（Phase 3）'
+    check.message = `可信会话已建立，uid 前 8 位：${identityId.slice(0, 8)}…，${userNote}`
     check.state = 'success'
   } catch (err) {
     failCheck('identity', err)

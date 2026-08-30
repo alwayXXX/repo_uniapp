@@ -1,0 +1,1 @@
+CREATE POLICY devices_select_own ON devices FOR SELECT TO authenticated USING (user_id = auth.uid());
