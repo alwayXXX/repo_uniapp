@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_devices_user_deleted;

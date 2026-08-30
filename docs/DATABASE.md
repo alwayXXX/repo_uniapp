@@ -402,22 +402,49 @@ RLS：客户端仅能 `SELECT` / `UPDATE` 自己的行（`identity_id = auth.uid
 CREATE TABLE devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id varchar(64) NOT NULL DEFAULT auth.uid(),  -- 归属由数据库默认值写入，客户端不可指定
+  category_id uuid,                                  -- 逻辑引用 device_categories.id，无外键
   name varchar(64) NOT NULL,
-  status varchar(16) NOT NULL DEFAULT 'IN_USE',
+  status varchar(16) NOT NULL DEFAULT 'IN_USE',      -- IN_USE / IDLE / SOLD / DISCARDED
   brand varchar(64),
   model varchar(128),
+  serial_number varchar(128),
   purchase_date date,
+  purchase_channel varchar(128),
   purchase_price_cents integer,
-  deleted_at timestamptz,
+  currency varchar(8) NOT NULL DEFAULT 'CNY',
+  disposal_date date,
+  disposal_price_cents integer,
+  notes varchar(1000),
+  deleted_at timestamptz,                            -- 软删除标记
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_devices_user ON devices (user_id);
+CREATE INDEX idx_devices_user_status ON devices (user_id, deleted_at, status);
+CREATE INDEX idx_devices_user_category ON devices (user_id, category_id, deleted_at);
+CREATE INDEX idx_devices_user_purchase ON devices (user_id, purchase_date);
 ```
 
-Phase 1 仅含验证所需最小列，其余字段（序列号、购买渠道、处置等）随 Phase 4 设备管理补充。
+RLS：`SELECT/INSERT/UPDATE/DELETE` 全部限定 `user_id = auth.uid()`，`INSERT` 使用 `WITH CHECK`，归属列不可伪造；`DEFAULT auth.uid()` 由数据库写入归属。删除 = 软删除（置 `deleted_at`），列表与统计过滤 `deleted_at IS NULL`。
 
-RLS：`SELECT/INSERT/UPDATE/DELETE` 全部限定 `user_id = auth.uid()`，`INSERT` 使用 `WITH CHECK`，归属列不可伪造；`DEFAULT auth.uid()` 由数据库写入归属。
+### 9.2.1 device_categories（Phase 4）
+
+```sql
+CREATE TABLE device_categories (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scope varchar(16) NOT NULL DEFAULT 'SYSTEM',      -- SYSTEM / CUSTOM（MVP 仅 SYSTEM）
+  owner_key varchar(64) NOT NULL DEFAULT 'system',
+  code varchar(32) NOT NULL,
+  name varchar(32) NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (scope, code)
+);
+```
+
+系统分类内置 12 项（电脑/手机/平板/显示器/耳机/键盘/鼠标/相机/游戏机/NAS/硬盘/其他）。RLS：`authenticated` 仅可 `SELECT` 且限 `scope='SYSTEM' AND is_active`；客户端无任何写权限。自定义分类（`CUSTOM`）属后续扩展。
 
 ### 9.3 权限基线
 

@@ -1,0 +1,1 @@
+ALTER TABLE devices ADD COLUMN category_id uuid, ADD COLUMN serial_number varchar(128), ADD COLUMN purchase_channel varchar(128), ADD COLUMN currency varchar(8) NOT NULL DEFAULT 'CNY', ADD COLUMN notes varchar(1000), ADD COLUMN disposal_date date, ADD COLUMN disposal_price_cents integer;
