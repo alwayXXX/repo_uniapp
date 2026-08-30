@@ -19,9 +19,11 @@
 
     <view class="note">
       <text class="note-title">权限隔离验证说明</text>
-      <text class="note-line">· userId 由云函数从微信可信身份上下文派生，客户端不可指定。</text>
       <text class="note-line"
-        >· devices 集合安全规则：doc._openid == auth.openid，客户端查询显式携带归属条件。</text
+        >· 归属列 user_id 由数据库 DEFAULT auth.uid() 写入，客户端不可指定。</text
+      >
+      <text class="note-line"
+        >· 数据层为 CloudBase PostgreSQL，行级安全（RLS）策略强制 user_id = auth.uid()。</text
       >
       <text class="note-line">
         · 隔离验证：在微信开发者工具中用账号 A 运行验证，再用账号
