@@ -394,7 +394,7 @@ CREATE TABLE users (
 );
 ```
 
-RLS：客户端仅能 `SELECT` / `UPDATE` 自己的行（`identity_id = auth.uid()`）；`INSERT` 仅由服务端边界（云函数/管理端）执行，不开放给客户端，防止重复注册绕过。
+RLS：客户端仅能 `SELECT` / `UPDATE` 自己的行（`identity_id = auth.uid()`）；`INSERT` 不开放给客户端，由**服务端边界**执行——实现为 `SECURITY DEFINER` RPC 函数 `gf_bootstrap_user`（见 9.4），身份强制取 `auth.uid()`，客户端无法伪造。
 
 ### 9.2 devices
 
@@ -424,3 +424,26 @@ RLS：`SELECT/INSERT/UPDATE/DELETE` 全部限定 `user_id = auth.uid()`，`INSER
 - 授权仅面向 `authenticated` 角色（已登录用户）；`anon` 无任何授权，默认拒绝。
 - 客户端只允许持有 Publishable Key；`service_role` / API Key 仅存在于服务端。
 - RLS 验证以数据库策略为准，UI 隐藏不作为权限手段。
+
+### 9.4 身份生命周期 RPC（Phase 3）
+
+用户行的创建与注销通过 `SECURITY DEFINER` RPC 函数实现（客户端经 `rdb.rpc()` 调用，函数以表属主权限运行、绕过 RLS，但身份只能来自 JWT）：
+
+- **`gf_bootstrap_user(p_privacy text, p_terms text)`**：upsert 当前 `auth.uid()` 的用户行（首次创建 / 更新 `last_login_at`），按传入版本幂等写入 `consent_records`，返回 `{ user: { id, nickname, avatarUrl, isNewUser } }`（API.md 3.1 契约）。函数内 `EXECUTE` 权限仅授予 `authenticated`。
+- **`gf_delete_account()`**：物理删除当前身份的 `devices` 与 `consent_records`，将用户行匿名化（`identity_id` 替换为 `deleted:<uuid>`、昵称头像清空、`status = 'DELETED'`），返回删除统计。匿名化后旧 JWT 自动失配 RLS，数据不可访问；再次登录会创建全新用户（DATABASE.md 第 5 节语义）。
+- `auth-bootstrap` 云函数（wx.cloud 文档数据库变体）已被上述 RPC 取代并删除。
+
+### 9.5 consent_records（Phase 3）
+
+```sql
+CREATE TABLE consent_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id varchar(64) NOT NULL DEFAULT auth.uid(),  -- 与全库约定一致：存 auth.uid()
+  policy_type varchar(16) NOT NULL,                 -- PRIVACY / TERMS
+  policy_version varchar(16) NOT NULL,
+  consented_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, policy_type, policy_version)
+);
+```
+
+RLS：`SELECT` / `INSERT` 限本人（`user_id = auth.uid()`）；无 `UPDATE` / `DELETE`——同意记录不可篡改，仅随账号注销物理删除。协议正文为静态法律文本，由前端常量维护（`src/constants/policies.ts`），数据库只记录版本与时间。

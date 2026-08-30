@@ -1,0 +1,1 @@
+CREATE POLICY consent_insert_own ON consent_records FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());

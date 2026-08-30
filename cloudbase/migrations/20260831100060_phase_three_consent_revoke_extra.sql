@@ -1,0 +1,1 @@
+REVOKE DELETE, UPDATE, REFERENCES, TRIGGER, TRUNCATE ON consent_records FROM authenticated;

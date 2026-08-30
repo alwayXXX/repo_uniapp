@@ -1,0 +1,1 @@
+CREATE POLICY consent_select_own ON consent_records FOR SELECT TO authenticated USING (user_id = auth.uid());
