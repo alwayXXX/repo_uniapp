@@ -20,6 +20,12 @@
       }
     },
     {
+      "path": "pages/devices/detail",
+      "style": {
+        "navigationBarTitleText": "设备详情"
+      }
+    },
+    {
       "path": "pages/stats/index",
       "style": {
         "navigationBarTitleText": "数据"

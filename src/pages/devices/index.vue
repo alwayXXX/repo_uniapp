@@ -37,12 +37,12 @@
         <button v-if="store.hasFilter" class="ghost-button" @click="store.clearFilters()">
           清空筛选
         </button>
-        <button class="primary-button" @click="gotoEdit('')">添加设备</button>
+        <button class="primary-button" @click="gotoCreate()">添加设备</button>
       </template>
 
       <view class="list">
         <view v-for="device in store.items" :key="device.id" class="device-card">
-          <view class="device-main" @click="gotoEdit(device.id)">
+          <view class="device-main" @click="gotoDetail(device.id)">
             <view class="device-head">
               <text class="device-name">{{ device.name }}</text>
               <text class="status-badge" :class="device.status.toLowerCase()">
@@ -60,7 +60,6 @@
               }}
             </text>
           </view>
-          <text class="delete-link" @click.stop="askDelete(device)">删除</text>
         </view>
 
         <view v-if="store.loadingMore" class="more">
@@ -74,26 +73,11 @@
         </view>
       </view>
     </StatusView>
-
-    <view v-if="deleteTarget" class="mask" @click="deleteTarget = null">
-      <view class="confirm-card" @click.stop>
-        <text class="confirm-title">删除设备</text>
-        <text class="confirm-text">
-          将删除「{{ deleteTarget.name }}」，删除后列表与统计不再显示（软删除）。
-        </text>
-        <view class="confirm-actions">
-          <button class="cancel-button" @click="deleteTarget = null">取消</button>
-          <button class="danger-button" :disabled="deleting" @click="confirmDelete">
-            {{ deleting ? '删除中…' : '删除' }}
-          </button>
-        </view>
-      </view>
-    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { useDeviceStore } from '@/stores/device'
 import { centsToYuan } from '@/utils/money'
@@ -102,14 +86,11 @@ import StatusView from '@/components/StatusView.vue'
 import type { DeviceDoc } from '@/types/device'
 
 const store = useDeviceStore()
-const deleteTarget = ref<DeviceDoc | null>(null)
-const deleting = ref(false)
 
 onShow(() => {
+  // 每次进入都刷新：详情页的编辑/软删除需要同步回列表
   void store.ensureCategories()
-  if (store.status === 'idle') {
-    void store.loadFirst()
-  }
+  void store.loadFirst()
 })
 
 onReachBottom(() => {
@@ -190,29 +171,12 @@ function onSortChange(event: { detail: { value: string | number } }): void {
   store.setSort(by as typeof store.sortBy, order as 'asc' | 'desc')
 }
 
-function gotoEdit(id: string): void {
-  uni.navigateTo({ url: `/pages/devices/edit${id ? `?id=${id}` : ''}` })
+function gotoCreate(): void {
+  uni.navigateTo({ url: '/pages/devices/edit' })
 }
 
-function askDelete(device: DeviceDoc): void {
-  deleteTarget.value = device
-}
-
-function confirmDelete(): void {
-  const target = deleteTarget.value
-  if (!target || deleting.value) return
-  deleting.value = true
-  store
-    .removeDevice(target.id)
-    .then(() => {
-      deleteTarget.value = null
-      if (store.items.length === 0) void store.loadFirst()
-      uni.showToast({ title: '已删除', icon: 'none' })
-    })
-    .catch(() => uni.showToast({ title: '删除失败，请重试', icon: 'none' }))
-    .finally(() => {
-      deleting.value = false
-    })
+function gotoDetail(id: string): void {
+  uni.navigateTo({ url: `/pages/devices/detail?id=${id}` })
 }
 </script>
 
@@ -316,15 +280,6 @@ function confirmDelete(): void {
   color: $gf-text-1;
 }
 
-.delete-link {
-  position: absolute;
-  right: $gf-space-md;
-  bottom: $gf-space-sm;
-  padding: 4rpx 8rpx;
-  font-size: $gf-font-xs;
-  color: $gf-text-3;
-}
-
 .more {
   padding: $gf-space-md 0;
   text-align: center;
@@ -333,60 +288,6 @@ function confirmDelete(): void {
 .more-text {
   font-size: $gf-font-xs;
   color: $gf-text-3;
-}
-
-.mask {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(0, 0, 0, 0.45);
-}
-
-.confirm-card {
-  width: 560rpx;
-  padding: $gf-space-lg;
-  background-color: $gf-bg-card;
-  border-radius: $gf-radius-lg;
-}
-
-.confirm-title {
-  font-size: $gf-font-lg;
-  font-weight: 600;
-  color: $gf-text-1;
-}
-
-.confirm-text {
-  display: block;
-  margin-top: $gf-space-sm;
-  font-size: $gf-font-sm;
-  color: $gf-text-2;
-  line-height: 1.6;
-}
-
-.confirm-actions {
-  display: flex;
-  flex-direction: row;
-  gap: $gf-space-sm;
-  margin-top: $gf-space-lg;
-}
-
-.confirm-actions button {
-  flex: 1;
-  font-size: $gf-font-md;
-  border-radius: $gf-radius-md;
-}
-
-.cancel-button {
-  color: $gf-text-2;
-  background-color: $gf-bg-page;
-}
-
-.danger-button {
-  color: #ffffff;
-  background-color: $gf-color-danger;
 }
 
 .primary-button {
