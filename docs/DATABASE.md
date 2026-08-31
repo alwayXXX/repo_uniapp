@@ -20,7 +20,7 @@
 - `id` 使用 UUID 主键（`gen_random_uuid()`）；`user_id` 存放 CloudBase 可信身份 UID（`auth.uid()`），与 `users.identity_id` 同值。
 - 表与保修、维护、时间线、成本之间通过字符串/UUID 引用列关联，不依赖外键级联，引用完整性由云函数校验。
 - 数据权限由 RLS 策略强制（`auth.uid()` 判定归属），客户端无法伪造归属列；`WITH CHECK` 保证写入归属不可指定为他人。
-- 简单读取走 JS SDK v3 `app.rdb()`（受 RLS 约束）；跨表写入、统计和删除仍由云函数或后续 RPC 承担。
+- 简单读写走 JS SDK v3 `app.rdb()`（受 RLS 约束）；跨表一致性由 PG 触发器、`SECURITY DEFINER` RPC 或后续云函数承担。
 - 按实际查询组合创建普通或组合索引，不照搬关系型数据库索引语法。
 - 保留稳定业务 ID、明确时间字段和扁平引用，未来若迁移到自建 PostgreSQL / MySQL 属同引擎平移。
 
@@ -212,7 +212,7 @@ P1 表，MVP 不启用。
 - 访问必须经过短期授权
 - 删除设备或账号时同步删除对象
 
-### 4.7 DeviceTimeline / `deviceTimelines`
+### 4.7 DeviceTimeline / `deviceTimelines`（PG：`device_timelines`）
 
 | 字段        | 类型            | 说明                                                  |
 | ----------- | --------------- | ----------------------------------------------------- |
@@ -229,12 +229,18 @@ P1 表，MVP 不启用。
 索引：
 
 - `_id` 文档主键
-- 组合查询索引：`deviceId + eventDate`
-- 组合查询索引：`userId + eventDate`
+- 组合查询索引：`deviceId + eventDate desc + createdAt desc`
+- 组合查询索引：`userId + eventDate desc + createdAt desc`
 
 说明：
 
-时间线不保存敏感字段原文，序列号和附件地址只保存引用 ID。
+- 时间线为 append-only 业务日志，小程序客户端仅有 `SELECT` 权限。
+- Phase 6 由 `devices` 表触发器生成 `CREATED / UPDATED / DISPOSED`；`MAINTENANCE / WARRANTY` 仅保留契约，Phase 7 的可信写路径再生成。
+- 业务字段变化默认生成 `UPDATED`；状态转为 `SOLD / DISCARDED` 时生成 `DISPOSED`，仅 `updatedAt` 变化不生成事件。
+- `CREATED.eventDate` 优先使用购买日期，未填写时使用业务时区当日；其他设备事件使用 `Asia/Shanghai` 当日。
+- 展示顺序固定为 `eventDate DESC, createdAt DESC`，保证同日多事件稳定。
+- `payload` 只保存 `changedFields` 等字段名摘要；不保存序列号、价格、备注、附件地址或任何变更前后原值。
+- RLS 同时要求 `user_id = auth.uid()` 且关联设备 `deleted_at IS NULL`；设备软删除后历史行保留但客户端不可见。
 
 ### 4.8 DeviceCost / `deviceCosts`
 
@@ -457,7 +463,7 @@ CREATE TABLE device_categories (
 用户行的创建与注销通过 `SECURITY DEFINER` RPC 函数实现（客户端经 `rdb.rpc()` 调用，函数以表属主权限运行、绕过 RLS，但身份只能来自 JWT）：
 
 - **`gf_bootstrap_user(p_privacy text, p_terms text)`**：upsert 当前 `auth.uid()` 的用户行（首次创建 / 更新 `last_login_at`），按传入版本幂等写入 `consent_records`，返回 `{ user: { id, nickname, avatarUrl, isNewUser } }`（API.md 3.1 契约）。函数内 `EXECUTE` 权限仅授予 `authenticated`。
-- **`gf_delete_account()`**：物理删除当前身份的 `devices` 与 `consent_records`，将用户行匿名化（`identity_id` 替换为 `deleted:<uuid>`、昵称头像清空、`status = 'DELETED'`），返回删除统计。匿名化后旧 JWT 自动失配 RLS，数据不可访问；再次登录会创建全新用户（DATABASE.md 第 5 节语义）。
+- **`gf_delete_account()`**：物理删除当前身份的 `device_timelines`、`devices` 与 `consent_records`，将用户行匿名化（`identity_id` 替换为 `deleted:<uuid>`、昵称头像清空、`status = 'DELETED'`），返回删除统计。匿名化后旧 JWT 自动失配 RLS，数据不可访问；再次登录会创建全新用户（DATABASE.md 第 5 节语义）。
 - `auth-bootstrap` 云函数（wx.cloud 文档数据库变体）已被上述 RPC 取代并删除。
 
 ### 9.5 consent_records（Phase 3）
@@ -474,3 +480,21 @@ CREATE TABLE consent_records (
 ```
 
 RLS：`SELECT` / `INSERT` 限本人（`user_id = auth.uid()`）；无 `UPDATE` / `DELETE`——同意记录不可篡改，仅随账号注销物理删除。协议正文为静态法律文本，由前端常量维护（`src/constants/policies.ts`），数据库只记录版本与时间。
+
+### 9.6 device_timelines（Phase 6）
+
+```sql
+CREATE TABLE device_timelines (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  device_id uuid NOT NULL,
+  user_id varchar(64) NOT NULL,
+  event_type varchar(16) NOT NULL,
+  event_date date NOT NULL,
+  title varchar(64) NOT NULL,
+  description varchar(256),
+  payload jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+RLS：`authenticated` 仅可查询本人且关联设备未软删除的行；不授予直接写权限。`gf_append_device_timeline()` 为不对客户端暴露执行权的 `SECURITY DEFINER` 触发器函数，只从 `devices` 的受 RLS 写入生成事件。旧设备在迁移时幂等回填一条 `CREATED`。

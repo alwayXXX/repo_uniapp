@@ -334,7 +334,7 @@ device.create
 - `purchaseDate` 不能晚于今天
 - 价格不能为负
 
-实现说明：通过云函数创建 Device、Warranty、DeviceTimeline 和 DeviceCost，`userId` 从可信身份上下文写入。
+实现说明：Phase 6 通过 `app.rdb()` 创建 Device，`userId` 由 `DEFAULT auth.uid()` 与 RLS 双重约束；PG 触发器同步追加 `CREATED` 时间线事件。Warranty 与 DeviceCost 不在本阶段写入，留给 Phase 7。
 
 ### 7.4 更新设备
 
@@ -342,7 +342,7 @@ device.create
 device.update
 ```
 
-支持部分更新。更新时同步时间线事件。
+支持部分更新。业务字段确实变化时，PG 触发器追加 `UPDATED` 事件；状态转为 `SOLD / DISCARDED` 时改为追加 `DISPOSED`。仅 `updatedAt` 变化不生成事件。事件摘要只包含变更字段名，不包含变更前后原值。
 
 ### 7.5 删除设备
 
@@ -358,7 +358,7 @@ device.delete
 }
 ```
 
-MVP 为软删除，默认列表和统计不再显示。该操作通过云函数执行并同步关联数据状态。
+MVP 为软删除，默认列表和统计不再显示。PG 触发器在软删除时追加 `DISPOSED` 审计事件；时间线 RLS 随后因设备已删除而不再向客户端返回任何历史行。
 
 ## 8. 维护记录接口
 
@@ -412,11 +412,44 @@ timeline.list
 
 查询参数：
 
-| 参数      | 类型   | 说明     |
-| --------- | ------ | -------- |
-| page      | number | 页码     |
-| pageSize  | number | 每页数量 |
-| eventType | string | 事件类型 |
+| 参数      | 类型   | 说明                                                        |
+| --------- | ------ | ----------------------------------------------------------- |
+| deviceId  | string | 设备 ID，必填；RLS 仍强制校验归属                           |
+| page      | number | 页码，从 1 开始                                             |
+| pageSize  | number | 每页数量，默认 20、最大 50                                  |
+| eventType | string | 可选；CREATED / UPDATED / MAINTENANCE / WARRANTY / DISPOSED |
+
+响应：
+
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "deviceId": "...",
+      "eventType": "UPDATED",
+      "eventDate": "2026-08-31",
+      "title": "更新设备",
+      "description": "设备档案已更新",
+      "payload": {
+        "changedFields": ["name", "status"]
+      },
+      "createdAt": "2026-08-31T08:00:00.000Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "total": 1,
+  "hasMore": false
+}
+```
+
+约束：
+
+- 固定按 `eventDate DESC, createdAt DESC` 返回。
+- 设备不存在、属于他人或已软删除时，返回空集合，不泄露资源是否存在。
+- `payload` 不得包含序列号、价格、备注、照片地址或任何字段原值。
+- 客户端无时间线写权限，不提供 create / update / delete 接口。
 
 ## 10. 统计接口
 
