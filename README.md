@@ -30,6 +30,12 @@ pnpm format             # Prettier 格式化
 3. 用微信开发者工具导入 `dist/dev/mp-weixin`（或 `dist/build/mp-weixin`）目录。
 4. 云函数目录已通过构建插件同步到产物内（`cloudfunctions/`），可直接在开发者工具中上传部署。
 
+## Git 钩子（Husky）
+
+- **pre-commit**（约 7 秒）：暂存文件 ESLint 修复 + Prettier 格式化（lint-staged），随后全量 vue-tsc 类型检查——类型错误无法进入提交历史
+- **pre-push**（约 20 秒）：vitest 单元测试 + 微信小程序构建——远程仓库始终保持测试通过、可构建的状态
+- 钩子失败即中止对应操作；紧急情况可用 git commit --no-verify 绕过（需在后续提交补上检查）
+
 ## Git 提交规范
 
 - 提交信息使用 `type(scope): summary` 格式，见 [AGENTS.md](AGENTS.md)。
