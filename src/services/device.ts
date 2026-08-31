@@ -1,4 +1,5 @@
 import { asSdkResult, getRdb, throwIfError } from './cloudbase'
+import { ensureSession } from './auth'
 import { AppError, isRecord } from '@/utils/error'
 import type { DeviceDoc, DeviceStatus, ListDevicesParams, ListDevicesResult } from '@/types/device'
 import type { DeviceFormValues } from '@/validators/device'
@@ -100,7 +101,9 @@ export async function listDevices(params: ListDevicesParams): Promise<ListDevice
 /** 单台设备（编辑表单回填）；不存在或非本人时返回 null */
 export async function getDevice(id: string): Promise<DeviceDoc | null> {
   const rdb = getRdb()
-  const result = asSdkResult<unknown>(await rdb.from(DEVICES).select('*').eq('id', id).limit(1))
+  const result = asSdkResult<unknown>(
+    await rdb.from(DEVICES).select('*').eq('id', id).is('deleted_at', null).limit(1),
+  )
   throwIfError(result.error, '读取设备失败')
   const rows = parseRows(result.data)
   return rows[0] ? toDeviceDoc(rows[0]) : null
@@ -108,6 +111,7 @@ export async function getDevice(id: string): Promise<DeviceDoc | null> {
 
 /** 创建（docs/API.md 7.3）：归属由数据库 DEFAULT auth.uid() 写入 */
 export async function createDevice(values: DeviceFormValues): Promise<string> {
+  await ensureSession()
   const rdb = getRdb()
   const result = asSdkResult<unknown>(
     await rdb
@@ -137,6 +141,7 @@ export async function createDevice(values: DeviceFormValues): Promise<string> {
 
 /** 编辑（docs/API.md 7.4）：仅本人行，RLS 兜底 */
 export async function updateDevice(id: string, values: DeviceFormValues): Promise<void> {
+  await ensureSession()
   const rdb = getRdb()
   const result = asSdkResult<unknown>(
     await rdb
@@ -154,17 +159,23 @@ export async function updateDevice(id: string, values: DeviceFormValues): Promis
         notes: values.notes,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id),
+      .eq('id', id)
+      .is('deleted_at', null),
   )
   throwIfError(result.error, '保存设备失败')
 }
 
 /** 软删除（docs/API.md 7.5 / DATABASE.md 删除策略）：置 deleted_at，返回删除时间 */
 export async function softDeleteDevice(id: string): Promise<string> {
+  await ensureSession()
   const rdb = getRdb()
   const deletedAt = new Date().toISOString()
   const result = asSdkResult<unknown>(
-    await rdb.from(DEVICES).update({ deleted_at: deletedAt, updated_at: deletedAt }).eq('id', id),
+    await rdb
+      .from(DEVICES)
+      .update({ deleted_at: deletedAt, updated_at: deletedAt })
+      .eq('id', id)
+      .is('deleted_at', null),
   )
   throwIfError(result.error, '删除设备失败')
   return deletedAt

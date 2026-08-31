@@ -66,7 +66,24 @@
 
         <view class="card">
           <text class="card-title">时间线</text>
-          <text class="placeholder">设备生命周期时间线将在 Phase 6 开放</text>
+          <StatusView
+            :state="timelineState"
+            loading-text="正在整理时间线…"
+            empty-title="暂无时间线"
+            empty-hint="设备发生变更后会自动记录在这里"
+            :error-text="timelineErrorText"
+            @retry="loadTimeline"
+          >
+            <DeviceTimelineList :items="timelineItems" />
+            <button
+              v-if="timelineHasMore"
+              class="timeline-more-button"
+              :disabled="timelineLoadingMore"
+              @click="loadMoreTimeline"
+            >
+              {{ timelineLoadingMore ? '加载中…' : '加载更多' }}
+            </button>
+          </StatusView>
         </view>
 
         <view class="card actions">
@@ -101,17 +118,30 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getCategoryName } from '@/services/category'
 import { getDevice, softDeleteDevice } from '@/services/device'
+import { listDeviceTimeline } from '@/services/timeline'
 import { ensureSession } from '@/services/auth'
 import { centsToYuan } from '@/utils/money'
+import { toAppError } from '@/utils/error'
 import { DEVICE_STATUS_LABELS } from '@/constants/device'
 import StatusView from '@/components/StatusView.vue'
+import DeviceTimelineList from '@/components/DeviceTimelineList.vue'
 import type { DeviceDoc } from '@/types/device'
+import type { PageState } from '@/types/api/common'
+import type { DeviceTimelineEvent } from '@/types/timeline'
 
 const device = ref<DeviceDoc | null>(null)
-const loadState = ref<'loading' | 'success' | 'error'>('loading')
+const loadState = ref<PageState>('loading')
 const errorText = ref('')
 const deleting = ref(false)
 const confirmVisible = ref(false)
+
+const TIMELINE_PAGE_SIZE = 20
+const timelineItems = ref<DeviceTimelineEvent[]>([])
+const timelineState = ref<PageState>('idle')
+const timelineErrorText = ref('')
+const timelinePage = ref(1)
+const timelineHasMore = ref(false)
+const timelineLoadingMore = ref(false)
 
 const statusLabel = computed(() => (device.value ? DEVICE_STATUS_LABELS[device.value.status] : ''))
 const categoryLabel = computed(() => {
@@ -128,6 +158,7 @@ let deviceId = ''
 
 async function load(): Promise<void> {
   loadState.value = 'loading'
+  errorText.value = ''
   try {
     await ensureSession()
     const result = await getDevice(deviceId)
@@ -139,9 +170,58 @@ async function load(): Promise<void> {
     }
     device.value = result
     loadState.value = 'success'
+    await loadTimeline()
   } catch (err) {
-    errorText.value = err instanceof Error ? err.message : '加载失败，请重试'
-    loadState.value = 'error'
+    const appError = toAppError(err)
+    errorText.value = appError.message
+    loadState.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
+  }
+}
+
+async function loadTimeline(): Promise<void> {
+  if (deviceId === '') return
+  timelineState.value = 'loading'
+  timelineErrorText.value = ''
+  timelineItems.value = []
+  timelinePage.value = 1
+  timelineHasMore.value = false
+  try {
+    const result = await listDeviceTimeline({
+      deviceId,
+      page: 1,
+      pageSize: TIMELINE_PAGE_SIZE,
+    })
+    timelineItems.value = result.items
+    timelineHasMore.value = result.hasMore
+    timelineState.value = result.items.length === 0 ? 'empty' : 'success'
+  } catch (err) {
+    const appError = toAppError(err)
+    timelineErrorText.value = appError.message
+    timelineState.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
+  }
+}
+
+async function loadMoreTimeline(): Promise<void> {
+  if (timelineLoadingMore.value || !timelineHasMore.value) return
+  timelineLoadingMore.value = true
+  try {
+    const nextPage = timelinePage.value + 1
+    const result = await listDeviceTimeline({
+      deviceId,
+      page: nextPage,
+      pageSize: TIMELINE_PAGE_SIZE,
+    })
+    const known = new Set(timelineItems.value.map((item) => item.id))
+    timelineItems.value = [
+      ...timelineItems.value,
+      ...result.items.filter((item) => !known.has(item.id)),
+    ]
+    timelinePage.value = nextPage
+    timelineHasMore.value = result.hasMore
+  } catch {
+    uni.showToast({ title: '加载更多失败，请重试', icon: 'none' })
+  } finally {
+    timelineLoadingMore.value = false
   }
 }
 
@@ -265,6 +345,20 @@ function yuan(cents: number): string {
 .placeholder {
   font-size: $gf-font-sm;
   color: $gf-text-3;
+}
+
+.timeline-more-button {
+  width: 100%;
+  margin-top: $gf-space-xs;
+  font-size: $gf-font-sm;
+  color: $gf-color-primary;
+  background-color: $gf-color-primary-weak;
+  border-radius: $gf-radius-md;
+}
+
+.timeline-more-button[disabled] {
+  color: $gf-text-3;
+  background-color: $gf-bg-page;
 }
 
 .actions button {

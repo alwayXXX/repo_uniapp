@@ -1,2 +1,5 @@
-# 提交前对暂存文件执行 ESLint 修复与 Prettier 格式化（配置见 lint-staged.config.mjs）
+# 提交前：暂存文件 lint+格式化（lint-staged）
 pnpm exec lint-staged
+
+# 提交前：全量类型检查（挡类型错误进入历史）
+pnpm type-check
