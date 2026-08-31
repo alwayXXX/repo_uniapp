@@ -98,7 +98,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getCategoryName } from '@/services/category'
 import { getDevice, softDeleteDevice } from '@/services/device'
 import { ensureSession } from '@/services/auth'
@@ -145,9 +145,15 @@ async function load(): Promise<void> {
   }
 }
 
-onLoad(async (query) => {
+onLoad((query) => {
   deviceId = query?.id ?? ''
-  await load()
+})
+
+// 页面显示即刷新：从编辑页返回（栈恢复）也能拿到最新数据
+onShow(() => {
+  if (deviceId !== '') {
+    void load()
+  }
 })
 
 function gotoEdit(): void {
