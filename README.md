@@ -58,3 +58,5 @@ src/
 └── validators/    # 表单校验
 cloudfunctions/    # CloudBase 云函数
 ```
+
+# hooks verification
