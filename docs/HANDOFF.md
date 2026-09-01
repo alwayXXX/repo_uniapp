@@ -75,6 +75,10 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - DevTools 多账号调试 A/B 互测（可选加强项，从未做过）。
 - `gf_diag_view` 诊断视图仍在库里（只读无害），Phase 9 清理时评估删除。
 
-## 8. Phase 6 入场提示（ROADMAP 原文为准）
+## 8. 改进清单
+
+验收中发现的体验/工程升级点统一记录在 docs/BACKLOG.md（含表单校验框架升级评估等），处理新 Phase 时先浏览一遍，合适的时点顺手消化。
+
+## 9. Phase 6 入场提示（ROADMAP 原文为准）
 
 目标：设备变更自动生成时间线。涉及：`device_timelines` 集合（DATABASE.md 4.7，PG 化为表 `device_timelines`）、设备写路径自动追加事件、详情页时间线区块接真数据。事件类型 CREATED/UPDATED/MAINTENANCE/WARRANTY/DISPOSED；时间线不落敏感字段原文。按 §3 节奏执行，完成后更新 ROADMAP 标记并请用户验收。
