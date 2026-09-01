@@ -1,0 +1,1 @@
+CREATE INDEX idx_maint_device_date ON maintenance_records (device_id, occurred_at);

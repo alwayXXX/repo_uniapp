@@ -1,0 +1,1 @@
+CREATE POLICY warranty_delete_own ON warranties FOR DELETE TO authenticated USING (user_id = auth.uid());

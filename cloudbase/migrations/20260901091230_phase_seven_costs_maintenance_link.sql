@@ -1,0 +1,1 @@
+ALTER TABLE device_costs ADD COLUMN maintenance_id uuid;

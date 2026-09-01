@@ -12,6 +12,8 @@ export interface DeviceFormErrors {
   purchasePrice?: string
   serialNumber?: string
   notes?: string
+  /** 保修日期成对性/先后校验错误 */
+  warrantyDates?: string
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/

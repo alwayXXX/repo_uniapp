@@ -1,0 +1,1 @@
+CREATE INDEX idx_warranty_user_end ON warranties (user_id, end_date);

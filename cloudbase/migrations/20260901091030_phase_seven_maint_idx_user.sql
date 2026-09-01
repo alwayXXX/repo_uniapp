@@ -1,0 +1,1 @@
+CREATE INDEX idx_maint_user_date_type ON maintenance_records (user_id, occurred_at, type);

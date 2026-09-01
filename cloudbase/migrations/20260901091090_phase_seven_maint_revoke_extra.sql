@@ -1,0 +1,1 @@
+REVOKE REFERENCES, TRIGGER, TRUNCATE ON maintenance_records FROM authenticated;

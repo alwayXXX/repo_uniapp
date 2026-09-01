@@ -533,13 +533,14 @@ CREATE TABLE device_costs (
   cost_type varchar(16) NOT NULL,                  -- PURCHASE / MAINTENANCE / DISPOSAL_INCOME
   amount_cents integer NOT NULL CHECK (amount_cents >= 0),
   occurred_at date NOT NULL,
+  maintenance_id uuid,                              -- 溯源：MAINTENANCE 行指向来源维护记录
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (device_id, cost_type, occurred_at, amount_cents)
 );
 CREATE INDEX idx_costs_user_type_date ON device_costs (user_id, cost_type, occurred_at);
 ```
 
-RLS：`SELECT` 限本人；写权限不开放给客户端——`MAINTENANCE` 行由维护 RPC 原子写入，`PURCHASE` 行由设备创建 RPC 同步（设备/保修表单更新价格时同步更新对应 PURCHASE 行）。UNIQUE 约束防重复记账，也可保证 `ON CONFLICT DO UPDATE` 的幂等同步。
+RLS：`SELECT` 限本人；写权限不开放给客户端——`MAINTENANCE` 行由维护 RPC 原子写入并通过 `maintenance_id` 溯源（更新/删除维护时精确定位同步），`PURCHASE` 行由设备创建流程同步写入。UNIQUE 约束防重复记账。
 
 ### 9.8 维护记录生命周期 RPC（Phase 7）
 

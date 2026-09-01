@@ -1,0 +1,1 @@
+CREATE POLICY costs_select_own ON device_costs FOR SELECT TO authenticated USING (user_id = auth.uid());

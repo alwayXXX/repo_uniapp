@@ -26,6 +26,12 @@
       }
     },
     {
+      "path": "pages/devices/maintenance",
+      "style": {
+        "navigationBarTitleText": "维护记录"
+      }
+    },
+    {
       "path": "pages/stats/index",
       "style": {
         "navigationBarTitleText": "数据"

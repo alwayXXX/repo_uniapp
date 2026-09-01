@@ -1,0 +1,1 @@
+CREATE POLICY maint_delete_own ON maintenance_records FOR DELETE TO authenticated USING (user_id = auth.uid());

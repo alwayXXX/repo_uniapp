@@ -74,6 +74,38 @@
       </FormField>
     </view>
 
+    <view class="card">
+      <text class="card-title">保修信息（选填）</text>
+      <FormField label="保修开始日期" :error="errors.warrantyDates">
+        <picker mode="date" :value="warrantyStart" @change="onWarrantyStartChange">
+          <view class="select-field">
+            <text :class="warrantyStart ? 'select-value' : 'select-placeholder'">
+              {{ warrantyStart || '选择日期' }}
+            </text>
+            <text class="select-arrow">›</text>
+          </view>
+        </picker>
+      </FormField>
+      <FormField label="保修结束日期" :error="errors.warrantyDates">
+        <picker mode="date" :value="warrantyEnd" @change="onWarrantyEndChange">
+          <view class="select-field">
+            <text :class="warrantyEnd ? 'select-value' : 'select-placeholder'">
+              {{ warrantyEnd || '选择日期（填写后自动计算保修状态）' }}
+            </text>
+            <text class="select-arrow">›</text>
+          </view>
+        </picker>
+      </FormField>
+      <FormField label="保修提供方">
+        <input
+          v-model="warrantyProvider"
+          class="input"
+          placeholder="选填，例如 Apple"
+          maxlength="128"
+        />
+      </FormField>
+    </view>
+
     <button class="save-button" :disabled="saving" @click="onSave">
       {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存' }}
     </button>
@@ -102,6 +134,8 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useDeviceStore } from '@/stores/device'
 import { createDevice, getDevice, updateDevice } from '@/services/device'
+import { getWarranty, removeWarranty, saveWarranty } from '@/services/warranty'
+import { ensureSession } from '@/services/auth'
 import { normalizeDeviceForm, type DeviceFormErrors } from '@/validators/device'
 import { centsToYuan } from '@/utils/money'
 import { DEVICE_STATUS_OPTIONS } from '@/constants/device'
@@ -115,6 +149,11 @@ const editId = ref('')
 const saving = ref(false)
 const showCategorySheet = ref(false)
 const errors = ref<DeviceFormErrors>({})
+
+const warrantyStart = ref('')
+const warrantyEnd = ref('')
+const warrantyProvider = ref('')
+const warrantyExisted = ref(false)
 
 const emptyForm = (): DeviceFormInput => ({
   categoryId: '',
@@ -142,6 +181,7 @@ onLoad(async (query) => {
   if (id) {
     isEdit.value = true
     editId.value = id
+    await ensureSession()
     const device = await getDevice(id)
     if (!device) {
       uni.showToast({ title: '设备不存在或已被删除', icon: 'none' })
@@ -160,8 +200,42 @@ onLoad(async (query) => {
       purchasePriceYuan: centsToYuan(device.purchasePriceCents),
       notes: device.notes ?? '',
     }
+    try {
+      const warranty = await getWarranty(id)
+      if (warranty) {
+        warrantyExisted.value = true
+        warrantyStart.value = warranty.startDate ?? ''
+        warrantyEnd.value = warranty.endDate
+        warrantyProvider.value = warranty.provider ?? ''
+      }
+    } catch {
+      // 保修信息读取失败不阻塞表单
+    }
   }
 })
+
+function onWarrantyStartChange(event: { detail: { value: string } }): void {
+  warrantyStart.value = event.detail.value
+  if (errors.value.warrantyDates) delete errors.value.warrantyDates
+}
+
+function onWarrantyEndChange(event: { detail: { value: string } }): void {
+  warrantyEnd.value = event.detail.value
+  if (errors.value.warrantyDates) delete errors.value.warrantyDates
+}
+
+/** 保修校验：日期必须成对；结束不得早于开始 */
+function validateWarranty(): string | undefined {
+  const hasStart = warrantyStart.value !== ''
+  const hasEnd = warrantyEnd.value !== ''
+  if (hasStart !== hasEnd) {
+    return '保修日期需成对填写，或全部清空'
+  }
+  if (hasStart && hasEnd && warrantyEnd.value < warrantyStart.value) {
+    return '保修结束日期不能早于开始日期'
+  }
+  return undefined
+}
 
 function selectCategory(id: string): void {
   form.value.categoryId = id
@@ -177,18 +251,36 @@ function onPurchaseDateChange(event: { detail: { value: string } }): void {
 async function onSave(): Promise<void> {
   if (saving.value) return
   const normalized = normalizeDeviceForm(form.value)
-  errors.value = normalized.errors
-  if (!normalized.values) {
+  const warrantyError = validateWarranty()
+  errors.value = {
+    ...normalized.errors,
+    ...(warrantyError ? { warrantyDates: warrantyError } : {}),
+  }
+  if (!normalized.values || warrantyError) {
     uni.showToast({ title: '请检查表单填写', icon: 'none' })
     return
   }
   saving.value = true
   try {
+    let deviceId: string
     if (isEdit.value) {
       await updateDevice(editId.value, normalized.values)
+      deviceId = editId.value
     } else {
-      await createDevice(normalized.values)
+      deviceId = await createDevice(normalized.values)
     }
+
+    // 保修同步：填写了结束日期则保存，日期清空则删除已有保修
+    if (warrantyEnd.value !== '') {
+      await saveWarranty(deviceId, {
+        startDate: warrantyStart.value === '' ? null : warrantyStart.value,
+        endDate: warrantyEnd.value,
+        provider: warrantyProvider.value.trim() === '' ? null : warrantyProvider.value.trim(),
+      })
+    } else if (warrantyExisted.value) {
+      await removeWarranty(deviceId)
+    }
+
     uni.showToast({ title: '已保存', icon: 'success' })
     await store.loadFirst()
     setTimeout(() => uni.navigateBack(), 500)
@@ -209,6 +301,15 @@ async function onSave(): Promise<void> {
   padding: $gf-space-sm $gf-space-lg;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
+  margin-bottom: $gf-space-md;
+}
+
+.card-title {
+  display: block;
+  margin-bottom: $gf-space-sm;
+  font-size: $gf-font-md;
+  font-weight: 600;
+  color: $gf-text-1;
 }
 
 .input {

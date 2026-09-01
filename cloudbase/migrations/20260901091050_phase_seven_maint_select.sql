@@ -1,0 +1,1 @@
+CREATE POLICY maint_select_own ON maintenance_records FOR SELECT TO authenticated USING (user_id = auth.uid());

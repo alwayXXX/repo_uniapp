@@ -1,0 +1,1 @@
+CREATE INDEX idx_costs_maintenance ON device_costs (maintenance_id);

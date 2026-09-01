@@ -1,0 +1,1 @@
+CREATE POLICY warranty_select_own ON warranties FOR SELECT TO authenticated USING (user_id = auth.uid());

@@ -1,0 +1,1 @@
+CREATE POLICY maint_insert_own ON maintenance_records FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());

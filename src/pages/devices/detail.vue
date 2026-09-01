@@ -55,13 +55,66 @@
         </view>
 
         <view class="card">
-          <text class="card-title">保修信息</text>
-          <text class="placeholder">未填写——保修录入与状态计算将在 Phase 7 开放</text>
+          <view class="card-title-row">
+            <text class="card-title">保修信息</text>
+            <text v-if="warrantyState" class="status-badge" :class="warrantyBadgeClass">
+              {{ warrantyState.statusLabel }}
+            </text>
+          </view>
+          <template v-if="warranty">
+            <view class="row">
+              <text class="row-label">保修期限</text>
+              <text class="row-value">
+                {{ warranty.startDate || '?' }} 至 {{ warranty.endDate }}
+              </text>
+            </view>
+            <view class="row">
+              <text class="row-label">保修提供方</text>
+              <text class="row-value">{{ warranty.provider || '未填写' }}</text>
+            </view>
+            <view class="row">
+              <text class="row-label">剩余天数</text>
+              <text class="row-value">{{ remainingText }}</text>
+            </view>
+          </template>
+          <text v-else class="placeholder">未填写保修——在设备编辑页填写保修日期后自动计算状态</text>
         </view>
 
         <view class="card">
-          <text class="card-title">维护记录</text>
-          <text class="placeholder">暂无维护记录——维护录入将在 Phase 7 开放</text>
+          <view class="card-title-row">
+            <text class="card-title">维护记录</text>
+            <button class="add-maintenance" @click="gotoMaintenance('')">+ 添加</button>
+          </view>
+          <text v-if="maintenanceSubtotal !== null" class="subtotal">
+            维护支出合计 ¥{{ yuan(maintenanceSubtotal) }}
+          </text>
+          <StatusView
+            :state="maintenanceState"
+            :error-text="maintenanceErrorText"
+            empty-title="暂无维护记录"
+            empty-hint="点击右上角「+ 添加」记录第一次维护"
+            @retry="loadMaintenances"
+          >
+            <view
+              v-for="record in maintenances"
+              :key="record.id"
+              class="maint-row"
+              @click="gotoMaintenance(record.id)"
+            >
+              <view class="maint-main">
+                <view class="maint-head">
+                  <text class="maint-title">{{ record.title }}</text>
+                  <text class="maint-type">{{ typeLabel(record.type) }}</text>
+                </view>
+                <text class="maint-meta"
+                  >{{ record.occurredAt }}{{ record.vendor ? ' · ' + record.vendor : '' }}</text
+                >
+              </view>
+              <text v-if="record.costCents !== null" class="maint-cost"
+                >¥{{ yuan(record.costCents) }}</text
+              >
+            </view>
+          </StatusView>
         </view>
 
         <view class="card">
@@ -119,21 +172,28 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getCategoryName } from '@/services/category'
 import { getDevice, softDeleteDevice } from '@/services/device'
 import { listDeviceTimeline } from '@/services/timeline'
+import { listByDevice } from '@/services/maintenance'
+import { getWarranty } from '@/services/warranty'
 import { ensureSession } from '@/services/auth'
 import { centsToYuan } from '@/utils/money'
+import { computeWarranty, WARRANTY_STATUS_LABELS } from '@/utils/warranty'
 import { toAppError } from '@/utils/error'
 import { DEVICE_STATUS_LABELS } from '@/constants/device'
+import { MAINTENANCE_TYPE_LABELS } from '@/constants/maintenance'
 import StatusView from '@/components/StatusView.vue'
 import DeviceTimelineList from '@/components/DeviceTimelineList.vue'
-import type { DeviceDoc } from '@/types/device'
+import type { DeviceDoc, MaintenanceType } from '@/types/device'
 import type { PageState } from '@/types/api/common'
 import type { DeviceTimelineEvent } from '@/types/timeline'
+import type { MaintenanceDoc } from '@/types/maintenance'
+import type { WarrantyDoc } from '@/types/maintenance'
 
 const device = ref<DeviceDoc | null>(null)
 const loadState = ref<PageState>('loading')
 const errorText = ref('')
 const deleting = ref(false)
 const confirmVisible = ref(false)
+const warranty = ref<WarrantyDoc | null>(null)
 
 const TIMELINE_PAGE_SIZE = 20
 const timelineItems = ref<DeviceTimelineEvent[]>([])
@@ -142,6 +202,10 @@ const timelineErrorText = ref('')
 const timelinePage = ref(1)
 const timelineHasMore = ref(false)
 const timelineLoadingMore = ref(false)
+
+const maintenances = ref<MaintenanceDoc[]>([])
+const maintenanceState = ref<PageState>('idle')
+const maintenanceErrorText = ref('')
 
 const statusLabel = computed(() => (device.value ? DEVICE_STATUS_LABELS[device.value.status] : ''))
 const categoryLabel = computed(() => {
@@ -153,6 +217,27 @@ const purchasedAtText = computed(() => {
   const date = device.value?.purchaseDate
   return date ? ` · ${date} 购入` : ''
 })
+const warrantyState = computed(() => {
+  if (!warranty.value) return null
+  const state = computeWarranty(warranty.value.endDate)
+  return { ...state, statusLabel: WARRANTY_STATUS_LABELS[state.status] }
+})
+const warrantyBadgeClass = computed(() => warrantyState.value?.status.toLowerCase() ?? '')
+const remainingText = computed(() => {
+  const days = warrantyState.value?.remainingDays
+  if (days === null || days === undefined) return '—'
+  if (days < 0) return `已过期 ${-days} 天`
+  return `剩余 ${days} 天`
+})
+const maintenanceSubtotal = computed(() => {
+  const withCost = maintenances.value.filter((r) => r.costCents !== null)
+  if (withCost.length === 0) return null
+  return withCost.reduce((sum, r) => sum + (r.costCents ?? 0), 0)
+})
+
+function typeLabel(type: MaintenanceType): string {
+  return MAINTENANCE_TYPE_LABELS[type]
+}
 
 let deviceId = ''
 
@@ -171,11 +256,39 @@ async function load(): Promise<void> {
     device.value = result
     loadState.value = 'success'
     await loadTimeline()
+    await loadWarranty()
+    await loadMaintenances()
   } catch (err) {
     const appError = toAppError(err)
     errorText.value = appError.message
     loadState.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
   }
+}
+
+async function loadWarranty(): Promise<void> {
+  try {
+    warranty.value = await getWarranty(deviceId)
+  } catch {
+    warranty.value = null
+  }
+}
+
+async function loadMaintenances(): Promise<void> {
+  maintenanceState.value = 'loading'
+  maintenanceErrorText.value = ''
+  try {
+    maintenances.value = await listByDevice(deviceId, 50)
+    maintenanceState.value = maintenances.value.length === 0 ? 'empty' : 'success'
+  } catch (err) {
+    const appError = toAppError(err)
+    maintenanceErrorText.value = appError.message
+    maintenanceState.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
+  }
+}
+
+function gotoMaintenance(recordId: string): void {
+  const query = recordId === '' ? `deviceId=${deviceId}` : `deviceId=${deviceId}&id=${recordId}`
+  uni.navigateTo({ url: `/pages/devices/maintenance?${query}` })
 }
 
 async function loadTimeline(): Promise<void> {
@@ -340,6 +453,84 @@ function yuan(cents: number): string {
   max-width: 60%;
   text-align: right;
   word-break: break-all;
+}
+
+.card-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $gf-space-sm;
+}
+
+.card-title-row .card-title {
+  margin-bottom: 0;
+}
+
+.add-maintenance {
+  margin: 0;
+  padding: 4rpx 16rpx;
+  font-size: $gf-font-xs;
+  color: $gf-color-primary;
+  background-color: $gf-color-primary-weak;
+  border-radius: $gf-radius-sm;
+}
+
+.subtotal {
+  display: block;
+  margin-bottom: $gf-space-xs;
+  font-size: $gf-font-sm;
+  color: $gf-text-1;
+}
+
+.maint-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: $gf-space-sm 0;
+  border-bottom: 1rpx solid $gf-line;
+}
+
+.maint-row:last-child {
+  border-bottom: none;
+}
+
+.maint-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $gf-space-xs;
+}
+
+.maint-title {
+  font-size: $gf-font-sm;
+  color: $gf-text-1;
+}
+
+.maint-type {
+  font-size: $gf-font-xs;
+  color: $gf-text-3;
+}
+
+.maint-meta {
+  font-size: $gf-font-xs;
+  color: $gf-text-3;
+}
+
+.maint-cost {
+  font-size: $gf-font-sm;
+  color: $gf-text-1;
+}
+
+.warranty-badge.expiring {
+  color: $gf-color-warning;
+  background-color: #fff3e8;
+}
+
+.warranty-badge.expired {
+  color: $gf-text-3;
+  background-color: $gf-bg-page;
 }
 
 .placeholder {
