@@ -498,3 +498,73 @@ CREATE TABLE device_timelines (
 ```
 
 RLS：`authenticated` 仅可查询本人且关联设备未软删除的行；不授予直接写权限。`gf_append_device_timeline()` 为不对客户端暴露执行权的 `SECURITY DEFINER` 触发器函数，只从 `devices` 的受 RLS 写入生成事件。旧设备在迁移时幂等回填一条 `CREATED`。
+
+### 9.6 maintenance_records（Phase 7）
+
+```sql
+CREATE TABLE maintenance_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  device_id uuid NOT NULL,                         -- 逻辑引用 devices.id，无外键
+  user_id varchar(64) NOT NULL DEFAULT auth.uid(),
+  title varchar(64) NOT NULL,
+  type varchar(16) NOT NULL,                       -- REPAIR/UPGRADE/CLEAN/REPLACE/INSPECT/OTHER
+  occurred_at date NOT NULL,
+  cost_cents integer,                              -- 可空；≥0，单位分
+  vendor varchar(128),
+  notes varchar(1000),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_maint_device_date ON maintenance_records (device_id, occurred_at);
+CREATE INDEX idx_maint_user_date_type ON maintenance_records (user_id, occurred_at, type);
+```
+
+RLS：`SELECT/INSERT/UPDATE/DELETE` 全部限本人（`user_id = auth.uid()`），`INSERT` 带 `WITH CHECK`。校验规则（docs/API.md 8）：标题必填 ≤64；发生日期必填、不晚于今天、不早于设备购买日期；费用 ≥0 两位小数。校验在前端完成，服务端由 RPC 再验设备归属。
+
+**与时间线/成本表的联动由 `SECURITY DEFINER` RPC 保证**（见 9.8）：新增维护原子地追加一条 `MAINTENANCE` 时间线事件并写入 `device_costs`；删除维护同步删除对应成本行。
+
+### 9.7 device_costs（Phase 7）
+
+```sql
+CREATE TABLE device_costs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  device_id uuid NOT NULL,
+  user_id varchar(64) NOT NULL DEFAULT auth.uid(),
+  cost_type varchar(16) NOT NULL,                  -- PURCHASE / MAINTENANCE / DISPOSAL_INCOME
+  amount_cents integer NOT NULL CHECK (amount_cents >= 0),
+  occurred_at date NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (device_id, cost_type, occurred_at, amount_cents)
+);
+CREATE INDEX idx_costs_user_type_date ON device_costs (user_id, cost_type, occurred_at);
+```
+
+RLS：`SELECT` 限本人；写权限不开放给客户端——`MAINTENANCE` 行由维护 RPC 原子写入，`PURCHASE` 行由设备创建 RPC 同步（设备/保修表单更新价格时同步更新对应 PURCHASE 行）。UNIQUE 约束防重复记账，也可保证 `ON CONFLICT DO UPDATE` 的幂等同步。
+
+### 9.8 维护记录生命周期 RPC（Phase 7）
+
+- **`gf_add_maintenance(p_device_id, p_title, p_type, p_occurred_at, p_cost_cents, p_vendor, p_notes)`**：校验设备归属（`user_id = auth.uid()`）后原子完成：写 `maintenance_records` → 写 `device_costs`（MAINTENANCE，金额非空时）→ 追加 `MAINTENANCE` 时间线事件（event_date=发生日期，payload 记录费用）。返回 `{ ok, id }`。
+- **`gf_update_maintenance(p_id, ...同上字段)`**：更新维护行并同步其成本行（`ON CONFLICT DO UPDATE`），返回 `{ ok }`。
+- **`gf_delete_maintenance(p_id)`**：删除维护行及对应成本行，返回 `{ ok, deletedCosts }`。
+- 三者均 `SECURITY DEFINER`，执行权仅授予 `authenticated`；归属判断一律 `auth.uid()`，设备不存在或非本人返回 `ok=false`。
+
+### 9.9 warranties（Phase 7）
+
+```sql
+CREATE TABLE warranties (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  device_id uuid NOT NULL UNIQUE,                  -- 一设备一保修（docs/DATABASE.md 4.4）
+  user_id varchar(64) NOT NULL DEFAULT auth.uid(),
+  start_date date,
+  end_date date NOT NULL,
+  provider varchar(128),
+  scope varchar(256),
+  notes varchar(1000),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (end_date >= start_date)
+);
+CREATE INDEX idx_warranty_user_end ON warranties (user_id, end_date);
+```
+
+RLS：`SELECT/INSERT/UPDATE/DELETE` 限本人（`user_id = auth.uid()`，INSERT 带 `WITH CHECK`）。由客户端在设备创建/编辑时随表单写入（先设备后保修）。**保修状态不落库**，客户端按 `end_date` 实时计算（`IN_WARRANTY`/`EXPIRING`（≤30 天）/`EXPIRED`/`UNKNOWN`），首页临期看板据此生成。
