@@ -75,9 +75,17 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - DevTools 多账号调试 A/B 互测（可选加强项，从未做过）。
 - `gf_diag_view` 诊断视图仍在库里（只读无害），Phase 9 清理时评估删除。
 
-## 8. 改进清单
+## 8. 改进清单与 Phase 8 特别指令
 
-验收中发现的体验/工程升级点统一记录在 docs/BACKLOG.md（含表单校验框架升级评估等），处理新 Phase 时先浏览一遍，合适的时点顺手消化。
+验收与代码审查发现的体验/工程升级点统一记录在 docs/BACKLOG.md（20 项，五大类）。处理新 Phase 前先浏览一遍，合适的时点顺手消化。
+
+**Phase 8（数据统计）开工前必须处理**：
+
+1. **ENG-2 统计口径二义性**——总资产来源二选一（A: 直读 devices.purchase_price_cents；B: 维护 device_costs 的 PURCHASE 行）。裁定后先改 docs/DATABASE.md 9.7 再编码。用户未明确裁定前，不要自行决定。
+2. **ENG-1 / ENG-5 列表上限**——统计与看板改为 RPC 聚合（count/sum），勿再单页拉全量。
+3. **UX-2 金额显示**——统计页做千分位与 currency 符号跟随。
+
+UX 类条目（含 UX-1 表单校验框架升级）按 BACKLOG 建议时点执行，用户未拍板前不提前引入新依赖。
 
 ## 9. Phase 6 入场提示（ROADMAP 原文为准）
 
