@@ -106,13 +106,23 @@
 
 ## Phase 8：数据统计
 
+**状态：代码完成，待用户验收（2026-09-02；ENG-2 已按 A 口径裁定并先更新 DATABASE.md §9.7；统计与首页改用 PostgreSQL `SECURITY DEFINER` RPC；质量门已通过；DevTools 自动化已验证页面可达与控件渲染，但统计内容在本地缓存下未稳定挂载，需用户在微信开发者工具中人工验收）**
+
 - 目标：呈现资产和支出洞察
-- 功能：设备数量、资产、年度支出、维护支出、分类分布、生命周期分布
-- 涉及文件：统计页面、统计云函数、自绘图表组件
+- 功能：设备数量、资产、购买支出、维护支出、分类分布、生命周期分布
+- 涉及文件：统计页面、PostgreSQL 统计 RPC、首页看板 RPC、自绘分布组件
 - 前置条件：Phase 7
 - 完成标准：统计口径正确并支持空状态
 - 测试要求：金额分转元、汇总、时间范围、空数据
 - 独立 commit：可以
+
+实现记录：
+
+- ENG-2 A 口径：总资产直读未软删除设备的 `devices.purchase_price_cents`；`purchase_spend` 按 `devices.purchase_date` 聚合；`device_costs` 仅统计 `MAINTENANCE` 行。
+- ENG-1 / ENG-5：统计页与首页看板使用聚合 RPC，不再单页拉取全量设备/维护/保修列表。
+- UX-2：金额按返回 `currency` 使用千分位和币种符号展示。
+- 质量门：`pnpm lint`、`pnpm type-check`、`pnpm test`、`pnpm build:mp-weixin` 已通过；`scripts/verify-phase8.mjs` 已覆盖页面可达、核心区块、picker 和金额信号。
+- 待验收：微信开发者工具中人工确认今年/去年/全部时间、分类筛选与下钻、空状态及首页看板。
 
 ## Phase 9：测试与质量
 

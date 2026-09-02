@@ -6,11 +6,11 @@
 
 本文件保留原有业务能力定义，但不再假设所有操作都通过 NestJS REST API 实现。
 
-| 类型         | 调用方式                       | 适用场景                                   |
-| ------------ | ------------------------------ | ------------------------------------------ |
-| 直接数据读取 | CloudBase SDK + 数据库安全规则 | 系统分类、用户自己的简单列表和详情         |
-| 业务操作     | CloudBase 云函数               | 跨集合写入、复杂校验、统计、注销和敏感操作 |
-| 文件操作     | CloudBase 云存储 + 云函数      | P1 设备照片、发票和维修凭证                |
+| 类型         | 调用方式                          | 适用场景                                   |
+| ------------ | --------------------------------- | ------------------------------------------ |
+| 直接数据读取 | CloudBase SDK + 数据库安全规则    | 系统分类、用户自己的简单列表和详情         |
+| 业务操作     | CloudBase 云函数 / PostgreSQL RPC | 跨集合写入、复杂校验、统计、注销和敏感操作 |
+| 文件操作     | CloudBase 云存储 + 云函数         | P1 设备照片、发票和维修凭证                |
 
 下文的 `device.create`、`statistics.overview` 等名称是稳定的业务操作标识，不是 HTTP 路径。未来如果引入 CloudBase 云托管 + NestJS，可以在不改变前端业务类型的前提下映射为 REST API。
 
@@ -457,6 +457,8 @@ timeline.list
 statistics.overview
 ```
 
+实现约束：统计通过 CloudBase PostgreSQL `SECURITY DEFINER` RPC 执行，服务端从 `auth.uid()` 绑定用户，不接受客户端传入的 `userId`。所有统计过滤 `devices.deleted_at IS NULL`。
+
 查询参数：
 
 | 参数       | 类型   | 说明     |
@@ -474,6 +476,7 @@ statistics.overview
   "totalAssetCents": 12345678,
   "purchaseSpendCents": 987654,
   "maintenanceSpendCents": 12345,
+  "currency": "CNY",
   "warrantySummary": {
     "inWarranty": 6,
     "expiringIn30Days": 2,
@@ -487,11 +490,26 @@ statistics.overview
       "deviceCount": 3,
       "assetCents": 600000
     }
+  ],
+  "lifecycleDistribution": [
+    {
+      "status": "IN_USE",
+      "label": "使用中",
+      "deviceCount": 8,
+      "assetCents": 9000000
+    }
   ]
 }
 ```
 
-统计由云函数执行，统一绑定当前 `userId` 并维护金额、时间范围和软删除口径。
+统计口径：
+
+- `deviceCount` / `activeDeviceCount` / 保修状态 / 分类分布 / 生命周期分布：当前未软删除设备；`activeDeviceCount` 为 `IN_USE` 与 `IDLE` 状态之和。
+- `totalAssetCents`：直读当前未软删除设备的 `devices.purchase_price_cents`，不受日期范围限制；空价格不计入。
+- `purchaseSpendCents`：按 `devices.purchase_date` 落在 `[startDate, endDate]` 的购买价格聚合；空购买日期不计入。
+- `maintenanceSpendCents`：只聚合 `device_costs.cost_type = 'MAINTENANCE'` 且 `occurred_at` 落在日期范围内的成本行，并关联当前未软删除设备。
+- `currency`：当前 MVP 默认 `CNY`；金额均以整数分返回，前端负责千分位与符号展示。
+- 日期范围无效时，前端回退为当年 1 月 1 日至 12 月 31 日；服务端仍会拒绝无法解析的日期参数。
 
 ## 11. P1 / P2 预留接口
 

@@ -262,11 +262,11 @@ P1 表，MVP 不启用。
 
 用途：
 
-统计设备年度支出、维护成本和净成本。写入来源：
+统计设备年度支出、维护成本和净成本。`PURCHASE` 与 `DISPOSAL_INCOME` 仍作为未来 P1 处置/记账能力的保留枚举，但当前 Phase 8 不写入这两类行：
 
-- 设备购买价
-- 维护费用
-- P1 处置收入
+- 购买支出直接读取设备的 `purchasePriceCents`，按 `purchaseDate` 聚合
+- 维护支出读取 `MAINTENANCE` 行
+- P1 处置收入暂不计入当前统计
 
 ### 4.9 ConsentRecord / `consentRecords`
 
@@ -353,9 +353,9 @@ WHERE id = :resourceId AND userId = :currentUserId
 CloudBase 查询或聚合能力：
 
 - 设备数量：计数查询或聚合
-- 总资产：聚合 `purchasePriceCents`
-- 年度支出：按购买和维护日期统计
-- 维护支出：`SUM(costCents)`
+- 总资产：直读未软删除设备的 `purchasePriceCents`
+- 购买支出：按设备 `purchaseDate` 落在日期范围内的购买价格聚合
+- 维护支出：只聚合 `MAINTENANCE` 成本行的 `SUM(amountCents)`
 - 分类占比：按 category 分组
 - 使用年限：当前日期减购买日期
 
@@ -367,7 +367,7 @@ CloudBase 查询或聚合能力：
 - 空值不参与金额汇总
 - 时间范围使用用户本地日期，由前端传日期参数
 
-复杂统计由云函数执行并统一校验 `userId`。如果数据规模增长后文档数据库聚合不再满足性能或复杂关系查询需求，再评估 CloudBase 云托管中的 NestJS + Prisma + PostgreSQL / MySQL；当前不提前引入。
+复杂统计由 CloudBase PostgreSQL `SECURITY DEFINER` RPC 执行，并统一从 `auth.uid()` 派生用户身份；客户端不传入或信任 `userId`。如果数据规模增长后当前 RPC 聚合不再满足性能或复杂关系查询需求，再评估 CloudBase 云托管中的 NestJS + Prisma + PostgreSQL / MySQL；当前不提前引入。
 
 ## 8. 未来关系型数据库迁移
 
@@ -523,14 +523,14 @@ RLS：`SELECT/INSERT/UPDATE/DELETE` 全部限本人（`user_id = auth.uid()`）�
 
 **与时间线/成本表的联动由 `SECURITY DEFINER` RPC 保证**（见 9.8）：新增维护原子地追加一条 `MAINTENANCE` 时间线事件并写入 `device_costs`；删除维护同步删除对应成本行。
 
-### 9.7 device_costs（Phase 7）
+### 9.7 device_costs（Phase 7，Phase 8 统计口径）
 
 ```sql
 CREATE TABLE device_costs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   device_id uuid NOT NULL,
   user_id varchar(64) NOT NULL DEFAULT auth.uid(),
-  cost_type varchar(16) NOT NULL,                  -- PURCHASE / MAINTENANCE / DISPOSAL_INCOME
+  cost_type varchar(16) NOT NULL,                  -- MAINTENANCE（Phase 8 统计口径；不写入 PURCHASE 行）
   amount_cents integer NOT NULL CHECK (amount_cents >= 0),
   occurred_at date NOT NULL,
   maintenance_id uuid,                              -- 溯源：MAINTENANCE 行指向来源维护记录
@@ -540,7 +540,7 @@ CREATE TABLE device_costs (
 CREATE INDEX idx_costs_user_type_date ON device_costs (user_id, cost_type, occurred_at);
 ```
 
-RLS：`SELECT` 限本人；写权限不开放给客户端——`MAINTENANCE` 行由维护 RPC 原子写入并通过 `maintenance_id` 溯源（更新/删除维护时精确定位同步），`PURCHASE` 行由设备创建流程同步写入。UNIQUE 约束防重复记账。
+RLS：`SELECT` 限本人；写权限不开放给客户端。当前口径只保留由维护 RPC 原子写入的 `MAINTENANCE` 行，并通过 `maintenance_id` 溯源（更新/删除维护时精确定位同步）；**不写入也不依赖 `PURCHASE` 行**。总资产统一直读 `devices.purchase_price_cents`（过滤 `deleted_at IS NULL`），购买支出 `purchase_spend` 按 `devices.purchase_date` 聚合；`device_costs` 仅用于维护支出统计。`PURCHASE` 与 `DISPOSAL_INCOME` 为未来 P1 保留枚举，不代表当前写入或统计来源。UNIQUE 约束防重复记账。
 
 ### 9.8 维护记录生命周期 RPC（Phase 7）
 
