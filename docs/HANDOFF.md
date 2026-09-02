@@ -79,7 +79,7 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 
 验收与代码审查发现的体验/工程升级点统一记录在 docs/BACKLOG.md（20 项，五大类）。处理新 Phase 前先浏览一遍，合适的时点顺手消化。
 
-**Phase 8（数据统计）开工前必须处理**：
+**Phase 8（数据统计）已于 2026-09-02 完成（A 口径已裁定并实现）。以下指令保留作为历史背景。** 原指令：
 
 1. **ENG-2 统计口径二义性**——总资产来源二选一（A: 直读 devices.purchase_price_cents；B: 维护 device_costs 的 PURCHASE 行）。裁定后先改 docs/DATABASE.md 9.7 再编码。用户未明确裁定前，不要自行决定。
 2. **ENG-1 / ENG-5 列表上限**——统计与看板改为 RPC 聚合（count/sum），勿再单页拉全量。
