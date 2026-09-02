@@ -26,8 +26,14 @@ function cloudbaseSync(): Plugin {
         >
         if (!projectConfig.cloudfunctionRoot) {
           projectConfig.cloudfunctionRoot = 'cloudfunctions/'
-          writeFileSync(configPath, JSON.stringify(projectConfig, null, 2))
         }
+        // 禁用 DevTools 上传时 sourcemap 处理，避免 -80407 错误（vite 构建已含压缩）
+        projectConfig.setting = {
+          ...(projectConfig.setting as Record<string, unknown> | undefined),
+          minified: false,
+          uploadWithSourceMap: false,
+        }
+        writeFileSync(configPath, JSON.stringify(projectConfig, null, 2))
       }
     },
   }
