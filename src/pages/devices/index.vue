@@ -56,7 +56,7 @@
               {{
                 device.purchasePriceCents === null
                   ? '价格未填'
-                  : '¥' + yuan(device.purchasePriceCents)
+                  : formatMoney(device.purchasePriceCents, device.currency)
               }}
             </text>
           </view>
@@ -80,17 +80,28 @@
 import { computed } from 'vue'
 import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { useDeviceStore } from '@/stores/device'
-import { centsToYuan } from '@/utils/money'
+import { formatMoney } from '@/utils/money'
 import { DEVICE_STATUS_LABELS, DEVICE_SORT_OPTIONS } from '@/constants/device'
 import StatusView from '@/components/StatusView.vue'
 import type { DeviceDoc } from '@/types/device'
 
 const store = useDeviceStore()
 
-onShow(() => {
+async function refreshDevices(): Promise<void> {
   // 每次进入都刷新：详情页的编辑/软删除需要同步回列表
-  void store.ensureCategories()
-  void store.loadFirst()
+  await store.ensureCategories()
+  const pendingCategory = uni.getStorageSync('gf_stats_category_id')
+  if (typeof pendingCategory === 'string') {
+    uni.removeStorageSync('gf_stats_category_id')
+    const categoryExists = store.categories.some((item) => item.id === pendingCategory)
+    store.setCategoryFilter(categoryExists ? pendingCategory : '')
+    return
+  }
+  await store.loadFirst()
+}
+
+onShow(() => {
+  void refreshDevices()
 })
 
 onReachBottom(() => {
@@ -111,10 +122,6 @@ function statusLabel(value: DeviceDoc['status']): string {
 function categoryName(device: DeviceDoc): string {
   const name = store.categoryNameOf(device.categoryId)
   return name === '' ? '未分类' : name
-}
-
-function yuan(cents: number): string {
-  return centsToYuan(cents)
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null

@@ -1,22 +1,36 @@
-/**
- * 统计业务操作契约（docs/API.md 第 10 节 statistics.overview）。
- *
- * 当前阶段只建立契约，不实现业务：
- * 统计由云函数执行并统一绑定当前 userId，维护金额、时间范围与软删除口径（ROADMAP Phase 8）。
- */
+import { asSdkResult, callRpc, throwIfError } from './cloudbase'
+import { ensureSession } from './auth'
+import { AppError, isRecord } from '@/utils/error'
+import { isValidDateString } from '@/utils/statistics'
+import type { DeviceStatus } from '@/types/device'
 
+/** 统计业务操作参数（docs/API.md 第 10 节）。 */
 export interface StatisticsOverviewParams {
-  /** YYYY-MM-DD，用户本地日期 */
+  /** YYYY-MM-DD，用户本地日期；服务端按闭区间处理 */
   startDate: string
   endDate: string
   categoryId?: string
 }
 
 export interface CategoryDistributionItem {
-  categoryId: string
+  categoryId: string | null
   categoryName: string
   deviceCount: number
   assetCents: number
+}
+
+export interface LifecycleDistributionItem {
+  status: DeviceStatus
+  label: string
+  deviceCount: number
+  assetCents: number
+}
+
+export interface WarrantySummary {
+  inWarranty: number
+  expiringIn30Days: number
+  expired: number
+  unknown: number
 }
 
 export interface StatisticsOverview {
@@ -25,15 +39,119 @@ export interface StatisticsOverview {
   totalAssetCents: number
   purchaseSpendCents: number
   maintenanceSpendCents: number
-  warrantySummary: {
-    inWarranty: number
-    expiringIn30Days: number
-    expired: number
-    unknown: number
-  }
+  currency: string
+  warrantySummary: WarrantySummary
   categoryDistribution: CategoryDistributionItem[]
+  lifecycleDistribution: LifecycleDistributionItem[]
 }
 
 export type GetStatisticsOverview = (
   params: StatisticsOverviewParams,
 ) => Promise<StatisticsOverview>
+
+const VALID_STATUSES: readonly DeviceStatus[] = ['IN_USE', 'IDLE', 'SOLD', 'DISCARDED']
+
+function readObject(value: unknown, message: string): Record<string, unknown> {
+  if (!isRecord(value)) throw new AppError('INTERNAL_ERROR', message)
+  return value
+}
+
+function readInt(value: unknown, field: string): number {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && /^-?\d+$/.test(value)
+        ? Number(value)
+        : Number.NaN
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new AppError('INTERNAL_ERROR', `统计字段 ${field} 格式错误`)
+  }
+  return parsed
+}
+
+function readString(value: unknown, field: string): string {
+  if (typeof value !== 'string') throw new AppError('INTERNAL_ERROR', `统计字段 ${field} 格式错误`)
+  return value
+}
+
+function parseWarrantySummary(value: unknown): WarrantySummary {
+  const row = readObject(value, '保修统计数据格式错误')
+  return {
+    inWarranty: readInt(row.inWarranty, 'inWarranty'),
+    expiringIn30Days: readInt(row.expiringIn30Days, 'expiringIn30Days'),
+    expired: readInt(row.expired, 'expired'),
+    unknown: readInt(row.unknown, 'unknown'),
+  }
+}
+
+function parseCategoryDistribution(value: unknown): CategoryDistributionItem[] {
+  if (!Array.isArray(value)) throw new AppError('INTERNAL_ERROR', '分类统计数据格式错误')
+  return value.map((item) => {
+    const row = readObject(item, '分类统计项格式错误')
+    const categoryId = row.categoryId === null ? null : readString(row.categoryId, 'categoryId')
+    return {
+      categoryId,
+      categoryName: readString(row.categoryName, 'categoryName'),
+      deviceCount: readInt(row.deviceCount, 'deviceCount'),
+      assetCents: readInt(row.assetCents, 'assetCents'),
+    }
+  })
+}
+
+function parseLifecycleDistribution(value: unknown): LifecycleDistributionItem[] {
+  if (!Array.isArray(value)) throw new AppError('INTERNAL_ERROR', '生命周期统计数据格式错误')
+  return value.map((item) => {
+    const row = readObject(item, '生命周期统计项格式错误')
+    const status = readString(row.status, 'status')
+    if (!(VALID_STATUSES as readonly string[]).includes(status)) {
+      throw new AppError('INTERNAL_ERROR', '生命周期状态格式错误')
+    }
+    return {
+      status: status as DeviceStatus,
+      label: readString(row.label, 'label'),
+      deviceCount: readInt(row.deviceCount, 'deviceCount'),
+      assetCents: readInt(row.assetCents, 'assetCents'),
+    }
+  })
+}
+
+function parseOverview(value: unknown): StatisticsOverview {
+  const row = readObject(value, '统计数据格式错误')
+  return {
+    deviceCount: readInt(row.deviceCount, 'deviceCount'),
+    activeDeviceCount: readInt(row.activeDeviceCount, 'activeDeviceCount'),
+    totalAssetCents: readInt(row.totalAssetCents, 'totalAssetCents'),
+    purchaseSpendCents: readInt(row.purchaseSpendCents, 'purchaseSpendCents'),
+    maintenanceSpendCents: readInt(row.maintenanceSpendCents, 'maintenanceSpendCents'),
+    currency: readString(row.currency, 'currency'),
+    warrantySummary: parseWarrantySummary(row.warrantySummary),
+    categoryDistribution: parseCategoryDistribution(row.categoryDistribution),
+    lifecycleDistribution: parseLifecycleDistribution(row.lifecycleDistribution),
+  }
+}
+
+function validateParams(params: StatisticsOverviewParams): void {
+  if (!isValidDateString(params.startDate) || !isValidDateString(params.endDate)) {
+    throw new AppError('DATE_RANGE_INVALID', '统计日期格式无效')
+  }
+  if (params.startDate > params.endDate) {
+    throw new AppError('DATE_RANGE_INVALID', '统计开始日期不能晚于结束日期')
+  }
+}
+
+/** statistics.overview：会话自愈后调用受权限保护的 PG 聚合 RPC。 */
+export async function getStatisticsOverview(
+  params: StatisticsOverviewParams,
+): Promise<StatisticsOverview> {
+  validateParams(params)
+  await ensureSession()
+  const result = asSdkResult<unknown>(
+    await callRpc('gf_get_statistics_overview', {
+      p_start_date: params.startDate,
+      p_end_date: params.endDate,
+      p_category_id: params.categoryId ?? null,
+    }),
+  )
+  throwIfError(result.error, '读取统计失败')
+  return parseOverview(result.data)
+}

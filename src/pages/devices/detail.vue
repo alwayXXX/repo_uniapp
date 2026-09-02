@@ -48,7 +48,7 @@
               {{
                 device.purchasePriceCents === null
                   ? '未填写'
-                  : '¥' + yuan(device.purchasePriceCents)
+                  : formatMoney(device.purchasePriceCents, device.currency)
               }}
             </text>
           </view>
@@ -86,7 +86,7 @@
             <button class="add-maintenance" @click="gotoMaintenance('')">+ 添加</button>
           </view>
           <text v-if="maintenanceSubtotal !== null" class="subtotal">
-            维护支出合计 ¥{{ yuan(maintenanceSubtotal) }}
+            维护支出合计 {{ formatMoney(maintenanceSubtotal, device.currency) }}
           </text>
           <StatusView
             :state="maintenanceState"
@@ -110,9 +110,9 @@
                   >{{ record.occurredAt }}{{ record.vendor ? ' · ' + record.vendor : '' }}</text
                 >
               </view>
-              <text v-if="record.costCents !== null" class="maint-cost"
-                >¥{{ yuan(record.costCents) }}</text
-              >
+              <text v-if="record.costCents !== null" class="maint-cost">{{
+                formatMoney(record.costCents, device.currency)
+              }}</text>
             </view>
           </StatusView>
         </view>
@@ -175,7 +175,7 @@ import { listDeviceTimeline } from '@/services/timeline'
 import { listByDevice } from '@/services/maintenance'
 import { getWarranty } from '@/services/warranty'
 import { ensureSession } from '@/services/auth'
-import { centsToYuan } from '@/utils/money'
+import { formatMoney } from '@/utils/money'
 import { computeWarranty, WARRANTY_STATUS_LABELS } from '@/utils/warranty'
 import { toAppError } from '@/utils/error'
 import { DEVICE_STATUS_LABELS } from '@/constants/device'
@@ -369,10 +369,6 @@ async function confirmDelete(): Promise<void> {
   } finally {
     deleting.value = false
   }
-}
-
-function yuan(cents: number): string {
-  return centsToYuan(cents)
 }
 </script>
 

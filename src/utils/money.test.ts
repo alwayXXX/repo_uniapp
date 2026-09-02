@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centsToYuan, yuanToCents } from './money'
+import { centsToYuan, formatMoney, yuanToCents } from './money'
 
 describe('yuanToCents', () => {
   it('常规金额', () => {
@@ -37,5 +37,21 @@ describe('centsToYuan', () => {
   it('空值返回空串', () => {
     expect(centsToYuan(null)).toBe('')
     expect(centsToYuan(undefined)).toBe('')
+  })
+})
+
+describe('formatMoney', () => {
+  it('千分位与人民币符号', () => {
+    expect(formatMoney(123456789)).toBe('¥1,234,567.89')
+  })
+
+  it('跟随常用币种符号', () => {
+    expect(formatMoney(12345, 'USD')).toBe('$123.45')
+    expect(formatMoney(12345, 'TWD')).toBe('NT$123.45')
+  })
+
+  it('未知或多币种不伪装成人民币', () => {
+    expect(formatMoney(100, 'USD')).not.toContain('¥')
+    expect(formatMoney(100, 'MIXED')).toBe('1.00')
   })
 })

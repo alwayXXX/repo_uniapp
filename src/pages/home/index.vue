@@ -2,7 +2,7 @@
   <view class="page">
     <view class="hero">
       <text class="hero-title">保修与待办</text>
-      <text class="hero-sub">{{ deviceCount }} 台设备 · {{ expiringCount }} 台保修临期</text>
+      <text class="hero-sub">{{ deviceCount }} 台设备 · {{ expiringTotal }} 台保修临期</text>
     </view>
 
     <StatusView
@@ -14,7 +14,7 @@
       @retry="loadBoard"
     >
       <view v-if="expiring.length > 0" class="card">
-        <text class="card-title">保修临期（30 天内）</text>
+        <text class="card-title">保修临期（30 天内 · {{ expiringTotal }} 台）</text>
         <view
           v-for="item in expiring"
           :key="item.deviceId"
@@ -32,7 +32,7 @@
       </view>
 
       <view v-if="expired.length > 0" class="card">
-        <text class="card-title">已过保（90 天内）</text>
+        <text class="card-title">已过保（90 天内 · {{ expiredTotal }} 台）</text>
         <view
           v-for="item in expired"
           :key="item.deviceId"
@@ -60,15 +60,12 @@
           <view class="board-main">
             <text class="board-name">{{ record.title }}</text>
             <text class="board-meta"
-              >{{ record.occurredAt
-              }}{{
-                deviceNameOf(record.deviceId) ? ' · ' + deviceNameOf(record.deviceId) : ''
-              }}</text
+              >{{ record.occurredAt }}{{ record.deviceName ? ' · ' + record.deviceName : '' }}</text
             >
           </view>
-          <text v-if="record.costCents !== null" class="board-cost"
-            >¥{{ yuan(record.costCents) }}</text
-          >
+          <text v-if="record.costCents !== null" class="board-cost">
+            {{ formatMoney(record.costCents, record.currency) }}
+          </text>
         </view>
       </view>
     </StatusView>
@@ -78,35 +75,22 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { ensureSession } from '@/services/auth'
-import { listDevices } from '@/services/device'
-import { listWarranties } from '@/services/warranty'
-import { listRecent } from '@/services/maintenance'
-import { computeWarranty } from '@/utils/warranty'
-import { centsToYuan } from '@/utils/money'
+import { getHomeDashboard } from '@/services/dashboard'
+import { formatMoney } from '@/utils/money'
 import { toAppError } from '@/utils/error'
 import StatusView from '@/components/StatusView.vue'
-import type { DeviceDoc } from '@/types/device'
-import type { MaintenanceDoc } from '@/types/maintenance'
-import type { WarrantyDoc } from '@/types/maintenance'
+import type { DashboardMaintenanceItem, DashboardWarrantyItem } from '@/services/dashboard'
 import type { PageState } from '@/types/api/common'
-
-interface ExpiringItem {
-  deviceId: string
-  deviceName: string
-  endDate: string
-  remainingDays: number
-}
 
 const boardState = ref<PageState>('idle')
 const boardErrorText = ref('')
 const deviceCount = ref(0)
-const expiring = ref<ExpiringItem[]>([])
-const expired = ref<ExpiringItem[]>([])
-const recentMaintenances = ref<MaintenanceDoc[]>([])
-const deviceNames = ref<Map<string, string>>(new Map())
+const expiringTotal = ref(0)
+const expiredTotal = ref(0)
+const expiring = ref<DashboardWarrantyItem[]>([])
+const expired = ref<DashboardWarrantyItem[]>([])
+const recentMaintenances = ref<DashboardMaintenanceItem[]>([])
 
-const expiringCount = computed(() => expiring.value.length)
 const boardEmptyTitle = computed(() =>
   expiring.value.length === 0 && expired.value.length === 0 ? '暂无保修临期事项' : '',
 )
@@ -116,21 +100,6 @@ const boardEmptyHint = computed(() =>
     : '',
 )
 
-function todayString(): string {
-  const now = new Date()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${m}-${d}`
-}
-
-function deviceNameOf(deviceId: string): string {
-  return deviceNames.value.get(deviceId) ?? ''
-}
-
-function yuan(cents: number): string {
-  return centsToYuan(cents)
-}
-
 function gotoDetail(deviceId: string): void {
   uni.navigateTo({ url: `/pages/devices/detail?id=${deviceId}` })
 }
@@ -139,46 +108,13 @@ async function loadBoard(): Promise<void> {
   boardState.value = 'loading'
   boardErrorText.value = ''
   try {
-    await ensureSession()
-    const today = todayString()
-    const [devices, warranties, maintenances] = await Promise.all([
-      listDevices({ sortBy: 'createdAt', sortOrder: 'desc', page: 1, pageSize: 100 }),
-      listWarranties(100),
-      listRecent(5),
-    ])
-
-    const liveDevices = devices.items.filter((d: DeviceDoc) => d.deletedAt === null)
-    deviceCount.value = liveDevices.length
-    deviceNames.value = new Map(liveDevices.map((d) => [d.id, d.name]))
-    const deviceIdSet = new Set(liveDevices.map((d) => d.id))
-
-    const items: ExpiringItem[] = []
-    const expiredItems: ExpiringItem[] = []
-    for (const warranty of warranties as WarrantyDoc[]) {
-      if (!deviceIdSet.has(warranty.deviceId)) continue
-      const state = computeWarranty(warranty.endDate, today)
-      const device = liveDevices.find((d) => d.id === warranty.deviceId)
-      const item: ExpiringItem = {
-        deviceId: warranty.deviceId,
-        deviceName: device?.name ?? '未知设备',
-        endDate: warranty.endDate,
-        remainingDays: state.remainingDays ?? 0,
-      }
-      if (state.status === 'EXPIRING') items.push(item)
-      if (
-        state.status === 'EXPIRED' &&
-        state.remainingDays !== null &&
-        state.remainingDays >= -90
-      ) {
-        expiredItems.push(item)
-      }
-    }
-    items.sort((a, b) => a.remainingDays - b.remainingDays)
-    expiredItems.sort((a, b) => b.remainingDays - a.remainingDays)
-
-    expiring.value = items
-    expired.value = expiredItems
-    recentMaintenances.value = maintenances.filter((record) => deviceIdSet.has(record.deviceId))
+    const dashboard = await getHomeDashboard()
+    deviceCount.value = dashboard.deviceCount
+    expiringTotal.value = dashboard.expiringTotal
+    expiredTotal.value = dashboard.expiredTotal
+    expiring.value = dashboard.expiring
+    expired.value = dashboard.expired
+    recentMaintenances.value = dashboard.recentMaintenances
     boardState.value =
       expiring.value.length === 0 &&
       expired.value.length === 0 &&
