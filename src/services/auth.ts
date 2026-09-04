@@ -1,6 +1,7 @@
 import { asSdkResult, callRpc, getAuth, getRdb, throwIfError } from './cloudbase'
 import { AppError, isRecord } from '@/utils/error'
 import type { GearFlowUser } from '@/types/user'
+import type { ApiErrorCode } from '@/types/api/common'
 
 /**
  * 身份与用户（docs/API.md 第 3-4 节，docs/DATABASE.md 9.4）。
@@ -32,12 +33,38 @@ function parseUid(raw: unknown): string {
   throw new AppError('UNAUTHORIZED', '会话中缺少用户标识')
 }
 
+const RPC_ERROR_CODES: readonly ApiErrorCode[] = [
+  'UNAUTHORIZED',
+  'VALIDATION_ERROR',
+  'FORBIDDEN',
+  'RESOURCE_NOT_FOUND',
+  'DEVICE_NOT_FOUND',
+  'CATEGORY_NOT_FOUND',
+  'DATE_RANGE_INVALID',
+  'RATE_LIMITED',
+  'INTERNAL_ERROR',
+  'IDENTITY_BOOTSTRAP_FAILED',
+]
+
+function throwRpcFailure(data: unknown, fallbackMessage: string): never {
+  const code = isRecord(data) && typeof data.errorCode === 'string' ? data.errorCode : ''
+  const appCode = (RPC_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as ApiErrorCode)
+    : 'INTERNAL_ERROR'
+  throw new AppError(appCode, fallbackMessage)
+}
+
 /** 建立微信可信身份会话，返回 CloudBase 身份 UID（即 users.identity_id） */
 export async function signInSilently(): Promise<string> {
   const auth = getAuth()
   const signInResult = asSdkResult<unknown>(await auth.signInWithOpenId())
   throwIfError(signInResult.error, '微信身份登录失败')
   return parseUid(signInResult)
+}
+
+/** 结束本机持久化 CloudBase 会话。 */
+export async function signOut(): Promise<void> {
+  await getAuth().signOut()
 }
 
 /**
@@ -98,18 +125,28 @@ export async function bootstrapIdentity(
   }
 }
 
-/** user.updateProfile（docs/API.md 4.2）：仅本人行，RLS 兜底 */
-export async function updateProfile(
-  userId: string,
-  patch: { nickname?: string; avatarUrl?: string },
-): Promise<void> {
-  const rdb = getRdb()
-  const result = asSdkResult<unknown>(await rdb.from('users').update(patch).eq('id', userId))
+/** user.updateProfile（docs/API.md 4.2）：通过服务端 RPC 更新当前身份。 */
+export async function updateProfile(patch: {
+  nickname?: string
+  avatarUrl?: string
+}): Promise<void> {
+  await ensureSession()
+  const result = asSdkResult<unknown>(
+    await callRpc('gf_update_profile', {
+      p_nickname: patch.nickname ?? null,
+      p_avatar_url: patch.avatarUrl ?? null,
+    }),
+  )
   throwIfError(result.error, '更新资料失败')
+  const data = result.data
+  if (!isRecord(data) || data.ok !== true) {
+    return throwRpcFailure(data, '更新资料失败，请稍后重试')
+  }
 }
 
 /** user.deleteAccount（docs/API.md 4.3）：RPC 删除业务数据并匿名化用户行 */
 export async function deleteAccount(): Promise<{ deletedAt: string | null }> {
+  await ensureSession()
   const result = asSdkResult<unknown>(await callRpc('gf_delete_account'))
   throwIfError(result.error, '注销失败')
   const data = result.data

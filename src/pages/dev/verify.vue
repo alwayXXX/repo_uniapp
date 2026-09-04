@@ -61,7 +61,7 @@ const running = ref(false)
 const checks = reactive<CheckItem[]>([
   { key: 'pinia', label: 'Pinia Store', state: 'idle', message: '' },
   { key: 'cloudbase', label: 'CloudBase 初始化', state: 'idle', message: '' },
-  { key: 'identity', label: '身份验证（云函数）', state: 'idle', message: '' },
+  { key: 'identity', label: '身份验证（CloudBase RPC）', state: 'idle', message: '' },
   { key: 'database', label: '数据库读写（devices）', state: 'idle', message: '' },
 ])
 
@@ -101,7 +101,7 @@ async function checkPinia(): Promise<void> {
   const check = findCheck('pinia')
   check.state = 'loading'
   try {
-    userStore.logout()
+    await userStore.logout()
     check.message = `store=${userStore.$id}，初始状态=${userStore.status}`
     check.state = 'success'
   } catch (err) {
@@ -126,9 +126,8 @@ async function checkIdentity(): Promise<void> {
   check.state = 'loading'
   try {
     await userStore.bootstrap()
-    const identityId = userStore.identityId ?? ''
     const userNote = userStore.user ? '用户行已读取' : '用户行待服务端创建（Phase 3）'
-    check.message = `可信会话已建立，uid 前 8 位：${identityId.slice(0, 8)}…，${userNote}`
+    check.message = `可信会话已建立，${userNote}`
     check.state = 'success'
   } catch (err) {
     failCheck('identity', err)

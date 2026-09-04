@@ -6,6 +6,7 @@ import { MAINTENANCE_TYPE_OPTIONS } from '@/constants/maintenance'
 import type { MaintenanceFormInput } from '@/types/maintenance'
 import type { MaintenanceType } from '@/types/device'
 import { yuanToCents } from '@/utils/money'
+import { isValidDateString, todayString } from '@/utils/date'
 
 export interface MaintenanceFormErrors {
   title?: string
@@ -15,14 +16,7 @@ export interface MaintenanceFormErrors {
   notes?: string
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-
-export function todayString(): string {
-  const now = new Date()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${m}-${d}`
-}
+export { todayString } from '@/utils/date'
 
 function isValidType(value: string): value is MaintenanceType {
   return MAINTENANCE_TYPE_OPTIONS.some((option) => option.value === value)
@@ -45,7 +39,7 @@ export function validateMaintenanceForm(
     errors.type = '维护类型无效'
   }
 
-  if (!DATE_RE.test(form.occurredAt)) {
+  if (!isValidDateString(form.occurredAt)) {
     errors.occurredAt = '日期格式应为 YYYY-MM-DD'
   } else {
     const today = todayString()
@@ -53,7 +47,7 @@ export function validateMaintenanceForm(
       errors.occurredAt = '发生日期不能晚于今天'
     } else if (
       devicePurchaseDate &&
-      DATE_RE.test(devicePurchaseDate) &&
+      isValidDateString(devicePurchaseDate) &&
       form.occurredAt < devicePurchaseDate
     ) {
       errors.occurredAt = '发生日期不能早于设备购买日期'
@@ -63,7 +57,7 @@ export function validateMaintenanceForm(
   if (form.costYuan.trim() !== '') {
     const cents = yuanToCents(form.costYuan)
     if (cents === null) {
-      errors.cost = '费用格式错误（最多两位小数，不能为负）'
+      errors.cost = '费用格式错误（最多两位小数、不能为负且不能超出范围）'
     }
   }
 

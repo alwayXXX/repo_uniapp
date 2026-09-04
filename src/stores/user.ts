@@ -4,6 +4,7 @@ import {
   bootstrapIdentity,
   deleteAccount as deleteAccountApi,
   signInSilently,
+  signOut as signOutApi,
   updateProfile as updateProfileApi,
 } from '@/services/auth'
 import type { GearFlowUser } from '@/types/user'
@@ -13,7 +14,7 @@ import { PRIVACY_VERSION, TERMS_VERSION } from '@/constants/policies'
 /**
  * 用户 Store（docs/API.md 第 3-4 节）。
  * bootstrap = 静默登录 + 身份初始化（含协议同意记录）；
- * logout = 清理客户端状态（docs/API.md 3.2，平台会话生命周期归微信/CloudBase）。
+ * logout = 结束 CloudBase 持久化会话并清理客户端状态（docs/API.md 3.2）。
  */
 export const useUserStore = defineStore('user', () => {
   /** CloudBase 可信身份 UID（users.identity_id） */
@@ -48,16 +49,25 @@ export const useUserStore = defineStore('user', () => {
     if (!user.value) {
       throw new Error('未初始化的用户')
     }
-    await updateProfileApi(user.value.id, patch)
+    const nextPatch = {
+      nickname: patch.nickname ?? user.value.nickname ?? '',
+      avatarUrl: patch.avatarUrl ?? user.value.avatarUrl ?? '',
+    }
+    await updateProfileApi(nextPatch)
     user.value = { ...user.value, ...patch }
   }
 
-  /** 清空客户端登录态 */
-  function logout(): void {
-    identityId.value = null
-    user.value = null
-    isNewUser.value = false
-    status.value = 'idle'
+  /** 结束持久化会话，并清空会触发自动引导恢复的本地标记。 */
+  async function logout(): Promise<void> {
+    try {
+      await signOutApi()
+    } finally {
+      identityId.value = null
+      user.value = null
+      isNewUser.value = false
+      status.value = 'idle'
+      uni.removeStorageSync('gf_onboarded')
+    }
   }
 
   /** 注销账号（docs/API.md 4.3）：确认文字校验 → 服务端删除+匿名化 → 清客户端态 */
@@ -68,7 +78,7 @@ export const useUserStore = defineStore('user', () => {
     deleting.value = true
     try {
       await deleteAccountApi()
-      logout()
+      await logout()
     } finally {
       deleting.value = false
     }

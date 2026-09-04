@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onLaunch } from '@dcloudio/uni-app'
 import { getCloudbaseApp } from '@/services/cloudbase'
+import { toAppError } from '@/utils/error'
 
 onLaunch(() => {
   try {
     getCloudbaseApp()
   } catch (err) {
     // 初始化失败不阻塞启动；验证页面会展示具体错误与修复方式
-    console.error('CloudBase init failed:', err instanceof Error ? err.message : String(err))
+    console.error('CloudBase init failed:', toAppError(err).code)
   }
 })
 </script>

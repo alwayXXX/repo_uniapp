@@ -44,18 +44,6 @@
       }
     },
     {
-      "path": "pages/dev/ui",
-      "style": {
-        "navigationBarTitleText": "UI 组件预览"
-      }
-    },
-    {
-      "path": "pages/dev/verify",
-      "style": {
-        "navigationBarTitleText": "Phase 1 验证"
-      }
-    },
-    {
       "path": "pages/onboarding/index",
       "style": {
         "navigationBarTitleText": "欢迎使用 GearFlow",

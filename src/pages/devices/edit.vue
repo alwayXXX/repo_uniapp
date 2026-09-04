@@ -133,11 +133,12 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useDeviceStore } from '@/stores/device'
-import { createDevice, getDevice, updateDevice } from '@/services/device'
-import { getWarranty, removeWarranty, saveWarranty } from '@/services/warranty'
+import { getDevice, saveDeviceWithWarranty } from '@/services/device'
+import { getWarranty } from '@/services/warranty'
 import { ensureSession } from '@/services/auth'
 import { normalizeDeviceForm, type DeviceFormErrors } from '@/validators/device'
 import { centsToYuan } from '@/utils/money'
+import { isValidDateString } from '@/utils/date'
 import { DEVICE_STATUS_OPTIONS } from '@/constants/device'
 import FormField from '@/components/FormField.vue'
 import type { DeviceCategory, DeviceFormInput } from '@/types/device'
@@ -153,7 +154,6 @@ const errors = ref<DeviceFormErrors>({})
 const warrantyStart = ref('')
 const warrantyEnd = ref('')
 const warrantyProvider = ref('')
-const warrantyExisted = ref(false)
 
 const emptyForm = (): DeviceFormInput => ({
   categoryId: '',
@@ -203,7 +203,6 @@ onLoad(async (query) => {
     try {
       const warranty = await getWarranty(id)
       if (warranty) {
-        warrantyExisted.value = true
         warrantyStart.value = warranty.startDate ?? ''
         warrantyEnd.value = warranty.endDate
         warrantyProvider.value = warranty.provider ?? ''
@@ -230,6 +229,12 @@ function validateWarranty(): string | undefined {
   const hasEnd = warrantyEnd.value !== ''
   if (hasStart !== hasEnd) {
     return '保修日期需成对填写，或全部清空'
+  }
+  if (hasStart && !isValidDateString(warrantyStart.value)) {
+    return '保修开始日期格式无效'
+  }
+  if (hasEnd && !isValidDateString(warrantyEnd.value)) {
+    return '保修结束日期格式无效'
   }
   if (hasStart && hasEnd && warrantyEnd.value < warrantyStart.value) {
     return '保修结束日期不能早于开始日期'
@@ -262,24 +267,12 @@ async function onSave(): Promise<void> {
   }
   saving.value = true
   try {
-    let deviceId: string
-    if (isEdit.value) {
-      await updateDevice(editId.value, normalized.values)
-      deviceId = editId.value
-    } else {
-      deviceId = await createDevice(normalized.values)
-    }
-
-    // 保修同步：填写了结束日期则保存，日期清空则删除已有保修
-    if (warrantyEnd.value !== '') {
-      await saveWarranty(deviceId, {
-        startDate: warrantyStart.value === '' ? null : warrantyStart.value,
-        endDate: warrantyEnd.value,
-        provider: warrantyProvider.value.trim() === '' ? null : warrantyProvider.value.trim(),
-      })
-    } else if (warrantyExisted.value) {
-      await removeWarranty(deviceId)
-    }
+    await saveDeviceWithWarranty(isEdit.value ? editId.value : null, normalized.values, {
+      mode: warrantyEnd.value === '' ? 'CLEAR' : 'SET',
+      startDate: warrantyStart.value === '' ? null : warrantyStart.value,
+      endDate: warrantyEnd.value === '' ? null : warrantyEnd.value,
+      provider: warrantyProvider.value.trim() === '' ? null : warrantyProvider.value.trim(),
+    })
 
     uni.showToast({ title: '已保存', icon: 'success' })
     await store.loadFirst()

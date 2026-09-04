@@ -1,0 +1,1 @@
+ALTER POLICY maint_select_own ON maintenance_records USING (user_id = auth.uid() AND EXISTS (SELECT 1 FROM devices d WHERE d.id = maintenance_records.device_id AND d.user_id = auth.uid() AND d.deleted_at IS NULL));

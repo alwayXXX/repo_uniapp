@@ -60,5 +60,6 @@ export function throwIfError(err: SdkResult<unknown>['error'], fallbackMessage?:
   if (err.code === '42501') {
     throw new AppError('FORBIDDEN', '无权访问该数据')
   }
-  throw new AppError('INTERNAL_ERROR', err.message || fallbackMessage || '请求失败')
+  // SDK/database 原始消息可能包含 SQL、表名或请求上下文，不直接回传给 UI/日志。
+  throw new AppError('INTERNAL_ERROR', fallbackMessage || '请求失败')
 }

@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { toAppError } from '@/utils/error'
 
 const ONBOARDED_KEY = 'gf_onboarded'
 
@@ -75,7 +76,7 @@ async function onEnter(): Promise<void> {
     uni.setStorageSync(ONBOARDED_KEY, '1')
     uni.reLaunch({ url: '/pages/home/index' })
   } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : '初始化失败，请重试'
+    errorMessage.value = toAppError(err).message
   } finally {
     bootstrapping.value = false
   }

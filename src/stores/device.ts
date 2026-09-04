@@ -70,10 +70,10 @@ export const useDeviceStore = defineStore('device', () => {
       page.value = 1
       status.value = result.items.length === 0 ? 'empty' : 'success'
     } catch (err) {
-      console.error('[devices] loadFirst failed:', JSON.stringify(err))
+      const appError = toAppError(err)
+      console.error('[devices] loadFirst failed:', appError.code)
       items.value = []
       total.value = 0
-      const appError = toAppError(err)
       status.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
       errorText.value = appError.message
     }

@@ -16,7 +16,6 @@
               <text class="name">{{ displayName }}</text>
               <text class="edit-mark">编辑</text>
             </view>
-            <text class="uid">ID：{{ shortId }}</text>
           </view>
         </view>
       </view>
@@ -49,6 +48,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '@/stores/user'
 import StatusView from '@/components/StatusView.vue'
 import { PRIVACY_VERSION, TERMS_VERSION } from '@/constants/policies'
+import { toAppError } from '@/utils/error'
 
 const ONBOARDED_KEY = 'gf_onboarded'
 const CONFIRM_TEXT = '注销我的账号'
@@ -66,7 +66,6 @@ const deleting = computed(() => store.deleting)
 
 const displayName = computed(() => store.user?.nickname || 'GearFlow 用户')
 const avatarChar = computed(() => displayName.value.slice(0, 1).toUpperCase())
-const shortId = computed(() => (store.identityId ?? '').slice(0, 8) + '…')
 
 onShow(() => {
   if (uni.getStorageSync(ONBOARDED_KEY) !== '1') {
@@ -116,8 +115,13 @@ function onLogout(): void {
     content: '将清除本机登录状态，你的云端数据不受影响。',
     success: (res) => {
       if (res.confirm) {
-        store.logout()
-        uni.showToast({ title: '已退出登录状态', icon: 'none' })
+        void store
+          .logout()
+          .then(() => {
+            uni.showToast({ title: '已退出登录状态', icon: 'none' })
+            setTimeout(() => uni.reLaunch({ url: '/pages/onboarding/index' }), 400)
+          })
+          .catch(() => uni.showToast({ title: '退出失败，请重试', icon: 'none' }))
       }
     },
   })
@@ -148,8 +152,8 @@ function askConfirmationText(): void {
           uni.showToast({ title: '账号已注销', icon: 'none' })
           setTimeout(() => uni.reLaunch({ url: '/pages/home/index' }), 600)
         })
-        .catch((err: Error) => {
-          uni.showToast({ title: err.message || '注销失败', icon: 'none' })
+        .catch((err: unknown) => {
+          uni.showToast({ title: toAppError(err).message, icon: 'none' })
         })
     },
   })
@@ -210,13 +214,6 @@ function askConfirmationText(): void {
 .edit-mark {
   font-size: $gf-font-xs;
   color: $gf-color-primary;
-}
-
-.uid {
-  display: block;
-  margin-top: $gf-space-xs;
-  font-size: $gf-font-xs;
-  color: $gf-text-3;
 }
 
 .cell {

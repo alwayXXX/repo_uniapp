@@ -1,0 +1,1 @@
+ALTER TABLE maintenance_records ADD CONSTRAINT maintenance_title_check CHECK (char_length(btrim(title)) BETWEEN 1 AND 64), ADD CONSTRAINT maintenance_type_check CHECK (type IN ('REPAIR','UPGRADE','CLEAN','REPLACE','INSPECT','OTHER')), ADD CONSTRAINT maintenance_cost_check CHECK (cost_cents IS NULL OR cost_cents >= 0), ADD CONSTRAINT maintenance_id_user_key UNIQUE (id, user_id);

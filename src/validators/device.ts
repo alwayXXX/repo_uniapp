@@ -4,6 +4,7 @@
  */
 import type { DeviceFormInput } from '@/types/device'
 import { yuanToCents } from '@/utils/money'
+import { isValidDateString, todayString } from '@/utils/date'
 
 export interface DeviceFormErrors {
   categoryId?: string
@@ -16,15 +17,7 @@ export interface DeviceFormErrors {
   warrantyDates?: string
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-
-/** 本地时区的今天（YYYY-MM-DD） */
-export function todayString(): string {
-  const now = new Date()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${m}-${d}`
-}
+export { todayString } from '@/utils/date'
 
 export function validateDeviceForm(form: DeviceFormInput): DeviceFormErrors {
   const errors: DeviceFormErrors = {}
@@ -41,7 +34,7 @@ export function validateDeviceForm(form: DeviceFormInput): DeviceFormErrors {
   }
 
   if (form.purchaseDate) {
-    if (!DATE_RE.test(form.purchaseDate)) {
+    if (!isValidDateString(form.purchaseDate)) {
       errors.purchaseDate = '日期格式应为 YYYY-MM-DD'
     } else if (form.purchaseDate > todayString()) {
       errors.purchaseDate = '购买日期不能晚于今天'
@@ -51,9 +44,7 @@ export function validateDeviceForm(form: DeviceFormInput): DeviceFormErrors {
   if (form.purchasePriceYuan.trim() !== '') {
     const cents = yuanToCents(form.purchasePriceYuan)
     if (cents === null) {
-      errors.purchasePrice = '价格格式错误（最多两位小数，不能为负）'
-    } else if (cents > 9999999999) {
-      errors.purchasePrice = '价格超出范围'
+      errors.purchasePrice = '价格格式错误（最多两位小数、不能为负且不能超出范围）'
     }
   }
 

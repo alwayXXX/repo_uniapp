@@ -1,0 +1,1 @@
+ALTER TABLE device_costs DROP CONSTRAINT IF EXISTS device_costs_device_id_cost_type_occurred_at_amount_cents_key, ALTER COLUMN maintenance_id SET NOT NULL, ADD CONSTRAINT costs_type_check CHECK (cost_type = 'MAINTENANCE'), ADD CONSTRAINT costs_maintenance_unique UNIQUE (maintenance_id);

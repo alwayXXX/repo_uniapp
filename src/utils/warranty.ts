@@ -3,6 +3,7 @@
  * 纯函数、无框架依赖，日期边界有单元测试。
  */
 import type { WarrantyStatus } from '@/types/device'
+import { daysBetweenDates, isValidDateString, todayString } from './date'
 
 export interface WarrantyState {
   status: WarrantyStatus
@@ -13,23 +14,6 @@ export interface WarrantyState {
 /** 保修临期阈值：剩余 ≤30 天视为临期 */
 export const WARRANTY_EXPIRING_DAYS = 30
 
-/** YYYY-MM-DD → 当日本地零点时间戳，避免时区偏移 */
-function toDayStart(dateString: string): number {
-  const [y = 0, m = 0, d = 0] = dateString.split('-').map(Number)
-  return new Date(y, m - 1, d).getTime()
-}
-
-function daysBetween(fromDateString: string, toDateString: string): number {
-  return Math.round((toDayStart(toDateString) - toDayStart(fromDateString)) / 86400000)
-}
-
-function localToday(): string {
-  const now = new Date()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${now.getFullYear()}-${m}-${d}`
-}
-
 /**
  * 按保修结束日期计算状态与剩余天数。
  * @param endDate 保修结束日期（YYYY-MM-DD），缺失返回 UNKNOWN
@@ -37,12 +21,13 @@ function localToday(): string {
  */
 export function computeWarranty(
   endDate: string | null | undefined,
-  today: string = localToday(),
+  today: string = todayString(),
 ): WarrantyState {
-  if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+  if (!endDate || !isValidDateString(endDate) || !isValidDateString(today)) {
     return { status: 'UNKNOWN', remainingDays: null }
   }
-  const remaining = daysBetween(today, endDate)
+  const remaining = daysBetweenDates(today, endDate)
+  if (remaining === null) return { status: 'UNKNOWN', remainingDays: null }
   if (remaining < 0) return { status: 'EXPIRED', remainingDays: remaining }
   if (remaining <= WARRANTY_EXPIRING_DAYS) return { status: 'EXPIRING', remainingDays: remaining }
   return { status: 'IN_WARRANTY', remainingDays: remaining }

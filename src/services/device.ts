@@ -1,6 +1,7 @@
-import { asSdkResult, getRdb, throwIfError } from './cloudbase'
+import { asSdkResult, callRpc, getRdb, throwIfError } from './cloudbase'
 import { ensureSession } from './auth'
 import { AppError, isRecord } from '@/utils/error'
+import type { ApiErrorCode } from '@/types/api/common'
 import type { DeviceDoc, DeviceStatus, ListDevicesParams, ListDevicesResult } from '@/types/device'
 import type { DeviceFormValues } from '@/validators/device'
 
@@ -69,6 +70,73 @@ function parseRows(raw: unknown): DeviceRow[] {
   )
 }
 
+const RPC_ERROR_CODES: readonly ApiErrorCode[] = [
+  'UNAUTHORIZED',
+  'VALIDATION_ERROR',
+  'FORBIDDEN',
+  'RESOURCE_NOT_FOUND',
+  'DEVICE_NOT_FOUND',
+  'CATEGORY_NOT_FOUND',
+  'DATE_RANGE_INVALID',
+  'RATE_LIMITED',
+  'INTERNAL_ERROR',
+  'IDENTITY_BOOTSTRAP_FAILED',
+]
+
+function throwRpcFailure(data: unknown, fallbackMessage: string): never {
+  const code = isRecord(data) && typeof data.errorCode === 'string' ? data.errorCode : ''
+  const appCode = (RPC_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as ApiErrorCode)
+    : 'INTERNAL_ERROR'
+  throw new AppError(appCode, fallbackMessage)
+}
+
+export interface DeviceWarrantyInput {
+  mode: 'KEEP' | 'SET' | 'CLEAR'
+  startDate?: string | null
+  endDate?: string | null
+  provider?: string | null
+}
+
+export interface SaveDeviceResult {
+  id: string
+  created: boolean
+}
+
+/** 设备 + 保修单事务保存；客户端不直接写 devices / warranties。 */
+export async function saveDeviceWithWarranty(
+  deviceId: string | null,
+  values: DeviceFormValues,
+  warranty: DeviceWarrantyInput,
+): Promise<SaveDeviceResult> {
+  await ensureSession()
+  const result = asSdkResult<unknown>(
+    await callRpc('gf_save_device_with_warranty', {
+      p_device_id: deviceId,
+      p_category_id: values.categoryId,
+      p_name: values.name,
+      p_status: values.status,
+      p_brand: values.brand,
+      p_model: values.model,
+      p_serial_number: values.serialNumber,
+      p_purchase_date: values.purchaseDate,
+      p_purchase_channel: values.purchaseChannel,
+      p_purchase_price_cents: values.purchasePriceCents,
+      p_notes: values.notes,
+      p_warranty_mode: warranty.mode,
+      p_warranty_start_date: warranty.startDate ?? null,
+      p_warranty_end_date: warranty.endDate ?? null,
+      p_warranty_provider: warranty.provider ?? null,
+    }),
+  )
+  throwIfError(result.error, '保存设备失败')
+  const data = result.data
+  if (!isRecord(data) || data.ok !== true || typeof data.id !== 'string') {
+    return throwRpcFailure(data, '保存设备失败，请检查输入后重试')
+  }
+  return { id: data.id, created: data.created === true }
+}
+
 /** 列表（docs/API.md 7.1）：RLS 限定本人 + deleted_at IS NULL；keyword 搜名称/品牌/型号 */
 export async function listDevices(params: ListDevicesParams): Promise<ListDevicesResult> {
   const rdb = getRdb()
@@ -111,72 +179,23 @@ export async function getDevice(id: string): Promise<DeviceDoc | null> {
 
 /** 创建（docs/API.md 7.3）：归属由数据库 DEFAULT auth.uid() 写入 */
 export async function createDevice(values: DeviceFormValues): Promise<string> {
-  await ensureSession()
-  const rdb = getRdb()
-  const result = asSdkResult<unknown>(
-    await rdb
-      .from(DEVICES)
-      .insert({
-        category_id: values.categoryId,
-        name: values.name,
-        status: values.status,
-        brand: values.brand,
-        model: values.model,
-        serial_number: values.serialNumber,
-        purchase_date: values.purchaseDate,
-        purchase_channel: values.purchaseChannel,
-        purchase_price_cents: values.purchasePriceCents,
-        notes: values.notes,
-      })
-      .select(),
-  )
-  throwIfError(result.error, '创建设备失败')
-  const rows = parseRows(result.data)
-  const created = rows[0]
-  if (!created) {
-    throw new AppError('INTERNAL_ERROR', '创建设备未返回数据')
-  }
-  return created.id
+  const result = await saveDeviceWithWarranty(null, values, { mode: 'CLEAR' })
+  return result.id
 }
 
 /** 编辑（docs/API.md 7.4）：仅本人行，RLS 兜底 */
 export async function updateDevice(id: string, values: DeviceFormValues): Promise<void> {
-  await ensureSession()
-  const rdb = getRdb()
-  const result = asSdkResult<unknown>(
-    await rdb
-      .from(DEVICES)
-      .update({
-        category_id: values.categoryId,
-        name: values.name,
-        status: values.status,
-        brand: values.brand,
-        model: values.model,
-        serial_number: values.serialNumber,
-        purchase_date: values.purchaseDate,
-        purchase_channel: values.purchaseChannel,
-        purchase_price_cents: values.purchasePriceCents,
-        notes: values.notes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .is('deleted_at', null),
-  )
-  throwIfError(result.error, '保存设备失败')
+  await saveDeviceWithWarranty(id, values, { mode: 'KEEP' })
 }
 
 /** 软删除（docs/API.md 7.5 / DATABASE.md 删除策略）：置 deleted_at，返回删除时间 */
 export async function softDeleteDevice(id: string): Promise<string> {
   await ensureSession()
-  const rdb = getRdb()
-  const deletedAt = new Date().toISOString()
-  const result = asSdkResult<unknown>(
-    await rdb
-      .from(DEVICES)
-      .update({ deleted_at: deletedAt, updated_at: deletedAt })
-      .eq('id', id)
-      .is('deleted_at', null),
-  )
+  const result = asSdkResult<unknown>(await callRpc('gf_soft_delete_device', { p_id: id }))
   throwIfError(result.error, '删除设备失败')
-  return deletedAt
+  const data = result.data
+  if (!isRecord(data) || data.ok !== true || typeof data.deletedAt !== 'string') {
+    return throwRpcFailure(data, '删除设备失败，请稍后重试')
+  }
+  return data.deletedAt
 }

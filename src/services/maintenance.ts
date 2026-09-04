@@ -1,4 +1,5 @@
 import { asSdkResult, callRpc, getRdb, throwIfError } from './cloudbase'
+import { ensureSession } from './auth'
 import { AppError, isRecord } from '@/utils/error'
 import type { MaintenanceDoc } from '@/types/maintenance'
 import type { MaintenanceFormValues } from '@/validators/maintenance'
@@ -101,6 +102,7 @@ export async function addMaintenance(
   deviceId: string,
   values: MaintenanceFormValues,
 ): Promise<string> {
+  await ensureSession()
   const args = { ...rpcArgs(values), p_device_id: deviceId }
   const result = asSdkResult<unknown>(await callRpc('gf_add_maintenance', args))
   throwIfError(result.error, '添加维护记录失败')
@@ -116,6 +118,7 @@ export async function updateMaintenance(
   recordId: string,
   values: MaintenanceFormValues,
 ): Promise<void> {
+  await ensureSession()
   const args = { ...rpcArgs(values), p_id: recordId }
   const result = asSdkResult<unknown>(await callRpc('gf_update_maintenance', args))
   throwIfError(result.error, '更新维护记录失败')
@@ -127,6 +130,7 @@ export async function updateMaintenance(
 
 /** 删除维护记录（docs/API.md 8.4），成本行由 RPC 同步删除 */
 export async function deleteMaintenance(recordId: string): Promise<void> {
+  await ensureSession()
   const result = asSdkResult<unknown>(await callRpc('gf_delete_maintenance', { p_id: recordId }))
   throwIfError(result.error, '删除维护记录失败')
   const data = result.data

@@ -1,5 +1,7 @@
 /** 统计页的日期范围与比例工具，保持页面不重复实现日期边界。 */
 
+export { isValidDateString } from './date'
+
 export type StatisticsRangePreset = 'currentYear' | 'previousYear' | 'all'
 
 export interface StatisticsDateRange {
@@ -14,16 +16,6 @@ function pad(value: number): string {
 
 export function localDateString(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
-export function isValidDateString(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const [year, month, day] = value.split('-').map(Number)
-  if (year === undefined || month === undefined || day === undefined) return false
-  const date = new Date(Date.UTC(year, month - 1, day))
-  return (
-    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-  )
 }
 
 export function getStatisticsDateRange(
