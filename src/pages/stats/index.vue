@@ -285,17 +285,19 @@ onShow(() => {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  padding: $gf-space-lg $gf-space-md $gf-space-xl;
+  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .masthead {
+  padding: 8rpx 8rpx 4rpx;
   margin-bottom: $gf-space-md;
 }
 
 .kicker {
+  display: block;
   font-size: $gf-font-xs;
-  letter-spacing: 0;
+  font-weight: 600;
   color: $gf-color-primary;
 }
 
@@ -304,33 +306,49 @@ onShow(() => {
   flex-direction: row;
   align-items: baseline;
   justify-content: space-between;
+  gap: $gf-space-sm;
   margin-top: $gf-space-xs;
 }
 
 .page-title {
+  min-width: 0;
+  flex: 1;
   font-size: $gf-font-xl;
   font-weight: 700;
+  line-height: 1.25;
   color: $gf-text-1;
 }
 
 .range-note {
+  flex-shrink: 0;
   font-size: $gf-font-sm;
+  line-height: 1.4;
   color: $gf-text-3;
 }
 
 .controls {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: $gf-space-sm;
   margin-top: $gf-space-md;
 }
 
+.controls picker {
+  min-width: 0;
+  flex: 1 1 260rpx;
+}
+
 .control-chip {
-  min-width: 220rpx;
-  padding: 12rpx $gf-space-md;
+  min-width: 0;
+  height: 78rpx;
+  padding: 10rpx $gf-space-md;
   background-color: $gf-bg-card;
-  border-left: 6rpx solid $gf-color-primary;
-  border-radius: $gf-radius-sm;
+  border: 1rpx solid $gf-line;
+  border-left: 5rpx solid $gf-color-primary;
+  border-radius: $gf-control-radius;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
 }
 
 .control-label,
@@ -340,13 +358,19 @@ onShow(() => {
 
 .control-label {
   font-size: $gf-font-xs;
+  line-height: 1.25;
   color: $gf-text-3;
 }
 
 .control-value {
+  min-width: 0;
   margin-top: 4rpx;
   font-size: $gf-font-sm;
+  line-height: 1.35;
   color: $gf-text-1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .asset-band {
@@ -354,6 +378,8 @@ onShow(() => {
   padding: $gf-space-lg;
   background-color: $gf-color-primary;
   border-radius: $gf-radius-lg;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
 }
 
 .band-topline,
@@ -363,6 +389,11 @@ onShow(() => {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  gap: $gf-space-sm;
+}
+
+.distribution-head {
+  align-items: flex-start;
 }
 
 .band-label,
@@ -376,14 +407,16 @@ onShow(() => {
 }
 
 .band-range {
+  flex-shrink: 0;
   font-size: $gf-font-xs;
 }
 
 .asset-value {
   display: block;
   margin-top: $gf-space-sm;
-  font-size: 52rpx;
+  font-size: 48rpx;
   font-weight: 700;
+  line-height: 1.2;
   color: #ffffff;
   word-break: break-all;
 }
@@ -392,22 +425,27 @@ onShow(() => {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-xs;
+  line-height: 1.4;
 }
 
 .metric-grid {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: $gf-space-sm;
   margin-bottom: $gf-space-md;
 }
 
 .metric-cell {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 260rpx;
+  min-width: 260rpx;
   padding: $gf-space-md;
   background-color: $gf-bg-card;
+  border: 1rpx solid $gf-line;
   border-top: 6rpx solid $gf-text-4;
   border-radius: $gf-radius-md;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
 }
 
 .metric-cell.metric-accent {
@@ -421,14 +459,17 @@ onShow(() => {
 
 .metric-label {
   font-size: $gf-font-sm;
+  line-height: 1.35;
   color: $gf-text-2;
 }
 
 .metric-value {
   display: block;
+  min-width: 0;
   margin-top: $gf-space-sm;
   font-size: $gf-font-lg;
   font-weight: 600;
+  line-height: 1.3;
   color: $gf-text-1;
   word-break: break-all;
 }
@@ -436,6 +477,7 @@ onShow(() => {
 .metric-note {
   margin-top: $gf-space-xs;
   font-size: $gf-font-xs;
+  line-height: 1.35;
   color: $gf-text-3;
 }
 
@@ -443,17 +485,24 @@ onShow(() => {
   margin-top: $gf-space-md;
   padding: $gf-space-md $gf-space-lg;
   background-color: $gf-bg-card;
+  border: 1rpx solid $gf-line;
   border-radius: $gf-radius-md;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
 }
 
 .section-title {
+  min-width: 0;
   font-size: $gf-font-md;
   font-weight: 600;
+  line-height: 1.35;
   color: $gf-text-1;
 }
 
 .section-caption {
+  flex-shrink: 0;
   font-size: $gf-font-xs;
+  line-height: 1.35;
   color: $gf-text-3;
 }
 
@@ -467,15 +516,20 @@ onShow(() => {
 
 .distribution-label,
 .distribution-value {
+  min-width: 0;
   font-size: $gf-font-sm;
+  line-height: 1.4;
 }
 
 .distribution-label {
+  flex: 1;
   color: $gf-text-2;
+  word-break: break-word;
 }
 
 .distribution-value {
-  max-width: 64%;
+  flex-shrink: 0;
+  max-width: 68%;
   color: $gf-text-1;
   text-align: right;
   word-break: break-all;
@@ -485,7 +539,7 @@ onShow(() => {
   height: 12rpx;
   margin-top: $gf-space-xs;
   overflow: hidden;
-  background-color: $gf-bg-page;
+  background-color: $gf-bg-subtle;
   border-radius: 6rpx;
 }
 
@@ -516,6 +570,7 @@ onShow(() => {
   display: block;
   margin-top: $gf-space-md;
   font-size: $gf-font-sm;
+  line-height: 1.4;
   color: $gf-text-3;
 }
 
@@ -540,6 +595,7 @@ onShow(() => {
 .warranty-count {
   font-size: $gf-font-lg;
   font-weight: 700;
+  line-height: 1.25;
 }
 
 .warranty-count.in-warranty {
@@ -558,15 +614,21 @@ onShow(() => {
 .warranty-label {
   margin-top: 4rpx;
   font-size: $gf-font-xs;
+  line-height: 1.35;
   color: $gf-text-3;
 }
 
 .primary-button {
+  width: 100%;
+  height: 88rpx;
+  min-height: 88rpx;
   margin-top: $gf-space-sm;
-  padding: 0 $gf-space-xl;
+  padding: 0 $gf-space-lg;
   font-size: $gf-font-md;
+  font-weight: 600;
+  line-height: 88rpx;
   color: #ffffff;
   background-color: $gf-color-primary;
-  border-radius: $gf-radius-md;
+  border-radius: $gf-control-radius;
 }
 </style>

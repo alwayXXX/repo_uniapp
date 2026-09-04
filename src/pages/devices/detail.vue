@@ -375,53 +375,86 @@ async function confirmDelete(): Promise<void> {
 
 <style scoped lang="scss">
 .page {
-  padding: $gf-space-md $gf-space-md $gf-space-xl;
+  min-height: 100vh;
+  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .card {
   margin-bottom: $gf-space-md;
   padding: $gf-space-lg;
   background-color: $gf-bg-card;
+  border: 1rpx solid $gf-line;
   border-radius: $gf-radius-lg;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
+}
+
+.hero {
+  border-top: 6rpx solid $gf-color-primary;
 }
 
 .hero-head {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: $gf-space-sm;
 }
 
 .hero-name {
+  min-width: 0;
+  flex: 1;
   font-size: 44rpx;
   font-weight: 700;
+  line-height: 1.25;
   color: $gf-text-1;
+  word-break: break-word;
 }
 
 .status-badge {
-  padding: 6rpx 16rpx;
+  flex-shrink: 0;
+  min-height: 48rpx;
+  padding: 0 14rpx;
   font-size: $gf-font-xs;
+  line-height: 48rpx;
   border-radius: $gf-radius-sm;
   color: $gf-color-primary;
   background-color: $gf-color-primary-weak;
+  white-space: nowrap;
 }
 
-.status-badge.idle {
+.status-badge.in_use {
+  color: $gf-color-success;
+  background-color: $gf-color-success-weak;
+}
+
+.status-badge.idle,
+.status-badge.expiring {
   color: $gf-color-warning;
-  background-color: #fff3e8;
+  background-color: $gf-color-warning-weak;
+}
+
+.status-badge.in_warranty {
+  color: $gf-color-success;
+  background-color: $gf-color-success-weak;
 }
 
 .status-badge.sold,
-.status-badge.discarded {
+.status-badge.discarded,
+.status-badge.expired,
+.status-badge.unknown {
   color: $gf-text-3;
-  background-color: $gf-bg-page;
+  background-color: $gf-bg-subtle;
 }
 
 .hero-sub {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-sm;
+  line-height: 1.45;
   color: $gf-text-3;
+  word-break: break-word;
 }
 
 .card-title {
@@ -429,27 +462,38 @@ async function confirmDelete(): Promise<void> {
   margin-bottom: $gf-space-sm;
   font-size: $gf-font-md;
   font-weight: 600;
+  line-height: 1.35;
   color: $gf-text-1;
 }
 
 .row {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
-  padding: 10rpx 0;
+  align-items: flex-start;
+  gap: $gf-space-md;
+  padding: 14rpx 0;
+  border-top: 1rpx solid $gf-line;
+}
+
+.row:first-of-type {
+  border-top: 0;
 }
 
 .row-label {
+  flex: 0 0 144rpx;
   font-size: $gf-font-sm;
+  line-height: 1.45;
   color: $gf-text-3;
 }
 
 .row-value {
+  min-width: 0;
+  flex: 1;
   font-size: $gf-font-sm;
+  line-height: 1.45;
   color: $gf-text-1;
-  max-width: 60%;
   text-align: right;
-  word-break: break-all;
+  word-break: break-word;
 }
 
 .card-title-row {
@@ -457,17 +501,25 @@ async function confirmDelete(): Promise<void> {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  gap: $gf-space-sm;
   margin-bottom: $gf-space-sm;
 }
 
 .card-title-row .card-title {
+  min-width: 0;
+  flex: 1;
   margin-bottom: 0;
 }
 
 .add-maintenance {
+  flex-shrink: 0;
+  height: 64rpx;
+  min-height: 64rpx;
   margin: 0;
-  padding: 4rpx 16rpx;
+  padding: 0 16rpx;
   font-size: $gf-font-xs;
+  font-weight: 600;
+  line-height: 64rpx;
   color: $gf-color-primary;
   background-color: $gf-color-primary-weak;
   border-radius: $gf-radius-sm;
@@ -477,83 +529,106 @@ async function confirmDelete(): Promise<void> {
   display: block;
   margin-bottom: $gf-space-xs;
   font-size: $gf-font-sm;
+  line-height: 1.4;
   color: $gf-text-1;
+  word-break: break-all;
 }
 
 .maint-row {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: $gf-space-sm;
   padding: $gf-space-sm 0;
-  border-bottom: 1rpx solid $gf-line;
+  border-top: 1rpx solid $gf-line;
 }
 
-.maint-row:last-child {
-  border-bottom: none;
+.maint-row:first-child {
+  border-top: 0;
+}
+
+.maint-main {
+  min-width: 0;
+  flex: 1;
 }
 
 .maint-head {
   display: flex;
   flex-direction: row;
-  align-items: center;
-  gap: $gf-space-xs;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4rpx $gf-space-xs;
 }
 
 .maint-title {
+  min-width: 0;
   font-size: $gf-font-sm;
+  line-height: 1.4;
   color: $gf-text-1;
+  word-break: break-word;
 }
 
 .maint-type {
+  flex-shrink: 0;
   font-size: $gf-font-xs;
+  line-height: 1.4;
   color: $gf-text-3;
 }
 
 .maint-meta {
+  display: block;
+  margin-top: 4rpx;
   font-size: $gf-font-xs;
+  line-height: 1.4;
   color: $gf-text-3;
+  word-break: break-word;
 }
 
 .maint-cost {
+  flex-shrink: 0;
+  max-width: 42%;
   font-size: $gf-font-sm;
+  line-height: 1.4;
   color: $gf-text-1;
-}
-
-.warranty-badge.expiring {
-  color: $gf-color-warning;
-  background-color: #fff3e8;
-}
-
-.warranty-badge.expired {
-  color: $gf-text-3;
-  background-color: $gf-bg-page;
+  text-align: right;
+  word-break: break-all;
 }
 
 .placeholder {
+  display: block;
   font-size: $gf-font-sm;
+  line-height: 1.55;
   color: $gf-text-3;
 }
 
 .timeline-more-button {
   width: 100%;
+  height: 80rpx;
+  min-height: 80rpx;
   margin-top: $gf-space-xs;
+  padding: 0 $gf-space-md;
   font-size: $gf-font-sm;
+  line-height: 80rpx;
   color: $gf-color-primary;
   background-color: $gf-color-primary-weak;
-  border-radius: $gf-radius-md;
+  border-radius: $gf-control-radius;
 }
 
 .timeline-more-button[disabled] {
   color: $gf-text-3;
-  background-color: $gf-bg-page;
+  background-color: $gf-bg-subtle;
 }
 
 .actions button {
   width: 100%;
+  height: 84rpx;
+  min-height: 84rpx;
   margin-bottom: $gf-space-sm;
+  padding: 0 $gf-space-md;
   font-size: $gf-font-md;
-  border-radius: $gf-radius-md;
+  line-height: 84rpx;
+  border-radius: $gf-control-radius;
 }
 
 .edit-button {
@@ -570,6 +645,7 @@ async function confirmDelete(): Promise<void> {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-xs;
+  line-height: 1.45;
   color: $gf-text-3;
   text-align: center;
 }
@@ -581,19 +657,25 @@ async function confirmDelete(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.45);
+  padding: 32rpx;
+  background-color: rgba(32, 33, 36, 0.45);
+  box-sizing: border-box;
 }
 
 .confirm-card {
-  width: 560rpx;
+  width: 100%;
+  max-width: 640rpx;
   padding: $gf-space-lg;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
+  box-sizing: border-box;
 }
 
 .confirm-title {
+  display: block;
   font-size: $gf-font-lg;
   font-weight: 600;
+  line-height: 1.35;
   color: $gf-text-1;
 }
 
@@ -601,8 +683,9 @@ async function confirmDelete(): Promise<void> {
   display: block;
   margin-top: $gf-space-sm;
   font-size: $gf-font-sm;
-  color: $gf-text-2;
   line-height: 1.6;
+  color: $gf-text-2;
+  word-break: break-word;
 }
 
 .confirm-actions {
@@ -613,13 +696,17 @@ async function confirmDelete(): Promise<void> {
 }
 
 .confirm-actions button {
+  height: 80rpx;
+  min-height: 80rpx;
   flex: 1;
+  padding: 0 $gf-space-sm;
   font-size: $gf-font-md;
+  line-height: 80rpx;
   border-radius: $gf-radius-md;
 }
 
 .cancel-button {
   color: $gf-text-2;
-  background-color: $gf-bg-page;
+  background-color: $gf-bg-subtle;
 }
 </style>

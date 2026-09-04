@@ -1,6 +1,20 @@
 <template>
   <view class="page">
+    <view class="page-intro">
+      <text class="eyebrow">设备资产 / {{ isEdit ? '编辑' : '新增' }}</text>
+      <text class="page-title">{{ isEdit ? '编辑设备' : '添加设备' }}</text>
+      <text class="page-subtitle">记录关键资料，后续维护和统计会自动关联。</text>
+    </view>
+
     <view class="card">
+      <view class="section-heading">
+        <view>
+          <text class="section-title">基本信息</text>
+          <text class="section-caption">设备识别与资产归属</text>
+        </view>
+        <text class="section-index">01</text>
+      </view>
+
       <FormField label="分类" required :error="errors.categoryId">
         <view class="select-field" @click="showCategorySheet = true">
           <text :class="categoryName ? 'select-value' : 'select-placeholder'">
@@ -75,7 +89,13 @@
     </view>
 
     <view class="card">
-      <text class="card-title">保修信息（选填）</text>
+      <view class="section-heading">
+        <view>
+          <text class="section-title">保修信息</text>
+          <text class="section-caption">选填，填写结束日期后自动计算状态</text>
+        </view>
+        <text class="section-index">02</text>
+      </view>
       <FormField label="保修开始日期" :error="errors.warrantyDates">
         <picker mode="date" :value="warrantyStart" @change="onWarrantyStartChange">
           <view class="select-field">
@@ -106,9 +126,12 @@
       </FormField>
     </view>
 
-    <button class="save-button" :disabled="saving" @click="onSave">
-      {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存' }}
-    </button>
+    <view class="action-area">
+      <button class="save-button" :disabled="saving" @click="onSave">
+        {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存设备' }}
+      </button>
+      <text class="action-note">信息只会保存在你的 GearFlow 账户中</text>
+    </view>
 
     <view v-if="showCategorySheet" class="sheet-mask" @click="showCategorySheet = false">
       <view class="sheet" @click.stop>
@@ -287,14 +310,85 @@ async function onSave(): Promise<void> {
 
 <style scoped lang="scss">
 .page {
-  padding: $gf-space-md $gf-space-md $gf-space-xl;
+  min-height: 100vh;
+  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.page-intro {
+  padding: 8rpx 8rpx 20rpx;
+}
+
+.eyebrow {
+  display: block;
+  font-size: $gf-font-xs;
+  font-weight: 600;
+  color: $gf-color-primary;
+}
+
+.page-title {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.25;
+  color: $gf-text-1;
+}
+
+.page-subtitle {
+  display: block;
+  max-width: 620rpx;
+  margin-top: 8rpx;
+  font-size: $gf-font-sm;
+  line-height: 1.5;
+  color: $gf-text-3;
 }
 
 .card {
-  padding: $gf-space-sm $gf-space-lg;
+  padding: 12rpx $gf-space-lg 18rpx;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
+  border: 1rpx solid $gf-line;
+  box-shadow: $gf-shadow-sm;
   margin-bottom: $gf-space-md;
+  box-sizing: border-box;
+}
+
+.section-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12rpx 0 2rpx;
+}
+
+.section-heading > view {
+  min-width: 0;
+}
+
+.section-title,
+.section-caption {
+  display: block;
+}
+
+.section-title {
+  font-size: $gf-font-md;
+  font-weight: 700;
+  line-height: 1.35;
+  color: $gf-text-1;
+}
+
+.section-caption {
+  margin-top: 4rpx;
+  font-size: $gf-font-xs;
+  line-height: 1.4;
+  color: $gf-text-3;
+}
+
+.section-index {
+  font-size: $gf-font-xs;
+  font-weight: 700;
+  color: $gf-text-4;
 }
 
 .card-title {
@@ -307,37 +401,62 @@ async function onSave(): Promise<void> {
 
 .input {
   width: 100%;
-  padding: $gf-space-sm;
+  display: block;
+  height: $gf-control-height;
+  min-height: $gf-control-height;
+  padding: 0 24rpx;
   font-size: $gf-font-md;
+  line-height: $gf-control-height;
   color: $gf-text-1;
-  background-color: $gf-bg-page;
-  border-radius: $gf-radius-md;
+  background-color: $gf-bg-card;
+  border: 1rpx solid $gf-line;
+  border-radius: $gf-control-radius;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .textarea {
   width: 100%;
-  height: 160rpx;
-  padding: $gf-space-sm;
+  display: block;
+  min-height: 176rpx;
+  height: 176rpx;
+  padding: 20rpx 24rpx;
   font-size: $gf-font-md;
+  line-height: 1.5;
   color: $gf-text-1;
-  background-color: $gf-bg-page;
-  border-radius: $gf-radius-md;
+  background-color: $gf-bg-card;
+  border: 1rpx solid $gf-line;
+  border-radius: $gf-control-radius;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .select-field {
+  width: 100%;
+  min-height: $gf-control-height;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: $gf-space-sm;
-  background-color: $gf-bg-page;
-  border-radius: $gf-radius-md;
+  padding: 0 20rpx 0 24rpx;
+  background-color: $gf-bg-card;
+  border: 1rpx solid $gf-line;
+  border-radius: $gf-control-radius;
+  box-sizing: border-box;
+}
+
+.select-value,
+.select-placeholder {
+  min-width: 0;
+  flex: 1;
+  font-size: $gf-font-md;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .select-value {
-  font-size: $gf-font-md;
   color: $gf-text-1;
 }
 
@@ -347,44 +466,78 @@ async function onSave(): Promise<void> {
 }
 
 .select-arrow {
-  font-size: $gf-font-lg;
-  color: $gf-text-4;
+  width: 28rpx;
+  margin-left: 12rpx;
+  font-size: 36rpx;
+  line-height: 1;
+  color: $gf-text-3;
+  text-align: center;
 }
 
 .status-row {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: $gf-space-xs;
+  gap: 12rpx;
 }
 
 .status-chip {
-  padding: 8rpx $gf-space-md;
+  flex: 1 1 132rpx;
+  min-width: 132rpx;
+  min-height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10rpx;
   font-size: $gf-font-sm;
   color: $gf-text-2;
   background-color: $gf-bg-page;
-  border-radius: $gf-radius-md;
+  border: 1rpx solid transparent;
+  border-radius: $gf-control-radius;
+  box-sizing: border-box;
 }
 
 .status-chip.active {
   color: $gf-color-primary;
   background-color: $gf-color-primary-weak;
+  border-color: rgba(26, 115, 232, 0.24);
 }
 
 .status-chip-text {
   font-size: $gf-font-sm;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.action-area {
+  margin-top: 8rpx;
 }
 
 .save-button {
-  margin-top: $gf-space-lg;
+  width: 100%;
+  min-height: 92rpx;
+  margin: 0;
+  padding: 0 $gf-space-lg;
   background-color: $gf-color-primary;
   color: #ffffff;
   font-size: $gf-font-lg;
+  font-weight: 600;
+  line-height: 92rpx;
+  border-radius: $gf-control-radius;
 }
 
 .save-button[disabled] {
   background-color: $gf-text-4;
   color: #ffffff;
+}
+
+.action-note {
+  display: block;
+  margin-top: 12rpx;
+  font-size: $gf-font-xs;
+  line-height: 1.4;
+  color: $gf-text-3;
+  text-align: center;
 }
 
 .sheet-mask {
@@ -401,7 +554,8 @@ async function onSave(): Promise<void> {
   max-height: 70vh;
   padding: $gf-space-lg $gf-space-lg calc($gf-space-lg + env(safe-area-inset-bottom));
   background-color: $gf-bg-card;
-  border-radius: $gf-radius-lg $gf-radius-lg 0 0;
+  border-top: 1rpx solid $gf-line;
+  border-radius: 20rpx 20rpx 0 0;
   box-sizing: border-box;
 }
 
@@ -419,8 +573,12 @@ async function onSave(): Promise<void> {
 }
 
 .sheet-option {
-  padding: $gf-space-md $gf-space-sm;
+  min-height: 84rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 $gf-space-sm;
   border-bottom: 1rpx solid $gf-line;
+  box-sizing: border-box;
 }
 
 .sheet-option.active .sheet-option-name {
@@ -429,7 +587,11 @@ async function onSave(): Promise<void> {
 }
 
 .sheet-option-name {
+  min-width: 0;
   font-size: $gf-font-md;
   color: $gf-text-1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

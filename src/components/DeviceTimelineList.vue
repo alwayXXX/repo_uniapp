@@ -64,13 +64,13 @@ function changedSummary(event: DeviceTimelineEvent): string {
 
 .timeline-dot.updated {
   background-color: $gf-color-success;
-  border-color: #e8f8f2;
+  border-color: $gf-color-success-weak;
 }
 
 .timeline-dot.maintenance,
 .timeline-dot.warranty {
   background-color: $gf-color-warning;
-  border-color: #fff3e8;
+  border-color: $gf-color-warning-weak;
 }
 
 .timeline-dot.disposed {
@@ -111,6 +111,7 @@ function changedSummary(event: DeviceTimelineEvent): string {
   flex-shrink: 0;
   padding-top: 2rpx;
   font-size: $gf-font-xs;
+  line-height: 1.35;
   color: $gf-text-3;
 }
 
@@ -120,6 +121,7 @@ function changedSummary(event: DeviceTimelineEvent): string {
   margin-top: $gf-space-xs;
   font-size: $gf-font-sm;
   line-height: 1.5;
+  word-break: break-word;
 }
 
 .timeline-description {

@@ -1,30 +1,48 @@
 <template>
   <view class="page">
-    <view class="toolbar">
-      <input
-        class="search"
-        :value="store.keyword"
-        placeholder="搜索名称 / 品牌 / 型号"
-        @input="onKeywordInput"
-        @confirm="store.loadFirst()"
-      />
+    <view class="page-header">
+      <view class="heading-copy">
+        <text class="eyebrow">GearFlow / 设备资产</text>
+        <text class="page-title">设备</text>
+        <text class="page-subtitle">集中管理设备资料、状态与购买成本。</text>
+      </view>
+      <button class="header-action" @click="gotoCreate">
+        <text class="header-action-mark">＋</text>
+        <text>添加</text>
+      </button>
     </view>
 
-    <view class="filters">
-      <picker mode="selector" :range="categoryOptions" @change="onCategoryChange">
-        <view class="filter-chip" :class="{ active: store.categoryId !== '' }">
-          {{ categoryFilterLabel }}
-        </view>
-      </picker>
-      <picker mode="selector" :range="statusFilterLabels" @change="onStatusChange">
-        <view class="filter-chip" :class="{ active: store.deviceStatus !== '' }">
-          {{ statusFilterLabel }}
-        </view>
-      </picker>
-      <picker mode="selector" :range="sortLabels" @change="onSortChange">
-        <view class="filter-chip">{{ sortLabel }}</view>
-      </picker>
+    <view class="toolbar">
+      <view class="search-field">
+        <text class="search-mark">⌕</text>
+        <input
+          class="search"
+          :value="store.keyword"
+          placeholder="搜索名称、品牌或型号"
+          @input="onKeywordInput"
+          @confirm="store.loadFirst()"
+        />
+        <text v-if="store.keyword" class="search-clear" @click="clearKeyword">×</text>
+      </view>
     </view>
+
+    <scroll-view class="filters-scroll" scroll-x :show-scrollbar="false">
+      <view class="filters">
+        <picker mode="selector" :range="categoryOptions" @change="onCategoryChange">
+          <view class="filter-chip" :class="{ active: store.categoryId !== '' }">
+            {{ categoryFilterLabel }}
+          </view>
+        </picker>
+        <picker mode="selector" :range="statusFilterLabels" @change="onStatusChange">
+          <view class="filter-chip" :class="{ active: store.deviceStatus !== '' }">
+            {{ statusFilterLabel }}
+          </view>
+        </picker>
+        <picker mode="selector" :range="sortLabels" @change="onSortChange">
+          <view class="filter-chip">{{ sortLabel }}</view>
+        </picker>
+      </view>
+    </scroll-view>
 
     <StatusView
       :state="store.status"
@@ -134,6 +152,12 @@ function onKeywordInput(event: unknown): void {
   }, 500)
 }
 
+function clearKeyword(): void {
+  if (searchTimer) clearTimeout(searchTimer)
+  store.setKeyword('')
+  void store.loadFirst()
+}
+
 const categoryOptions = computed(() => ['全部分类', ...store.categories.map((c) => c.name)])
 const categoryFilterLabel = computed(() =>
   store.categoryId === ''
@@ -189,35 +213,154 @@ function gotoDetail(id: string): void {
 
 <style scoped lang="scss">
 .page {
-  padding: $gf-space-md $gf-space-md $gf-space-xl;
   min-height: 100vh;
+  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
+}
+
+.page-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $gf-space-md;
+  margin-bottom: $gf-space-md;
+}
+
+.heading-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.eyebrow {
+  display: block;
+  font-size: $gf-font-xs;
+  font-weight: 600;
+  color: $gf-color-primary;
+}
+
+.page-title {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.25;
+  color: $gf-text-1;
+}
+
+.page-subtitle {
+  display: block;
+  margin-top: 8rpx;
+  font-size: $gf-font-sm;
+  line-height: 1.45;
+  color: $gf-text-3;
+}
+
+.header-action {
+  flex-shrink: 0;
+  height: 72rpx;
+  min-height: 72rpx;
+  margin: 8rpx 0 0;
+  padding: 0 20rpx;
+  font-size: $gf-font-sm;
+  font-weight: 600;
+  line-height: 72rpx;
+  color: $gf-color-primary;
+  background-color: $gf-color-primary-weak;
+  border-radius: $gf-control-radius;
+}
+
+.header-action-mark {
+  margin-right: 4rpx;
+  font-size: 30rpx;
+  line-height: 1;
 }
 
 .toolbar {
   margin-bottom: $gf-space-sm;
 }
 
-.search {
-  padding: $gf-space-sm $gf-space-md;
-  font-size: $gf-font-md;
+.search-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+  padding: 0 20rpx;
   background-color: $gf-bg-card;
-  border-radius: $gf-radius-md;
+  border: 1rpx solid $gf-line;
+  border-radius: $gf-control-radius;
+  box-shadow: $gf-shadow-sm;
+}
+
+.search-mark,
+.search-clear {
+  flex-shrink: 0;
+  color: $gf-text-3;
+  text-align: center;
+}
+
+.search-mark {
+  width: 32rpx;
+  margin-right: 12rpx;
+  font-size: 34rpx;
+  line-height: 1;
+}
+
+.search {
+  min-width: 0;
+  flex: 1;
+  height: $gf-control-height;
+  min-height: $gf-control-height;
+  padding: 0;
+  font-size: $gf-font-md;
+  line-height: $gf-control-height;
+  color: $gf-text-1;
+  background-color: transparent;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.search-clear {
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 12rpx;
+  font-size: 34rpx;
+  line-height: 36rpx;
+  color: $gf-text-2;
+}
+
+.filters-scroll {
+  width: 100%;
+  margin-bottom: $gf-space-md;
+  white-space: nowrap;
 }
 
 .filters {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   gap: $gf-space-sm;
-  margin-bottom: $gf-space-md;
+  vertical-align: top;
+}
+
+.filters picker {
+  flex-shrink: 0;
 }
 
 .filter-chip {
-  padding: 8rpx $gf-space-md;
+  min-width: 176rpx;
+  height: 68rpx;
+  padding: 0 $gf-space-md;
   font-size: $gf-font-sm;
+  line-height: 68rpx;
   color: $gf-text-2;
   background-color: $gf-bg-card;
-  border-radius: $gf-radius-md;
+  border: 1rpx solid $gf-line;
+  border-radius: $gf-control-radius;
+  box-sizing: border-box;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .filter-chip.active {
@@ -235,6 +378,9 @@ function gotoDetail(id: string): void {
   padding: $gf-space-md;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
+  border: 1rpx solid $gf-line;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
 }
 
 .device-main {
@@ -246,25 +392,38 @@ function gotoDetail(id: string): void {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  gap: $gf-space-sm;
 }
 
 .device-name {
+  min-width: 0;
+  flex: 1;
   font-size: $gf-font-lg;
+  line-height: 1.35;
   font-weight: 600;
   color: $gf-text-1;
+  word-break: break-word;
 }
 
 .status-badge {
-  padding: 4rpx 12rpx;
+  flex-shrink: 0;
+  min-height: 48rpx;
+  padding: 0 12rpx;
   font-size: $gf-font-xs;
+  line-height: 48rpx;
   border-radius: $gf-radius-sm;
   color: $gf-color-primary;
   background-color: $gf-color-primary-weak;
 }
 
+.status-badge.in_use {
+  color: $gf-color-success;
+  background-color: $gf-color-success-weak;
+}
+
 .status-badge.idle {
   color: $gf-color-warning;
-  background-color: #fff3e8;
+  background-color: $gf-color-warning-weak;
 }
 
 .status-badge.sold,
@@ -277,14 +436,18 @@ function gotoDetail(id: string): void {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-sm;
+  line-height: 1.45;
   color: $gf-text-3;
+  word-break: break-word;
 }
 
 .device-price {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-md;
+  line-height: 1.4;
   color: $gf-text-1;
+  word-break: break-all;
 }
 
 .more {
@@ -298,20 +461,30 @@ function gotoDetail(id: string): void {
 }
 
 .primary-button {
+  width: calc(100% - 32rpx);
+  height: 88rpx;
+  min-height: 88rpx;
   margin: $gf-space-sm $gf-space-sm 0;
-  padding: 0 $gf-space-xl;
+  padding: 0 $gf-space-lg;
   font-size: $gf-font-md;
+  font-weight: 600;
+  line-height: 88rpx;
   color: #ffffff;
   background-color: $gf-color-primary;
-  border-radius: $gf-radius-md;
+  border-radius: $gf-control-radius;
 }
 
 .ghost-button {
+  width: calc(100% - 32rpx);
+  height: 80rpx;
+  min-height: 80rpx;
   margin: $gf-space-sm 0 0;
-  padding: 0 $gf-space-xl;
+  padding: 0 $gf-space-lg;
   font-size: $gf-font-md;
+  line-height: 80rpx;
   color: $gf-text-2;
   background-color: $gf-bg-page;
-  border-radius: $gf-radius-md;
+  border: 1rpx solid $gf-line;
+  border-radius: $gf-control-radius;
 }
 </style>

@@ -24,19 +24,25 @@ onLoad((query) => {
 
 <style scoped lang="scss">
 .page {
-  padding: $gf-space-lg $gf-space-md;
+  min-height: 100vh;
+  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .title {
+  display: block;
   font-size: $gf-font-xl;
   font-weight: 600;
+  line-height: 1.3;
   color: $gf-text-1;
+  word-break: break-word;
 }
 
 .meta {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-xs;
+  line-height: 1.4;
   color: $gf-text-3;
 }
 
@@ -44,13 +50,18 @@ onLoad((query) => {
   margin-top: $gf-space-md;
   padding: $gf-space-lg;
   background-color: $gf-bg-card;
+  border: 1rpx solid $gf-line;
   border-radius: $gf-radius-lg;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
 }
 
 .content {
+  display: block;
   font-size: $gf-font-sm;
   color: $gf-text-2;
   line-height: 1.8;
   white-space: pre-line;
+  word-break: break-word;
 }
 </style>

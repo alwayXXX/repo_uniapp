@@ -58,10 +58,10 @@
     }
   ],
   "tabBar": {
-    "color": "#86909c",
-    "selectedColor": "#165dff",
+    "color": "#80868b",
+    "selectedColor": "#1a73e8",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/home/index",
@@ -84,7 +84,7 @@
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "GearFlow",
-    "navigationBarBackgroundColor": "#F8F8F8",
-    "backgroundColor": "#F8F8F8"
+    "navigationBarBackgroundColor": "#F8F9FA",
+    "backgroundColor": "#F8F9FA"
   }
 }

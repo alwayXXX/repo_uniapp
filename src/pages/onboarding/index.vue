@@ -1,25 +1,28 @@
 <template>
   <view class="page">
-    <text class="title">GearFlow</text>
+    <view class="brand-lockup">
+      <view class="brand-mark"><text>G</text></view>
+      <text class="title">GearFlow</text>
+    </view>
     <text class="subtitle">低负担的设备资产台账</text>
 
     <view class="features">
       <view class="feature">
-        <text class="feature-icon">📋</text>
+        <view class="feature-icon"><text>01</text></view>
         <view class="feature-text">
           <text class="feature-title">记录设备档案</text>
           <text class="feature-desc">名称、购买、保修、维护，五项内完成首台录入</text>
         </view>
       </view>
       <view class="feature">
-        <text class="feature-icon">⏰</text>
+        <view class="feature-icon"><text>02</text></view>
         <view class="feature-text">
           <text class="feature-title">保修不再错过</text>
           <text class="feature-desc">自动计算保修状态，临期事项集中提醒</text>
         </view>
       </view>
       <view class="feature">
-        <text class="feature-icon">📊</text>
+        <view class="feature-icon"><text>03</text></view>
         <view class="feature-text">
           <text class="feature-title">看清资产与支出</text>
           <text class="feature-desc">设备数量、总资产、年度支出一目了然</text>
@@ -30,7 +33,7 @@
     <view class="agreement">
       <checkbox-group @change="onAgreeChange">
         <label class="agree-row">
-          <checkbox class="agree-checkbox" :checked="agreed" color="#165dff" />
+          <checkbox class="agree-checkbox" :checked="agreed" color="#1a73e8" />
           <text class="agree-text">我已阅读并同意</text>
         </label>
       </checkbox-group>
@@ -86,22 +89,49 @@ async function onEnter(): Promise<void> {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  padding: 120rpx $gf-space-lg $gf-space-xl;
+  padding: 120rpx $gf-space-lg calc(64rpx + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  background-color: $gf-bg-card;
+  background-color: $gf-bg-page;
+}
+
+.brand-lockup {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $gf-space-sm;
+}
+
+.brand-mark {
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: $gf-color-primary;
+  border-radius: 20rpx;
+  box-shadow: $gf-shadow-sm;
+}
+
+.brand-mark text {
+  font-size: 38rpx;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
 }
 
 .title {
-  font-size: 56rpx;
+  font-size: 48rpx;
   font-weight: 700;
+  line-height: 1.2;
   color: $gf-text-1;
 }
 
 .subtitle {
   margin-top: $gf-space-xs;
   font-size: $gf-font-md;
+  line-height: 1.45;
   color: $gf-text-3;
 }
 
@@ -114,16 +144,42 @@ async function onEnter(): Promise<void> {
   flex-direction: row;
   align-items: center;
   padding: $gf-space-md 0;
+  border-bottom: 1rpx solid $gf-line;
+}
+
+.feature:last-child {
+  border-bottom: 0;
 }
 
 .feature-icon {
-  font-size: 44rpx;
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-right: $gf-space-md;
+  background-color: $gf-color-primary-weak;
+  border-radius: $gf-radius-md;
+}
+
+.feature-icon text {
+  font-size: $gf-font-sm;
+  font-weight: 700;
+  line-height: 1;
+  color: $gf-color-primary;
+}
+
+.feature-text {
+  min-width: 0;
+  flex: 1;
 }
 
 .feature-title {
+  display: block;
   font-size: $gf-font-md;
   font-weight: 600;
+  line-height: 1.4;
   color: $gf-text-1;
 }
 
@@ -131,18 +187,20 @@ async function onEnter(): Promise<void> {
   display: block;
   margin-top: 4rpx;
   font-size: $gf-font-sm;
+  line-height: 1.5;
   color: $gf-text-3;
 }
 
 .agreement {
   margin-top: auto;
-  padding-top: $gf-space-xl;
+  padding-top: 56rpx;
 }
 
 .agree-row {
   display: flex;
   flex-direction: row;
   align-items: center;
+  min-height: 56rpx;
 }
 
 .agree-checkbox {
@@ -151,25 +209,37 @@ async function onEnter(): Promise<void> {
 
 .agree-text {
   font-size: $gf-font-sm;
+  line-height: 1.4;
   color: $gf-text-2;
 }
 
 .agree-links {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8rpx $gf-space-sm;
   margin-top: $gf-space-xs;
   padding-left: 44rpx;
 }
 
 .agree-link {
   font-size: $gf-font-xs;
+  line-height: 1.4;
   color: $gf-color-primary;
-  margin-right: $gf-space-sm;
 }
 
 .enter-button {
+  width: 100%;
+  height: 92rpx;
+  min-height: 92rpx;
   margin-top: $gf-space-lg;
+  padding: 0 $gf-space-lg;
   background-color: $gf-color-primary;
   color: #ffffff;
   font-size: $gf-font-lg;
+  font-weight: 600;
+  line-height: 92rpx;
+  border-radius: $gf-control-radius;
 }
 
 .enter-button[disabled] {
@@ -181,6 +251,7 @@ async function onEnter(): Promise<void> {
   display: block;
   margin-top: $gf-space-sm;
   font-size: $gf-font-sm;
+  line-height: 1.45;
   color: $gf-color-danger;
   text-align: center;
 }

@@ -14,10 +14,37 @@ onLaunch(() => {
 </script>
 
 <style>
-/* 全局基础样式（Phase 2 建立主题 Token） */
+/* Shared baseline: keep native controls readable across WeChat iOS and Android. */
 page {
-  background-color: #f6f7f9;
+  min-height: 100%;
+  background-color: #f8f9fa;
   font-size: 28rpx;
-  color: #1f2329;
+  color: #202124;
+  font-family: 'Noto Sans SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+view,
+text,
+button,
+input,
+textarea {
+  font-family: 'Noto Sans SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  box-sizing: border-box;
+}
+
+input,
+textarea {
+  display: block;
+}
+
+button {
+  min-height: 88rpx;
+  padding: 0 24rpx;
+  line-height: 1.35;
+  border-radius: 12rpx;
+}
+
+button::after {
+  border: 0;
 }
 </style>

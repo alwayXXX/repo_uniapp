@@ -14,6 +14,7 @@ withDefaults(defineProps<{ text?: string }>(), { text: '加载中…' })
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 0;
   padding: $gf-space-xl 0;
 }
 
@@ -29,7 +30,9 @@ withDefaults(defineProps<{ text?: string }>(), { text: '加载中…' })
 .text {
   margin-top: $gf-space-sm;
   font-size: $gf-font-sm;
+  line-height: 1.45;
   color: $gf-text-3;
+  text-align: center;
 }
 
 @keyframes gf-spin {

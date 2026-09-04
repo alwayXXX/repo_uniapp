@@ -16,6 +16,7 @@
               <text class="name">{{ displayName }}</text>
               <text class="edit-mark">编辑</text>
             </view>
+            <text class="user-caption">你的设备数据仅对你可见</text>
           </view>
         </view>
       </view>
@@ -162,7 +163,9 @@ function askConfirmationText(): void {
 
 <style scoped lang="scss">
 .page {
-  padding: $gf-space-lg $gf-space-md;
+  min-height: 100vh;
+  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .card {
@@ -170,12 +173,16 @@ function askConfirmationText(): void {
   padding: $gf-space-lg;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
+  border: 1rpx solid $gf-line;
+  box-shadow: $gf-shadow-sm;
+  box-sizing: border-box;
 }
 
 .user-row {
   display: flex;
   flex-direction: row;
   align-items: center;
+  min-width: 0;
 }
 
 .avatar {
@@ -195,6 +202,8 @@ function askConfirmationText(): void {
 }
 
 .user-info {
+  min-width: 0;
+  flex: 1;
   margin-left: $gf-space-md;
 }
 
@@ -206,14 +215,29 @@ function askConfirmationText(): void {
 }
 
 .name {
+  min-width: 0;
+  flex: 1;
   font-size: $gf-font-lg;
   font-weight: 600;
+  line-height: 1.35;
   color: $gf-text-1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .edit-mark {
+  flex-shrink: 0;
   font-size: $gf-font-xs;
   color: $gf-color-primary;
+}
+
+.user-caption {
+  display: block;
+  margin-top: 8rpx;
+  font-size: $gf-font-xs;
+  line-height: 1.4;
+  color: $gf-text-3;
 }
 
 .cell {
@@ -221,38 +245,59 @@ function askConfirmationText(): void {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+  gap: $gf-space-md;
   padding: $gf-space-sm 0;
 }
 
+.cell + .cell {
+  border-top: 1rpx solid $gf-line;
+}
+
 .cell-label {
+  min-width: 0;
+  flex: 1;
   font-size: $gf-font-md;
+  line-height: 1.4;
   color: $gf-text-1;
 }
 
 .cell-arrow {
+  flex-shrink: 0;
   font-size: $gf-font-lg;
+  line-height: 1;
   color: $gf-text-4;
 }
 
 .action-button {
+  width: 100%;
+  height: 84rpx;
+  min-height: 84rpx;
   margin-bottom: $gf-space-sm;
+  padding: 0 $gf-space-md;
   font-size: $gf-font-md;
+  line-height: 84rpx;
   color: $gf-text-1;
-  background-color: $gf-bg-page;
-  border-radius: $gf-radius-md;
+  background-color: $gf-bg-subtle;
+  border-radius: $gf-control-radius;
 }
 
 .danger-button {
+  width: 100%;
+  height: 84rpx;
+  min-height: 84rpx;
+  padding: 0 $gf-space-md;
   font-size: $gf-font-md;
+  line-height: 84rpx;
   color: $gf-color-danger;
-  background-color: #ffece8;
-  border-radius: $gf-radius-md;
+  background-color: $gf-color-danger-weak;
+  border-radius: $gf-control-radius;
 }
 
 .danger-hint {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-xs;
+  line-height: 1.45;
   color: $gf-text-3;
   text-align: center;
 }

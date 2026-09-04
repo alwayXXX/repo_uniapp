@@ -23,6 +23,7 @@ withDefaults(defineProps<{ title?: string; hint?: string }>(), {
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 0;
   padding: $gf-space-xl $gf-space-lg;
 }
 
@@ -33,6 +34,7 @@ withDefaults(defineProps<{ title?: string; hint?: string }>(), {
   align-items: center;
   justify-content: center;
   background-color: $gf-bg-page;
+  border: 1rpx solid $gf-line;
   border-radius: 50%;
 }
 
@@ -44,14 +46,18 @@ withDefaults(defineProps<{ title?: string; hint?: string }>(), {
 .title {
   margin-top: $gf-space-md;
   font-size: $gf-font-md;
+  line-height: 1.4;
   color: $gf-text-2;
+  text-align: center;
 }
 
 .hint {
   margin-top: $gf-space-xs;
   font-size: $gf-font-sm;
+  line-height: 1.5;
   color: $gf-text-3;
   text-align: center;
+  word-break: break-word;
 }
 
 .action {

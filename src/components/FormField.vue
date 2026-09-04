@@ -30,42 +30,57 @@ withDefaults(
 
 <style scoped lang="scss">
 .form-field {
-  padding: $gf-space-sm 0;
+  padding: 18rpx 0;
 }
 
 .label-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin-bottom: $gf-space-xs;
+  min-height: 34rpx;
+  margin-bottom: 10rpx;
 }
 
 .required {
   margin-right: 6rpx;
   color: $gf-color-danger;
-  font-size: $gf-font-md;
+  font-size: $gf-font-sm;
+  line-height: 1;
 }
 
 .label {
-  font-size: $gf-font-md;
+  font-size: $gf-font-sm;
+  font-weight: 600;
+  line-height: 1.4;
   color: $gf-text-1;
 }
 
 .control {
   width: 100%;
+  min-width: 0;
+}
+
+.control > view,
+.control > input,
+.control > textarea,
+.control > picker {
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .error {
   display: block;
-  margin-top: $gf-space-xs;
+  margin-top: 10rpx;
   font-size: $gf-font-xs;
+  line-height: 1.45;
   color: $gf-color-danger;
 }
 
 .hint {
   display: block;
-  margin-top: $gf-space-xs;
+  margin-top: 10rpx;
   font-size: $gf-font-xs;
+  line-height: 1.45;
   color: $gf-text-3;
 }
 </style>

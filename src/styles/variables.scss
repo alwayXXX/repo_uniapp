@@ -4,28 +4,36 @@
  * TS 侧常量见 src/styles/tokens.ts，两处值必须保持一致。
  */
 
-/* 品牌与语义色 */
-$gf-color-primary: #165dff;
-$gf-color-primary-weak: #e8f0ff;
-$gf-color-success: #00b578;
-$gf-color-warning: #ff8f1f;
-$gf-color-danger: #f53f3f;
+/* GearFlow uses a restrained Material-inspired palette. */
+$gf-color-primary: #1a73e8;
+$gf-color-primary-weak: #e8f0fe;
+$gf-color-primary-strong: #185abc;
+$gf-color-success: #188038;
+$gf-color-success-weak: #e6f4ea;
+$gf-color-warning: #b06000;
+$gf-color-warning-weak: #fef7e0;
+$gf-color-danger: #d93025;
+$gf-color-danger-weak: #fce8e6;
 
 /* 文字 */
-$gf-text-1: #1f2329;
-$gf-text-2: #4e5969;
-$gf-text-3: #86909c;
-$gf-text-4: #c9cdd4;
+$gf-text-1: #202124;
+$gf-text-2: #5f6368;
+$gf-text-3: #80868b;
+$gf-text-4: #bdc1c6;
 
 /* 背景与分割 */
-$gf-bg-page: #f6f7f9;
+$gf-bg-page: #f8f9fa;
 $gf-bg-card: #ffffff;
-$gf-line: #f0f1f3;
+$gf-bg-subtle: #f1f3f4;
+$gf-line: #dadce0;
+
+/* 轻量层次：以边框为主，阴影只用于可交互表面。 */
+$gf-shadow-sm: 0 2rpx 10rpx rgba(32, 33, 36, 0.06);
 
 /* 圆角 */
 $gf-radius-sm: 8rpx;
-$gf-radius-md: 16rpx;
-$gf-radius-lg: 24rpx;
+$gf-radius-md: 12rpx;
+$gf-radius-lg: 16rpx;
 
 /* 间距 */
 $gf-space-xs: 8rpx;
@@ -40,3 +48,7 @@ $gf-font-sm: 24rpx;
 $gf-font-md: 28rpx;
 $gf-font-lg: 32rpx;
 $gf-font-xl: 40rpx;
+
+/* Native mini-program controls need explicit dimensions to avoid baseline clipping. */
+$gf-control-height: 88rpx;
+$gf-control-radius: 12rpx;

@@ -30,6 +30,7 @@ const emit = defineEmits<{ retry: [] }>()
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 0;
   padding: $gf-space-xl $gf-space-lg;
 }
 
@@ -39,7 +40,8 @@ const emit = defineEmits<{ retry: [] }>()
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #ffece8;
+  background-color: $gf-color-danger-weak;
+  border: 1rpx solid $gf-color-danger-weak;
   border-radius: 50%;
 }
 
@@ -52,23 +54,30 @@ const emit = defineEmits<{ retry: [] }>()
 .title {
   margin-top: $gf-space-md;
   font-size: $gf-font-md;
+  line-height: 1.4;
   color: $gf-text-2;
   text-align: center;
+  word-break: break-word;
 }
 
 .hint {
   margin-top: $gf-space-xs;
   font-size: $gf-font-sm;
+  line-height: 1.5;
   color: $gf-text-3;
   text-align: center;
+  word-break: break-word;
 }
 
 .retry {
+  height: 80rpx;
+  min-height: 80rpx;
   margin-top: $gf-space-lg;
-  padding: 0 $gf-space-xl;
+  padding: 0 $gf-space-lg;
   font-size: $gf-font-md;
+  line-height: 80rpx;
   color: $gf-color-primary;
   background-color: $gf-color-primary-weak;
-  border-radius: $gf-radius-md;
+  border-radius: $gf-control-radius;
 }
 </style>
