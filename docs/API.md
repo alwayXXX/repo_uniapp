@@ -122,7 +122,7 @@ auth.bootstrap
 auth.logout
 ```
 
-清理 GearFlow 客户端状态；CloudBase / 微信平台身份生命周期按官方能力处理。
+调用 CloudBase SDK `signOut()` 结束本机持久化会话，并清理 GearFlow 客户端状态；不会删除云端业务数据。
 
 ## 4. 用户接口
 
@@ -147,7 +147,7 @@ user.updateProfile
 }
 ```
 
-资料均为可选，最小化收集。
+资料均为可选，最小化收集。客户端只能通过服务端边界更新 `nickname` / `avatarUrl`，不能直接修改 `identityId` 或 `status`。
 
 ### 4.3 申请注销
 
@@ -328,13 +328,14 @@ device.create
 
 校验：
 
-- `name` 必填
-- `categoryId` 必须有效
-- `warranty.endDate >= warranty.startDate`
-- `purchaseDate` 不能晚于今天
-- 价格不能为负
+- `name` 必填且去空白后不超过 64 个字符
+- `categoryId` 必须是启用中的系统分类
+- `warranty.endDate >= warranty.startDate`，日期需成对填写或全部清空
+- `purchaseDate` 不能晚于当前业务日期，且必须是实际存在的日历日期
+- 价格不能为负且不能超过数据库整数分上限
+- 当前 MVP 币种固定为 `CNY`
 
-实现说明：Phase 6 通过 `app.rdb()` 创建 Device，`userId` 由 `DEFAULT auth.uid()` 与 RLS 双重约束；PG 触发器同步追加 `CREATED` 时间线事件。Warranty 与 DeviceCost 不在本阶段写入，留给 Phase 7。
+实现说明：设备创建/更新与保修同步通过 PostgreSQL `SECURITY DEFINER` RPC 在一个事务内完成；`userId` 由 `auth.uid()` 派生，PG 触发器同步追加设备时间线事件。客户端不持有设备或保修表写权限。
 
 ### 7.4 更新设备
 
@@ -342,7 +343,7 @@ device.create
 device.update
 ```
 
-支持部分更新。业务字段确实变化时，PG 触发器追加 `UPDATED` 事件；状态转为 `SOLD / DISCARDED` 时改为追加 `DISPOSED`。仅 `updatedAt` 变化不生成事件。事件摘要只包含变更字段名，不包含变更前后原值。
+支持部分更新。业务字段确实变化时，PG 触发器追加 `UPDATED` 事件；状态转为 `SOLD / DISCARDED` 时改为追加 `DISPOSED`。仅 `updatedAt` 变化不生成事件。事件摘要只包含变更字段名，不包含变更前后原值。设备与保修更新在同一事务内提交。
 
 ### 7.5 删除设备
 
@@ -358,7 +359,7 @@ device.delete
 }
 ```
 
-MVP 为软删除，默认列表和统计不再显示。PG 触发器在软删除时追加 `DISPOSED` 审计事件；时间线 RLS 随后因设备已删除而不再向客户端返回任何历史行。
+MVP 为软删除，默认列表和统计不再显示。`device.delete` 通过受保护 RPC 执行，PG 触发器在软删除时追加 `DISPOSED` 审计事件；时间线、维护、保修和成本 RLS 随后因设备已删除而不再向客户端返回任何历史行。
 
 ## 8. 维护记录接口
 
@@ -399,10 +400,10 @@ maintenance.update
 maintenance.delete
 ```
 
-维护记录写操作通过云函数执行，并同步：
+维护记录写操作通过 PostgreSQL `SECURITY DEFINER` RPC 执行，并在服务端再次校验标题、类型、日期、金额、长度、设备归属和软删除状态；失败时事务整体回滚。成功后同步：
 
-- 时间线
-- 统计成本表
+- 时间线（payload 仅含非敏感摘要，不含费用）
+- 统计成本表（`MAINTENANCE` 行以 `maintenanceId` 唯一关联）
 
 ## 9. 时间线接口
 
@@ -508,7 +509,7 @@ statistics.overview
 - `totalAssetCents`：直读当前未软删除设备的 `devices.purchase_price_cents`，不受日期范围限制；空价格不计入。
 - `purchaseSpendCents`：按 `devices.purchase_date` 落在 `[startDate, endDate]` 的购买价格聚合；空购买日期不计入。
 - `maintenanceSpendCents`：只聚合 `device_costs.cost_type = 'MAINTENANCE'` 且 `occurred_at` 落在日期范围内的成本行，并关联当前未软删除设备。
-- `currency`：当前 MVP 默认 `CNY`；金额均以整数分返回，前端负责千分位与符号展示。
+- `currency`：当前 MVP 固定 `CNY`（数据库约束保证单币种）；金额均以整数分返回，前端负责千分位与符号展示。多币种需先补充分桶/换算契约后再放开。
 - 日期范围无效时，前端回退为当年 1 月 1 日至 12 月 31 日；服务端仍会拒绝无法解析的日期参数。
 
 ## 11. P1 / P2 预留接口

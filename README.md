@@ -25,10 +25,10 @@ pnpm format             # Prettier 格式化
 
 ## 运行到微信开发者工具
 
-1. 在 `src/manifest.json` 的 `mp-weixin.appid` 填入你的小程序 AppID（当前为占位值 `touristappid`）。
+1. 项目已在 `src/manifest.json` 配置绑定的小程序 AppID；若切换到其他小程序，再替换为对应 AppID。
 2. 执行 `pnpm dev:mp-weixin`（或 `pnpm build:mp-weixin`）。
 3. 用微信开发者工具导入 `dist/dev/mp-weixin`（或 `dist/build/mp-weixin`）目录。
-4. 云函数目录已通过构建插件同步到产物内（`cloudfunctions/`），可直接在开发者工具中上传部署。
+4. 当前 MVP 的设备、维护、统计和注销写入由 CloudBase PostgreSQL RPC 提供；`cloudfunctions/` 仅保留未来 P1/异步能力的目录占位。
 
 ## Git 钩子（Husky）
 
@@ -40,7 +40,7 @@ pnpm format             # Prettier 格式化
 
 - 提交信息使用 `type(scope): summary` 格式，见 [AGENTS.md](AGENTS.md)。
 - 已配置 Husky：pre-commit 对暂存文件自动执行 ESLint 修复与 Prettier 格式化（lint-staged）。
-- 全量类型检查不在钩子中执行，提交前请手动运行 `pnpm type-check`。
+- pre-commit 随后执行全量 `pnpm type-check`；pre-push 执行 `pnpm test` 与 `pnpm build:mp-weixin`。
 
 ## CloudBase 配置
 
@@ -62,7 +62,7 @@ src/
 ├── types/         # API 与业务类型（API 契约类型在 types/api/）
 ├── utils/         # 工具（错误转换等）
 └── validators/    # 表单校验
-cloudfunctions/    # CloudBase 云函数
+cloudfunctions/    # 未来 P1/异步能力的 CloudBase 云函数占位
 ```
 
 # hooks verification

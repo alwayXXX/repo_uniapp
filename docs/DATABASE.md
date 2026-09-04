@@ -18,9 +18,9 @@
 
 - 每个逻辑实体映射为一张 PG 表，物理列使用 snake_case（如 `user_id`、`created_at`），服务层负责 camelCase 映射。
 - `id` 使用 UUID 主键（`gen_random_uuid()`）；`user_id` 存放 CloudBase 可信身份 UID（`auth.uid()`），与 `users.identity_id` 同值。
-- 表与保修、维护、时间线、成本之间通过字符串/UUID 引用列关联，不依赖外键级联，引用完整性由云函数校验。
-- 数据权限由 RLS 策略强制（`auth.uid()` 判定归属），客户端无法伪造归属列；`WITH CHECK` 保证写入归属不可指定为他人。
-- 简单读写走 JS SDK v3 `app.rdb()`（受 RLS 约束）；跨表一致性由 PG 触发器、`SECURITY DEFINER` RPC 或后续云函数承担。
+- 表与保修、维护、时间线、成本之间使用 UUID 外键和用户归属复合外键维持引用完整性；软删除仍保留设备及其历史行，物理删除（仅账号注销）按依赖顺序执行并由外键级联兜底。
+- 数据权限由 RLS 策略强制（`auth.uid()` 判定归属），客户端无法伪造归属列；写入统一经过受保护 RPC，函数内部仍以 `auth.uid()` 做归属校验。
+- 简单只读走 JS SDK v3 `app.rdb()`（受 RLS 约束）；设备、维护、资料、注销等写操作走 `SECURITY DEFINER` RPC，跨表一致性由 RPC 或 PG 触发器承担。
 - 按实际查询组合创建普通或组合索引，不照搬关系型数据库索引语法。
 - 保留稳定业务 ID、明确时间字段和扁平引用，未来若迁移到自建 PostgreSQL / MySQL 属同引擎平移。
 
@@ -93,26 +93,26 @@ User 1─n ConsentRecord
 
 ### 4.3 Device / `devices`
 
-| 字段               | 类型                 | 说明                             |
-| ------------------ | -------------------- | -------------------------------- |
-| id                 | string               | 逻辑主键                         |
-| userId             | string               | 所属用户，由可信身份写入         |
-| categoryId         | string               | 分类引用                         |
-| name               | string               | 设备名称，必填，最长 64 字符     |
-| brand              | string nullable      | 品牌                             |
-| model              | string nullable      | 型号                             |
-| serialNumber       | string nullable      | 序列号                           |
-| status             | string enum          | IN_USE / IDLE / SOLD / DISCARDED |
-| purchaseDate       | date string nullable | 购买日期，格式 `YYYY-MM-DD`      |
-| purchaseChannel    | string nullable      | 购买渠道                         |
-| purchasePriceCents | int nullable         | 购买价格，单位分                 |
-| currency           | string               | ISO 4217 币种，默认 CNY          |
-| disposalDate       | date string nullable | 处置日期                         |
-| disposalPriceCents | int nullable         | 处置收入，单位分                 |
-| notes              | string nullable      | 备注，最长 1000 字符             |
-| deletedAt          | timestamp nullable   | 软删除                           |
-| createdAt          | timestamp            | 创建时间                         |
-| updatedAt          | timestamp            | 更新时间                         |
+| 字段               | 类型                 | 说明                                                  |
+| ------------------ | -------------------- | ----------------------------------------------------- |
+| id                 | string               | 逻辑主键                                              |
+| userId             | string               | 所属用户，由可信身份写入                              |
+| categoryId         | string               | 分类引用                                              |
+| name               | string               | 设备名称，必填，最长 64 字符                          |
+| brand              | string nullable      | 品牌                                                  |
+| model              | string nullable      | 型号                                                  |
+| serialNumber       | string nullable      | 序列号                                                |
+| status             | string enum          | IN_USE / IDLE / SOLD / DISCARDED                      |
+| purchaseDate       | date string nullable | 购买日期，格式 `YYYY-MM-DD`                           |
+| purchaseChannel    | string nullable      | 购买渠道                                              |
+| purchasePriceCents | int nullable         | 购买价格，单位分                                      |
+| currency           | string               | 当前 MVP 固定为 `CNY`；多币种需先补统计分桶与换算契约 |
+| disposalDate       | date string nullable | 处置日期                                              |
+| disposalPriceCents | int nullable         | 处置收入，单位分                                      |
+| notes              | string nullable      | 备注，最长 1000 字符                                  |
+| deletedAt          | timestamp nullable   | 软删除                                                |
+| createdAt          | timestamp            | 创建时间                                              |
+| updatedAt          | timestamp            | 更新时间                                              |
 
 索引：
 
@@ -126,6 +126,8 @@ User 1─n ConsentRecord
 - `purchasePriceCents >= 0`
 - `disposalPriceCents >= 0`
 - `disposalDate >= purchaseDate`
+- `currency = 'CNY'`（当前 MVP 单币种约束，避免统计把不可比金额直接相加）
+- `categoryId` 必须指向启用中的系统分类
 
 序列号为敏感字段，只返回给数据拥有者，且日志禁止输出。
 
@@ -147,13 +149,14 @@ User 1─n ConsentRecord
 索引：
 
 - `_id` 文档主键
-- `deviceId` 单字段查询索引；一设备一保修由云函数保证
+- `deviceId` 单字段查询索引；一设备一保修由唯一约束保证
 - 组合查询索引：`userId + endDate`
 
 校验：
 
 - `endDate >= startDate`
 - 保修状态不落库，按当前日期计算，避免数据过期。
+- 客户端只能读取；新增、更新和清除由设备保存事务 RPC 一并完成。
 
 ### 4.5 MaintenanceRecord / `maintenanceRecords`
 
@@ -181,6 +184,8 @@ User 1─n ConsentRecord
 
 - `costCents >= 0`
 - `occurredAt >= device.purchaseDate`（如果购买日期存在）
+- `title` 去空白后不能为空；`type` 必须属于维护类型枚举。
+- 客户端只能读取；写入必须通过维护生命周期 RPC，避免绕过成本和时间线联动。
 
 ### 4.6 Attachment / `attachments`
 
@@ -262,11 +267,13 @@ P1 表，MVP 不启用。
 
 用途：
 
-统计设备年度支出、维护成本和净成本。`PURCHASE` 与 `DISPOSAL_INCOME` 仍作为未来 P1 处置/记账能力的保留枚举，但当前 Phase 8 不写入这两类行：
+统计设备年度支出、维护成本和净成本。当前 MVP 只允许 `MAINTENANCE` 行，`PURCHASE` 与 `DISPOSAL_INCOME` 仍作为未来 P1 处置/记账能力的保留枚举，但当前 Phase 8 不写入这两类行：
 
 - 购买支出直接读取设备的 `purchasePriceCents`，按 `purchaseDate` 聚合
 - 维护支出读取 `MAINTENANCE` 行
 - P1 处置收入暂不计入当前统计
+
+`maintenanceId` 为每条维护成本的幂等键并带外键；同一设备同日同金额的多条维护记录不会互相冲突。当前设备表固定 `CNY`，因此成本行继承设备币种且统计金额可直接比较。
 
 ### 4.9 ConsentRecord / `consentRecords`
 
@@ -307,12 +314,10 @@ P1 表，MVP 不启用。
 5. 将 User 身份映射替换为不可逆随机值，并标记 `DELETED`
 6. 写入不可关联用户的审计摘要
 
-账号注销由云函数统一编排。对支持原子或事务操作的范围使用平台能力；跨数据库与云存储的删除采用幂等步骤和可恢复状态：
+账号注销由 PostgreSQL `SECURITY DEFINER` RPC 统一编排。当前数据库范围在一个事务内按“保修 → 成本 → 维护 → 时间线 → 设备 → 同意记录 → 用户匿名化”执行；附件/云存储接入后再扩展为幂等任务流：
 
 ```text
-标记 DELETING
-→ 分批删除用户集合数据
-→ 删除 CloudBase 云存储文件
+删除业务表数据
 → 匿名化 User 身份映射
 → 标记 DELETED
 ```
@@ -400,7 +405,7 @@ CREATE TABLE users (
 );
 ```
 
-RLS：客户端仅能 `SELECT` / `UPDATE` 自己的行（`identity_id = auth.uid()`）；`INSERT` 不开放给客户端，由**服务端边界**执行——实现为 `SECURITY DEFINER` RPC 函数 `gf_bootstrap_user`（见 9.4），身份强制取 `auth.uid()`，客户端无法伪造。
+RLS：客户端仅能 `SELECT` 自己的行（`identity_id = auth.uid()`）；`INSERT/UPDATE/DELETE` 不开放给客户端，由**服务端边界**执行——身份初始化、资料更新和注销均通过 `SECURITY DEFINER` RPC，身份强制取 `auth.uid()`，客户端无法伪造。
 
 ### 9.2 devices
 
@@ -408,7 +413,7 @@ RLS：客户端仅能 `SELECT` / `UPDATE` 自己的行（`identity_id = auth.uid
 CREATE TABLE devices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id varchar(64) NOT NULL DEFAULT auth.uid(),  -- 归属由数据库默认值写入，客户端不可指定
-  category_id uuid,                                  -- 逻辑引用 device_categories.id，无外键
+  category_id uuid NOT NULL,                         -- 外键 → device_categories.id（仅启用系统分类）
   name varchar(64) NOT NULL,
   status varchar(16) NOT NULL DEFAULT 'IN_USE',      -- IN_USE / IDLE / SOLD / DISCARDED
   brand varchar(64),
@@ -431,7 +436,7 @@ CREATE INDEX idx_devices_user_category ON devices (user_id, category_id, deleted
 CREATE INDEX idx_devices_user_purchase ON devices (user_id, purchase_date);
 ```
 
-RLS：`SELECT/INSERT/UPDATE/DELETE` 全部限定 `user_id = auth.uid()`，`INSERT` 使用 `WITH CHECK`，归属列不可伪造；`DEFAULT auth.uid()` 由数据库写入归属。删除 = 软删除（置 `deleted_at`），列表与统计过滤 `deleted_at IS NULL`。
+RLS：客户端仅可查询本人且 `deleted_at IS NULL` 的设备；`INSERT/UPDATE/DELETE` 不授予客户端，由 `gf_save_device_with_warranty` 与 `gf_soft_delete_device` 以 `auth.uid()` 校验后执行。删除 = 软删除（置 `deleted_at`），列表与统计过滤 `deleted_at IS NULL`。
 
 ### 9.2.1 device_categories（Phase 4）
 
@@ -463,7 +468,10 @@ CREATE TABLE device_categories (
 用户行的创建与注销通过 `SECURITY DEFINER` RPC 函数实现（客户端经 `rdb.rpc()` 调用，函数以表属主权限运行、绕过 RLS，但身份只能来自 JWT）：
 
 - **`gf_bootstrap_user(p_privacy text, p_terms text)`**：upsert 当前 `auth.uid()` 的用户行（首次创建 / 更新 `last_login_at`），按传入版本幂等写入 `consent_records`，返回 `{ user: { id, nickname, avatarUrl, isNewUser } }`（API.md 3.1 契约）。函数内 `EXECUTE` 权限仅授予 `authenticated`。
-- **`gf_delete_account()`**：物理删除当前身份的 `device_timelines`、`devices` 与 `consent_records`，将用户行匿名化（`identity_id` 替换为 `deleted:<uuid>`、昵称头像清空、`status = 'DELETED'`），返回删除统计。匿名化后旧 JWT 自动失配 RLS，数据不可访问；再次登录会创建全新用户（DATABASE.md 第 5 节语义）。
+- **`gf_delete_account()`**：在单事务内物理删除当前身份的 `warranties`、`device_costs`、`maintenance_records`、`device_timelines`、`devices` 与 `consent_records`，再将用户行匿名化（`identity_id` 替换为 `deleted:<uuid>`、昵称头像清空、`status = 'DELETED'`），返回各表删除统计。匿名化后旧 JWT 自动失配 RLS，数据不可访问；再次登录会创建全新用户（DATABASE.md 第 5 节语义）。
+- **`gf_update_profile(p_nickname text, p_avatar_url text)`**：仅更新当前身份可编辑的昵称/头像字段，避免客户端直接修改 `identity_id` 或 `status`。
+- **`gf_save_device_with_warranty(...)`**：在一个事务内创建/更新设备并同步一设备一保修；设备写入触发器仍负责时间线事件，保修清除通过同一 RPC 完成。
+- **`gf_soft_delete_device(p_id text)`**：校验当前身份后执行设备软删除；设备及保修、维护、成本、时间线历史行保留，但因 RLS/统计过滤不再对用户可见。
 - `auth-bootstrap` 云函数（wx.cloud 文档数据库变体）已被上述 RPC 取代并删除。
 
 ### 9.5 consent_records（Phase 3）
@@ -479,7 +487,7 @@ CREATE TABLE consent_records (
 );
 ```
 
-RLS：`SELECT` / `INSERT` 限本人（`user_id = auth.uid()`）；无 `UPDATE` / `DELETE`——同意记录不可篡改，仅随账号注销物理删除。协议正文为静态法律文本，由前端常量维护（`src/constants/policies.ts`），数据库只记录版本与时间。
+RLS：客户端仅可 `SELECT` 本人记录；`INSERT/UPDATE/DELETE` 均不授予客户端，由身份初始化/注销 RPC 维护。同意记录不可篡改，仅随账号注销物理删除。协议正文为静态法律文本，由前端常量维护（`src/constants/policies.ts`），数据库只记录版本与时间。
 
 ### 9.6 device_timelines（Phase 6）
 
@@ -497,19 +505,19 @@ CREATE TABLE device_timelines (
 );
 ```
 
-RLS：`authenticated` 仅可查询本人且关联设备未软删除的行；不授予直接写权限。`gf_append_device_timeline()` 为不对客户端暴露执行权的 `SECURITY DEFINER` 触发器函数，只从 `devices` 的受 RLS 写入生成事件。旧设备在迁移时幂等回填一条 `CREATED`。
+RLS：`authenticated` 仅可查询本人且关联设备未软删除的行；不授予直接写权限。`gf_append_device_timeline()` 为不对客户端暴露执行权的 `SECURITY DEFINER` 触发器函数，只从设备受保护写入生成事件。旧设备在迁移时幂等回填一条 `CREATED`。
 
 ### 9.6 maintenance_records（Phase 7）
 
 ```sql
 CREATE TABLE maintenance_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  device_id uuid NOT NULL,                         -- 逻辑引用 devices.id，无外键
+  device_id uuid NOT NULL,                         -- 复合外键 (device_id,user_id) → devices(id,user_id)
   user_id varchar(64) NOT NULL DEFAULT auth.uid(),
   title varchar(64) NOT NULL,
-  type varchar(16) NOT NULL,                       -- REPAIR/UPGRADE/CLEAN/REPLACE/INSPECT/OTHER
+  type varchar(16) NOT NULL CHECK (type IN ('REPAIR','UPGRADE','CLEAN','REPLACE','INSPECT','OTHER')),
   occurred_at date NOT NULL,
-  cost_cents integer,                              -- 可空；≥0，单位分
+  cost_cents integer CHECK (cost_cents IS NULL OR cost_cents >= 0), -- 可空；单位分
   vendor varchar(128),
   notes varchar(1000),
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -519,9 +527,9 @@ CREATE INDEX idx_maint_device_date ON maintenance_records (device_id, occurred_a
 CREATE INDEX idx_maint_user_date_type ON maintenance_records (user_id, occurred_at, type);
 ```
 
-RLS：`SELECT/INSERT/UPDATE/DELETE` 全部限本人（`user_id = auth.uid()`），`INSERT` 带 `WITH CHECK`。校验规则（docs/API.md 8）：标题必填 ≤64；发生日期必填、不晚于今天、不早于设备购买日期；费用 ≥0 两位小数。校验在前端完成，服务端由 RPC 再验设备归属。
+RLS：客户端仅可查询本人且关联设备未软删除的行；`INSERT/UPDATE/DELETE` 不授予客户端。校验规则（docs/API.md 8）：标题去空白后必填 ≤64；发生日期必填、不晚于当前业务日期、不早于设备购买日期；费用 ≥0 两位小数。服务端 RPC 在写入前再次校验，失败时不产生部分写入。
 
-**与时间线/成本表的联动由 `SECURITY DEFINER` RPC 保证**（见 9.8）：新增维护原子地追加一条 `MAINTENANCE` 时间线事件并写入 `device_costs`；删除维护同步删除对应成本行。
+**与时间线/成本表的联动由 `SECURITY DEFINER` RPC 保证**（见 9.8）：新增维护原子地追加一条 `MAINTENANCE` 时间线事件并写入 `device_costs`；更新/删除维护精确按 `maintenance_id` 同步成本行。时间线 payload 只保留非敏感摘要，不写入费用。
 
 ### 9.7 device_costs（Phase 7，Phase 8 统计口径）
 
@@ -530,24 +538,24 @@ CREATE TABLE device_costs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   device_id uuid NOT NULL,
   user_id varchar(64) NOT NULL DEFAULT auth.uid(),
-  cost_type varchar(16) NOT NULL,                  -- MAINTENANCE（Phase 8 统计口径；不写入 PURCHASE 行）
+  cost_type varchar(16) NOT NULL CHECK (cost_type = 'MAINTENANCE'),
   amount_cents integer NOT NULL CHECK (amount_cents >= 0),
   occurred_at date NOT NULL,
-  maintenance_id uuid,                              -- 溯源：MAINTENANCE 行指向来源维护记录
+  maintenance_id uuid NOT NULL,                     -- 溯源：MAINTENANCE 行指向来源维护记录
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (device_id, cost_type, occurred_at, amount_cents)
+  UNIQUE (maintenance_id)
 );
 CREATE INDEX idx_costs_user_type_date ON device_costs (user_id, cost_type, occurred_at);
 ```
 
-RLS：`SELECT` 限本人；写权限不开放给客户端。当前口径只保留由维护 RPC 原子写入的 `MAINTENANCE` 行，并通过 `maintenance_id` 溯源（更新/删除维护时精确定位同步）；**不写入也不依赖 `PURCHASE` 行**。总资产统一直读 `devices.purchase_price_cents`（过滤 `deleted_at IS NULL`），购买支出 `purchase_spend` 按 `devices.purchase_date` 聚合；`device_costs` 仅用于维护支出统计。`PURCHASE` 与 `DISPOSAL_INCOME` 为未来 P1 保留枚举，不代表当前写入或统计来源。UNIQUE 约束防重复记账。
+RLS：客户端仅可查询本人且关联设备未软删除的行；写权限不开放给客户端。当前口径只保留由维护 RPC 原子写入的 `MAINTENANCE` 行，并通过 `maintenance_id` 溯源（更新/删除维护时精确定位同步）；**不写入也不依赖 `PURCHASE` 行**。总资产统一直读 `devices.purchase_price_cents`（过滤 `deleted_at IS NULL`），购买支出 `purchase_spend` 按 `devices.purchase_date` 聚合；`device_costs` 仅用于维护支出统计。当前设备币种固定为 `CNY`，避免把不可比较的多币种金额直接相加。`PURCHASE` 与 `DISPOSAL_INCOME` 为未来 P1 保留枚举，不代表当前写入或统计来源。唯一约束使用 `maintenance_id`，同一设备同日同金额的多条维护记录不会互相冲突。
 
 ### 9.8 维护记录生命周期 RPC（Phase 7）
 
-- **`gf_add_maintenance(p_device_id, p_title, p_type, p_occurred_at, p_cost_cents, p_vendor, p_notes)`**：校验设备归属（`user_id = auth.uid()`）后原子完成：写 `maintenance_records` → 写 `device_costs`（MAINTENANCE，金额非空时）→ 追加 `MAINTENANCE` 时间线事件（event_date=发生日期，payload 记录费用）。返回 `{ ok, id }`。
-- **`gf_update_maintenance(p_id, ...同上字段)`**：更新维护行并同步其成本行（`ON CONFLICT DO UPDATE`），返回 `{ ok }`。
-- **`gf_delete_maintenance(p_id)`**：删除维护行及对应成本行，返回 `{ ok, deletedCosts }`。
-- 三者均 `SECURITY DEFINER`，执行权仅授予 `authenticated`；归属判断一律 `auth.uid()`，设备不存在或非本人返回 `ok=false`。
+- **`gf_add_maintenance(p_device_id, p_title, p_type, p_occurred_at, p_cost_cents, p_vendor, p_notes)`**：校验当前身份、设备归属/未软删除状态、标题/类型/日期/金额/长度后原子完成：写 `maintenance_records` → 写 `device_costs`（`MAINTENANCE`，金额非空时）→ 追加 `MAINTENANCE` 时间线事件（payload 仅含非敏感摘要）。返回 `{ ok, id, errorCode? }`。
+- **`gf_update_maintenance(p_id, ...同上字段)`**：先锁定本人且关联活动设备的维护行，再更新维护行并按 `maintenance_id` 精确替换成本行；无记录返回 `{ ok:false, errorCode:'RESOURCE_NOT_FOUND' }`。
+- **`gf_delete_maintenance(p_id)`**：先删除对应成本行，再删除本人维护行；无记录不删除任何成本，返回 `{ ok, deletedCosts }`。
+- 三者均 `SECURITY DEFINER`，执行权仅授予 `authenticated`；客户端不再拥有维护表写权限。
 
 ### 9.9 warranties（Phase 7）
 
@@ -568,4 +576,4 @@ CREATE TABLE warranties (
 CREATE INDEX idx_warranty_user_end ON warranties (user_id, end_date);
 ```
 
-RLS：`SELECT/INSERT/UPDATE/DELETE` 限本人（`user_id = auth.uid()`，INSERT 带 `WITH CHECK`）。由客户端在设备创建/编辑时随表单写入（先设备后保修）。**保修状态不落库**，客户端按 `end_date` 实时计算（`IN_WARRANTY`/`EXPIRING`（≤30 天）/`EXPIRED`/`UNKNOWN`），首页临期看板据此生成。
+RLS：客户端仅可查询本人且关联设备未软删除的行；`INSERT/UPDATE/DELETE` 不授予客户端，由 `gf_save_device_with_warranty` 在设备事务中维护。**保修状态不落库**，客户端按 `end_date` 实时计算（`IN_WARRANTY`/`EXPIRING`（≤30 天）/`EXPIRED`/`UNKNOWN`），首页临期看板据此生成。

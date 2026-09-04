@@ -1,27 +1,32 @@
 # GearFlow 交接文档（ZCode → Codex）
 
-> 生成于 2026-08-31。Phase 0-5 已完成并通过验收，从 **Phase 6（设备生命周期）** 继续。
+> 更新于 2026-09-04。Phase 0-9 已完成并通过验收；Phase 10 的发布证据按用户决定暂缓，不把“可提审”误记为“已上线”。
 > 本文档是环境事实与踩坑经验的唯一权威来源——很多内容不在任何代码或 Phase 0 文档里。
 > 阶段定义与完成标准以 `docs/ROADMAP.md` 为准；数据模型以 `docs/DATABASE.md` 为准；验收记录见 `docs/PHASE1-FINDINGS.md`。
 
 ## 1. 状态总览
 
-| 阶段             | 状态 | 验收证据                                                                                 |
-| ---------------- | ---- | ---------------------------------------------------------------------------------------- |
-| Phase 0 立项     | ✅   | Phase 0 文档；存储引擎曾受控修订为 CloudBase PostgreSQL（docs/DATABASE.md 存储引擎决策） |
-| Phase 1 初始化   | ✅   | docs/PHASE1-FINDINGS.md §7-8：真实链路四绿 + RLS 隔离实证                                |
-| Phase 2 UI 基础  | ✅   | 用户视觉验收（Token/五态组件/四 Tab）                                                    |
-| Phase 3 用户体系 | ✅   | scripts/verify-phase3.mjs 7/7 + 数据库核对                                               |
-| Phase 4 设备管理 | ✅   | 用户人工全流程验收（创建/编辑/软删除，软删除证据入库）                                   |
-| Phase 5 设备详情 | ✅   | scripts/verify-phase5.mjs 14/14 + 用户 14 项验收（修复返回不刷新 bug：onLoad→onShow）    |
+| 阶段             | 状态 | 验收证据                                                                  |
+| ---------------- | ---- | ------------------------------------------------------------------------- |
+| Phase 0 立项     | ✅   | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md） |
+| Phase 1 初始化   | ✅   | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                     |
+| Phase 2 UI 基础  | ✅   | 用户视觉验收（Token/五态组件/四 Tab）                                     |
+| Phase 3 用户体系 | ✅   | scripts/verify-phase3.mjs 7/7 + 数据库核对                                |
+| Phase 4 设备管理 | ✅   | 用户人工全流程验收（创建/编辑/软删除）                                    |
+| Phase 5 设备详情 | ✅   | scripts/verify-phase5.mjs 14/14 + 用户人工验收                            |
+| Phase 6 生命周期 | ✅   | 设备触发器、时间线读取、RLS 隔离与用户验收                                |
+| Phase 7 维护保修 | ✅   | 维护 CRUD、保修状态、成本联动与用户验收                                   |
+| Phase 8 数据统计 | ✅   | A 口径、统计/看板 RPC、权限回归与用户验收                                 |
+| Phase 9 测试质量 | ✅   | 67 项单测、CI、冒烟脚本与质量门                                           |
+| Phase 10 发布    | ⏸️   | 真机/弱网/生产与合规证据按用户决定延期；本轮不宣称已发布                  |
 
-里程碑：已达成「可体验」。剩 Phase 6 生命周期 → 7 维护保修 → 8 统计 → 9 测试 → 10 发布（→11/12 迭代）。
+里程碑：已达成「可测试」；「可提审」仍等待 Phase 10 发布证据。
 
 ## 2. 环境事实
 
 - **CloudBase 环境**：`myrepo-d1gfju7se642a63ce`（PG 模式，ap-shanghai，体验版套餐）。管理走 mcporter CLI（已账号级登录）：`npx -y mcporter call cloudbase.<tool> ...`。**IDE 直连的 CloudBase MCP 是独立未登录会话，不可用。**
 - **小程序 AppID**：`wx8f26567f4d54b3f7`（在 src/manifest.json）。身份走「小程序认证 + wx.cloud 通道」，**不需要也不依赖 AppSecret**。
-- **真实用户**：数据库里只有一条用户行（identity_id `2094087771344871424`，ACTIVE）+ 2 条同意记录；无其他测试数据。
+- **数据状态**：体验环境仅保留最小测试数据；身份 UID、手机号及其他可关联标识不写入交接文档。
 - **GitHub**：`git@github.com:alwayXXX/repo_uniapp`（main，SSH 可用，直接 `git push`）。
 - **微信开发者工具**：程序在 `F:\WeChat Dev\微信web开发者工具\`（cli.bat 同目录）；服务端口 29456 已开启；自动化端口 9420（启动命令见 §5）。
 - **Node 24 / pnpm 11.22**：不要动全局环境。
@@ -35,13 +40,13 @@
 
 ## 4. 数据库（CloudBase PostgreSQL）
 
-- 迁移文件：`cloudbase/migrations/`（30 个，即 schema 历史）。**新迁移一律走 `managePgDatabase action=applyMigration`**，且：
+- 迁移文件：`cloudbase/migrations/`（当前仓库与线上均为 111 条）。**新迁移一律走 `managePgDatabase action=applyMigration`**，且：
   - **一个迁移只放一条语句**（runner 按语句切，多语句会静默只执行第一条）
   - **migrationName 只允许小写字母+下划线，不能含数字**（v2 这种命名会被拒）
   - 本地文件内容必须与 --sql 参数完全一致（含无末尾换行），否则 LOCAL_MIGRATION_FILE_MISMATCH
   - 若报「Name 只允许小写字母」但名字明明合规：检查 `config/cloudbase/migrations/` 镜像目录是否有脏文件（该目录已 gitignore，可直接清理）
 - **RLS 是唯一权限边界**：所有用户表 `user_id ≡ auth.uid()`（varchar 身份串，不是 users.id 的 UUID——Phase 3 踩过这个 bug）。写策略时 USING + WITH CHECK 都要。迁移 runner 会自动给 authenticated 授全套权限，**每次建表后必须 REVOKE 收敛到最小**（TRUNCATE 不受 RLS 约束，必收）。
-- **身份函数**：`gf_bootstrap_user(privacy, terms)` / `gf_delete_account()`（SECURITY DEFINER RPC，执行权限仅 authenticated）。Phase 6+ 的时间线写入如需服务端边界，按同样模式加函数。
+- **身份函数**：`gf_bootstrap_user(privacy, terms)` / `gf_delete_account()`（SECURITY DEFINER RPC，执行权限仅 authenticated）。维护、设备与资料写入也统一走受保护 RPC。
 - **服务端验证方法**（不依赖小程序）：`managePgDatabase action=execute --role authenticated` + `WITH s AS (SELECT set_config('request.jwt.claim.sub','<uid>',true)) SELECT ... FROM s`（LATERAL 保证 set_config 先执行；GUC 不跨调用持久，每次都要带）。
 
 ## 5. 微信开发者工具自动化（验收用）
@@ -71,9 +76,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 ## 7. 待办备忘（非阻塞）
 
 - **Phase 10 提审前**：小程序后台重置一次 AppSecret（旧值曾在误配 provider 时暴露过，当前零依赖）。
-- Phase 5 里「保修/维护/时间线」三个占位区块等 Phase 6/7 填充。
 - DevTools 多账号调试 A/B 互测（可选加强项，从未做过）。
-- `gf_diag_view` 诊断视图仍在库里（只读无害），Phase 9 清理时评估删除。
+- 诊断函数与视图已在 2026-09-03 安全迁移中删除；正式构建不再注册开发页。
 
 ## 8. 改进清单与 Phase 8 特别指令
 
@@ -87,6 +91,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 
 UX 类条目（含 UX-1 表单校验框架升级）按 BACKLOG 建议时点执行，用户未拍板前不提前引入新依赖。
 
-## 9. Phase 6 入场提示（ROADMAP 原文为准）
+## 9. 当前接手边界
 
-目标：设备变更自动生成时间线。涉及：`device_timelines` 集合（DATABASE.md 4.7，PG 化为表 `device_timelines`）、设备写路径自动追加事件、详情页时间线区块接真数据。事件类型 CREATED/UPDATED/MAINTENANCE/WARRANTY/DISPOSED；时间线不落敏感字段原文。按 §3 节奏执行，完成后更新 ROADMAP 标记并请用户验收。
+- Phase 0-9 的代码、数据库迁移、文档和质量门已完成；本轮修复只处理已知工程/安全/文档问题，不启动 Phase 11/12。
+- Phase 10 真机、弱网、生产环境和发布合规证据明确延期，保留在 `docs/LAUNCH.md` 与 backlog，不以本轮构建结果替代真实发布验收。
+- 历史多语句迁移 `20260830141720` 未进入线上历史，已从活动迁移目录移除；其索引、授权和 RLS 效果由后续单语句迁移覆盖。当前本地迁移清单与线上历史均为 111 条。

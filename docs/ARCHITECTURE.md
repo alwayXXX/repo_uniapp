@@ -10,7 +10,7 @@ GearFlow 第一阶段采用 CloudBase BaaS 架构，将基础设施维护交给�
       └─ Vue 3 + TypeScript + Pinia
           └─ CloudBase
               ├─ PostgreSQL 数据库（RLS 行级安全）
-              ├─ 云函数 / 可信业务逻辑
+              ├─ PostgreSQL RPC / 可信业务逻辑
               ├─ 云存储（P1 附件）
               ├─ 微信用户身份（signInWithOpenId）
               └─ 日志、监控及其他按需云能力
@@ -22,22 +22,23 @@ GearFlow 第一阶段采用 CloudBase BaaS 架构，将基础设施维护交给�
 
 ### 必要性判断
 
-| 技术               | 第一阶段是否使用 | 原因                                           |
-| ------------------ | ---------------- | ---------------------------------------------- |
-| uni-app            | 使用             | 指定小程序第一发布平台                         |
-| Vue 3              | 使用             | Composition API 适合复杂表单和状态复用         |
-| TypeScript strict  | 使用             | 降低接口和业务模型错误率                       |
-| Pinia              | 使用             | 管理用户、设备列表、筛选和统计状态             |
-| CloudBase          | 使用             | 承担身份、数据、云函数、云存储和托管运维能力   |
-| CloudBase 数据库   | 使用             | 保存账号、设备、维护、时间线和统计相关数据     |
-| CloudBase 云函数   | 使用             | 承担可信身份、业务校验、多集合写入、统计和注销 |
-| CloudBase 云存储   | P1               | 保存设备照片、发票和维修凭证，不在 MVP 启用    |
-| NestJS             | 未来可选         | 业务复杂度提升后可部署于 CloudBase 云托管      |
-| Prisma             | 未来可选         | 引入关系型数据库后作为 ORM 候选                |
-| PostgreSQL / MySQL | 未来可选         | 复杂关系查询或事务需求明确后再评估             |
-| Redis              | 不使用           | 当前无高频缓存和任务队列需求，属过度设计       |
-| ECharts            | 不使用           | 基础图表用轻量自绘组件，避免包体积             |
-| Nginx / VPS        | 不使用           | 当前由 CloudBase 承担托管接入和基础设施维护    |
+| 技术               | 第一阶段是否使用 | 原因                                             |
+| ------------------ | ---------------- | ------------------------------------------------ |
+| uni-app            | 使用             | 指定小程序第一发布平台                           |
+| Vue 3              | 使用             | Composition API 适合复杂表单和状态复用           |
+| TypeScript strict  | 使用             | 降低接口和业务模型错误率                         |
+| Pinia              | 使用             | 管理用户、设备列表、筛选和统计状态               |
+| CloudBase          | 使用             | 承担身份、数据、云函数、云存储和托管运维能力     |
+| CloudBase 数据库   | 使用             | 保存账号、设备、维护、时间线和统计相关数据       |
+| PostgreSQL RPC     | 使用             | 承担可信身份、业务校验、跨表写入、统计和注销     |
+| CloudBase 云函数   | 按需             | 仅在未来需要异步任务、文件处理或更复杂边界时使用 |
+| CloudBase 云存储   | P1               | 保存设备照片、发票和维修凭证，不在 MVP 启用      |
+| NestJS             | 未来可选         | 业务复杂度提升后可部署于 CloudBase 云托管        |
+| Prisma             | 未来可选         | 引入关系型数据库后作为 ORM 候选                  |
+| PostgreSQL / MySQL | 未来可选         | 复杂关系查询或事务需求明确后再评估               |
+| Redis              | 不使用           | 当前无高频缓存和任务队列需求，属过度设计         |
+| ECharts            | 不使用           | 基础图表用轻量自绘组件，避免包体积               |
+| Nginx / VPS        | 不使用           | 当前由 CloudBase 承担托管接入和基础设施维护      |
 
 ## 2. 前端架构
 
@@ -103,7 +104,6 @@ P0 只需要：
 
 ```text
 cloudfunctions/
-├── auth-bootstrap/
 ├── users/
 ├── devices/
 ├── maintenance-records/
@@ -112,16 +112,16 @@ cloudfunctions/
 └── account-deletion/
 ```
 
-目录只表达未来 Phase 1 的业务边界，本阶段不创建代码。
+目录保留未来云函数边界；当前 MVP 的可信写入、统计和注销由 PostgreSQL RPC 承担。
 
 ### 调用分层
 
 | 场景                 | 第一阶段实现方式                            | 原因                                                       |
 | -------------------- | ------------------------------------------- | ---------------------------------------------------------- |
 | 系统分类读取         | JS SDK v3 `app.rdb()` 直接读取              | 只读、规则简单、数据非敏感                                 |
-| 用户设备列表与详情   | `app.rdb()` 或云函数，按查询复杂度选择      | 必须受用户身份与 RLS 约束                                  |
-| 设备创建、编辑、删除 | `app.rdb()` + RLS + PG 触发器               | 单表写入由 RLS 限权，时间线由数据库可信边界追加            |
-| 维护记录写入         | 云函数                                      | 需要同步时间线和成本数据                                   |
+| 用户设备列表与详情   | JS SDK v3 `app.rdb()`                       | 只读查询受用户身份与 RLS 约束                              |
+| 设备创建、编辑、删除 | PostgreSQL `SECURITY DEFINER` RPC + 触发器  | RPC 校验归属，时间线由数据库可信边界追加                   |
+| 维护记录写入         | PostgreSQL `SECURITY DEFINER` RPC           | 在事务内同步维护、成本和时间线数据                         |
 | 统计查询             | CloudBase PostgreSQL `SECURITY DEFINER` RPC | 集中维护统计口径，避免客户端篡改；首页与统计页复用聚合边界 |
 | 账号注销             | `SECURITY DEFINER` RPC                      | 需要跨表删除、匿名化和审计                                 |
 | P1 附件上传          | CloudBase 云存储 + 云函数元数据校验         | 文件和业务数据分离                                         |
@@ -135,13 +135,13 @@ cloudfunctions/
 → JS SDK 调用 signInWithOpenId 建立 CloudBase 会话（用户无感）
 → SDK 会话自动携带身份，数据库 RLS 通过 auth.uid() 判定归属
 → 服务端边界创建或查询 GearFlow User 行
-→ RLS 策略和云函数共同限制用户数据访问
+→ RLS 策略和受保护 RPC 共同限制用户数据访问
 ```
 
 规则：
 
 - `userId` 必须由 CloudBase 可信身份上下文派生（`auth.uid()`），不能由客户端指定
-- 用户只能查询和修改自己的行，归属由 RLS 策略强制，UI 隐藏不作为权限手段
+- 用户只能查询自己的行；写操作必须经过受保护 RPC，归属由 `auth.uid()` 强制，UI 隐藏不作为权限手段
 - 系统分类等公共只读数据单独设置权限
 - AppSecret 和管理端凭据（API Key / service_role）不得进入客户端
 - 账号注销删除 GearFlow 业务数据；平台身份本身按 CloudBase 和微信官方能力处理

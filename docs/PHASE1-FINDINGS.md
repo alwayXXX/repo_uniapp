@@ -1,7 +1,7 @@
 # Phase 1 技术初始化：验证记录与待决策事项
 
-> 状态：工程初始化完成；CloudBase 数据层验证**因环境能力与 Phase 0 文档冲突而暂停**，等待决策。
-> 本文档只记录事实与选项，不修改 Phase 0 规划文档。
+> 状态：历史记录。工程初始化与 CloudBase 数据层决策已完成；当前实现以 CloudBase PostgreSQL 路线为准。
+> 本文档保留当时的冲突与决策证据，当前阶段状态以 `docs/HANDOFF.md` 与 `docs/ROADMAP.md` 为准。
 
 日期：2026-08-30
 
@@ -59,7 +59,7 @@ RuntimeBackends: { postgresql: true, nosql: false, mysql: false }
 
 ## 4. 其他待用户完成事项
 
-1. **小程序 AppID**：`src/manifest.json` 中 `mp-weixin.appid` 当前为占位 `touristappid`，需填入真实 AppID。
+1. **小程序 AppID**：记录当时为占位值；现已配置为项目绑定的真实 AppID，具体值只保留在 `src/manifest.json`，不在历史待办中重复展示。
 2. **微信开发者工具**：本机未安装，需安装后导入 `dist/dev/mp-weixin` 或 `dist/build/mp-weixin` 运行。
 3. **用户 A/B 隔离验证**：依赖上面数据库路线确定 + DevTools 运行后，用「多账号调试」分别运行验证页面完成。
 4. 环境 `myrepo-d1gfju7se642a63ce` 别名为 `myrepo`，如需可在控制台改名为 gearflow-dev。
@@ -87,7 +87,7 @@ RuntimeBackends: { postgresql: true, nosql: false, mysql: false }
 | -------------------------------------- | ------------------------------------------------------------------------------- |
 | uni-app 构建产物在微信开发者工具运行   | 通过                                                                            |
 | CloudBase 初始化（js-sdk v3，PG 环境） | 通过                                                                            |
-| signInWithOpenId 真实用户静默登录      | 通过（uid 20940877…，JWT role=authenticated，经小程序认证的 wx.cloud 通道签发） |
+| signInWithOpenId 真实用户静默登录      | 通过（JWT role=authenticated，经小程序认证的 wx.cloud 通道签发）                |
 | devices 表客户端 CRUD（app.rdb）       | 通过（创建/读取/更新/删除）                                                     |
 | 用户隔离（真实链路）                   | 通过：真实用户仅能看到自己名下数据；预置的其他用户（gf-user-a/b）设备完全不可见 |
 | 服务端 RLS 矩阵（角色模拟 T1-T9）      | 通过                                                                            |
@@ -97,8 +97,8 @@ RuntimeBackends: { postgresql: true, nosql: false, mysql: false }
 1. rdb 查询在数据库侧以 `authenticated` 角色执行，JWT claims（sub=用户 uid）完整传递，`auth.uid()` 生效。
 2. 小程序认证（appid ↔ 环境绑定）是 wx.cloud 通道身份签发的前提；无需在 CloudBase 手工配置 AppSecret provider。
 3. 曾误启用「微信开放平台登录」（OAUTH 网页通道，不适用于小程序）并已删除；其中出现过一次 AppSecret 明文（工具输出），因当前架构不依赖 AppSecret，建议在小程序后台直接「重置」使其失效即可，无需其他操作。
-4. 数据库遗留：`gf_diag_view` 诊断视图保留（只读、无敏感信息），验证页含临时诊断项，Phase 2 重做页面时移除。
+4. 数据库遗留：当时记录的 `gf_diag_view` 与诊断函数已在 2026-09-03 安全迁移中删除；验证页仅作为源码历史保留，未注册到正式构建。
 
 ## 8. Phase 1 完成结论
 
-除「双账号多开互测」（可选加强项，工具路径：开发者工具 → 多账号调试）外，Phase 1 完成标准全部满足。
+除「双账号多开互测」（可选加强项，工具路径：开发者工具 → 多账号调试）外，Phase 1 完成标准全部满足；后续 Phase 6-9 的完成状态见 `docs/ROADMAP.md`。
