@@ -99,6 +99,7 @@
               v-for="record in maintenances"
               :key="record.id"
               class="maint-row"
+              :data-maintenance-id="record.id"
               @click="gotoMaintenance(record.id)"
             >
               <view class="maint-main">

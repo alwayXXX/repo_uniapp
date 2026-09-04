@@ -70,8 +70,7 @@ async function main() {
   await shot(miniProgram, '3-profile')
 
   const uidEl = await page.$('.uid')
-  const uidText = uidEl ? await uidEl.text() : '(未找到)'
-  log('身份短码渲染', uidText.includes('ID：'), uidText)
+  log('身份标识不展示', !uidEl, uidEl ? '检测到不应展示的身份标识' : '未展示')
 
   console.log('\n=== 结果汇总 ===')
   const failed = results.filter((r) => !r.ok)

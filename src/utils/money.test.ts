@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { centsToYuan, formatMoney, yuanToCents } from './money'
+import { centsToYuan, formatMoney, MAX_INTEGER_CENTS, yuanToCents } from './money'
 
 describe('yuanToCents', () => {
   it('常规金额', () => {
@@ -24,6 +24,11 @@ describe('yuanToCents', () => {
     expect(yuanToCents('abc')).toBeNull()
     expect(yuanToCents('1,000')).toBeNull()
     expect(yuanToCents('123456789012')).toBeNull()
+  })
+
+  it('遵守 PostgreSQL integer 分值边界', () => {
+    expect(yuanToCents('21474836.47')).toBe(MAX_INTEGER_CENTS)
+    expect(yuanToCents('21474836.48')).toBeNull()
   })
 })
 

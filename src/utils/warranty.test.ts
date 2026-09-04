@@ -43,4 +43,15 @@ describe('computeWarranty', () => {
     expect(result.status).toBe('EXPIRED')
     expect(result.remainingDays).toBe(-1)
   })
+
+  it('不存在的结束日期或今天日期 → UNKNOWN', () => {
+    expect(computeWarranty('2026-02-31', TODAY)).toEqual({
+      status: 'UNKNOWN',
+      remainingDays: null,
+    })
+    expect(computeWarranty('2026-09-30', '2026-02-31')).toEqual({
+      status: 'UNKNOWN',
+      remainingDays: null,
+    })
+  })
 })

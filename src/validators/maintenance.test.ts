@@ -41,6 +41,14 @@ describe('validateMaintenanceForm', () => {
     expect(errors.occurredAt).toBeTruthy()
   })
 
+  it('不存在的日历日期拒绝', () => {
+    const errors = validateMaintenanceForm(
+      { ...validForm(), occurredAt: '2026-02-31' },
+      PURCHASE_DATE,
+    )
+    expect(errors.occurredAt).toBeTruthy()
+  })
+
   it('设备无购买日期时跳过下限校验', () => {
     const errors = validateMaintenanceForm({ ...validForm(), occurredAt: '2025-12-31' }, null)
     expect(errors.occurredAt).toBeUndefined()

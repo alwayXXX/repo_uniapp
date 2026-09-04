@@ -44,6 +44,15 @@ describe('validateDeviceForm', () => {
     expect(errors.purchaseDate).toBeTruthy()
   })
 
+  it('购买日期不存在时拒绝', () => {
+    expect(
+      validateDeviceForm({ ...validForm(), purchaseDate: '2026-02-31' }).purchaseDate,
+    ).toBeTruthy()
+    expect(
+      validateDeviceForm({ ...validForm(), purchaseDate: '2024-02-29' }).purchaseDate,
+    ).toBeUndefined()
+  })
+
   it('价格非法与合法', () => {
     expect(
       validateDeviceForm({ ...validForm(), purchasePriceYuan: '1.234' }).purchasePrice,
