@@ -57,6 +57,8 @@ function throwRpcFailure(data: unknown, fallbackMessage: string): never {
 /** 建立微信可信身份会话，返回 CloudBase 身份 UID（即 users.identity_id） */
 export async function signInSilently(): Promise<string> {
   const auth = getAuth()
+  // 注意：useWxCloud:false（HTTP 通道）在当前身份源下不可用——该身份源的验证
+  // 回调绑定微搭服务（见 BACKLOG OPS-5），须保持默认云开发链路
   const signInResult = asSdkResult<unknown>(await auth.signInWithOpenId())
   throwIfError(signInResult.error, '微信身份登录失败')
   return parseUid(signInResult)
