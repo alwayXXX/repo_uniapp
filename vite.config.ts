@@ -28,10 +28,13 @@ function cloudbaseSync(): Plugin {
           projectConfig.cloudfunctionRoot = 'cloudfunctions/'
         }
         // 禁用 DevTools 上传时 sourcemap 处理，避免 -80407 错误（vite 构建已含压缩）
+        // es6:false 跳过 DevTools 的 Babel 二次转译：基础库原生支持 ES6，
+        // 转译会把 900KB 级产物膨胀到 2.1MB 触发 80051 主包超限
         projectConfig.setting = {
           ...(projectConfig.setting as Record<string, unknown> | undefined),
           minified: false,
           uploadWithSourceMap: false,
+          es6: false,
         }
         writeFileSync(configPath, JSON.stringify(projectConfig, null, 2))
       }
@@ -43,5 +46,10 @@ function cloudbaseSync(): Plugin {
 export default defineConfig({
   // 允许客户端使用 CLOUDBASE_* / APP_* 前缀的公开环境变量（均不含密钥）
   envPrefix: ['VITE_', 'CLOUDBASE_', 'APP_'],
+  build: {
+    // es2018：??/?. 降级为 es6 等价写法（ES2020 语法会让 DevTools es6:false
+    // 模式下的上传解析器报 Unexpected token），async/await 原生保留不膨胀
+    target: 'es2018',
+  },
   plugins: [uni(), cloudbaseSync()],
 })
