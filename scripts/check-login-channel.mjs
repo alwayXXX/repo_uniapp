@@ -1,6 +1,6 @@
 /**
- * 登录通道探针：清空模拟器存储后强制走一次全新 signInWithOpenId，
- * 验证 useWxCloud:false 的 HTTP 网关通道能否完成身份签发。
+ * 登录通道探针：清空模拟器存储后强制走一次全新 signInWithOpenId（当前代码的默认链路），
+ * 验证身份签发是否可用。用于授权关系变更后的登录链路回归（见 BACKLOG OPS-7）。
  * 前置：DevTools 已以自动化模式打开项目（cli auto --auto-port 9420）。
  * 运行：node scripts/check-login-channel.mjs
  */
@@ -33,7 +33,7 @@ async function main() {
   const enterButton = await page.$('.enter-button')
   if (!enterButton) throw new Error('找不到同意按钮')
   await enterButton.tap()
-  console.log('⏳ 已触发同意并开始使用，等待 signInWithOpenId(useWxCloud:false) …')
+  console.log('⏳ 已触发同意并开始使用，等待全新 signInWithOpenId …')
   await wait(8000)
 
   page = await miniProgram.currentPage()
@@ -52,7 +52,7 @@ async function main() {
   console.log('📸 截图: .e2e/login-channel-probe.png')
 
   const pass = landedHome && sessionKeys.length > 0
-  console.log(pass ? '=== 结论：HTTP 通道登录成功 ===' : '=== 结论：HTTP 通道登录失败 ===')
+  console.log(pass ? '=== 结论：登录链路可用 ===' : '=== 结论：登录链路不可用 ===')
   await miniProgram.disconnect()
   process.exit(pass ? 0 : 1)
 }
