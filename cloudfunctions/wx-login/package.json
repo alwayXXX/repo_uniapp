@@ -1,0 +1,9 @@
+{
+  "name": "wx-login",
+  "version": "1.0.0",
+  "description": "GearFlow custom login: code to openid to CloudBase ticket",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.16.0"
+  }
+}

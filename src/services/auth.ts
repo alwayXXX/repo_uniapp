@@ -1,11 +1,12 @@
-import { asSdkResult, callRpc, getAuth, getRdb, throwIfError } from './cloudbase'
+import { asSdkResult, callRpc, getCloudbaseApp, getAuth, getRdb, throwIfError } from './cloudbase'
 import { AppError, isRecord } from '@/utils/error'
 import type { GearFlowUser } from '@/types/user'
 import type { ApiErrorCode } from '@/types/api/common'
 
 /**
  * 身份与用户（docs/API.md 第 3-4 节，docs/DATABASE.md 9.4）。
- * 登录 = signInWithOpenId 静默登录；bootstrap/注销 = SECURITY DEFINER RPC；
+ * 登录 = 云函数 wx-login 换自定义登录票据（OPS-7，docs/OPS7-LOGIN-DESIGN.md）；
+ * bootstrap/注销 = SECURITY DEFINER RPC；
  * users 行的 INSERT 不对客户端开放，由数据库函数以 JWT 身份执行。
  */
 
@@ -14,23 +15,6 @@ interface UserRow {
   identity_id: string
   nickname: string | null
   avatar_url: string | null
-}
-
-function parseUid(raw: unknown): string {
-  if (!isRecord(raw) || !isRecord(raw.data)) {
-    throw new AppError('UNAUTHORIZED', '微信身份登录失败')
-  }
-  const data = raw.data
-  const candidates = [data.session, data.user]
-  for (const node of candidates) {
-    if (isRecord(node) && isRecord(node.user) && typeof node.user.id === 'string') {
-      return node.user.id
-    }
-    if (isRecord(node) && typeof node.id === 'string') {
-      return node.id
-    }
-  }
-  throw new AppError('UNAUTHORIZED', '会话中缺少用户标识')
 }
 
 const RPC_ERROR_CODES: readonly ApiErrorCode[] = [
@@ -54,14 +38,52 @@ function throwRpcFailure(data: unknown, fallbackMessage: string): never {
   throw new AppError(appCode, fallbackMessage)
 }
 
+/** uni.login 获取微信临时登录凭证 code */
+function getWxLoginCode(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      success: (res) => {
+        const code = (res as { code?: string }).code
+        if (code) {
+          resolve(code)
+        } else {
+          reject(new AppError('UNAUTHORIZED', '微信登录凭证获取失败'))
+        }
+      },
+      fail: () => reject(new AppError('UNAUTHORIZED', '微信登录凭证获取失败')),
+    })
+  })
+}
+
 /** 建立微信可信身份会话，返回 CloudBase 身份 UID（即 users.identity_id） */
 export async function signInSilently(): Promise<string> {
+  const app = getCloudbaseApp()
   const auth = getAuth()
-  // 注意：useWxCloud:false（HTTP 通道）在当前身份源下不可用——该身份源的验证
-  // 回调绑定微搭服务（见 BACKLOG OPS-5），须保持默认云开发链路
-  const signInResult = asSdkResult<unknown>(await auth.signInWithOpenId())
-  throwIfError(signInResult.error, '微信身份登录失败')
-  return parseUid(signInResult)
+  // 自包含登录通道：云函数 wx-login 用 AppSecret 换 openid 并签发自定义登录
+  // 票据，不依赖微信侧第三方授权（OPS-7）。openid 不回传前端。
+  const res = (await app.callFunction({
+    name: 'wx-login',
+    data: { code: await getWxLoginCode() },
+    parse: true,
+  })) as { result?: unknown }
+  const raw: unknown = res?.result
+  const payload = (typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw) as {
+    ok?: boolean
+    ticket?: string
+  } | null
+  if (!payload || payload.ok !== true || typeof payload.ticket !== 'string') {
+    throw new AppError('UNAUTHORIZED', '微信身份登录失败')
+  }
+  const ticket = payload.ticket
+  const loginState = (await auth.signInWithCustomTicket(async () => ticket)) as {
+    user?: { uid?: string }
+  }
+  const uid = loginState?.user?.uid
+  if (typeof uid !== 'string' || !uid) {
+    throw new AppError('UNAUTHORIZED', '会话中缺少用户标识')
+  }
+  return uid
 }
 
 /** 结束本机持久化 CloudBase 会话。 */
