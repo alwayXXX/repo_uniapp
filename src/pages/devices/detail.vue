@@ -83,7 +83,16 @@
         <view class="card">
           <view class="card-title-row">
             <text class="card-title">维护记录</text>
-            <button class="add-maintenance" @click="gotoMaintenance('')">+ 添加</button>
+            <view class="maintenance-actions">
+              <button
+                class="add-maintenance"
+                :disabled="exportingMaintenance"
+                @click="exportMaintenanceCsv"
+              >
+                导出
+              </button>
+              <button class="add-maintenance" @click="gotoMaintenance('')">+ 添加</button>
+            </view>
           </view>
           <text v-if="maintenanceSubtotal !== null" class="subtotal">
             维护支出合计 {{ formatMoney(maintenanceSubtotal, device.currency) }}
@@ -179,6 +188,7 @@ import { ensureSession } from '@/services/auth'
 import { formatMoney } from '@/utils/money'
 import { computeWarranty, WARRANTY_STATUS_LABELS } from '@/utils/warranty'
 import { toAppError } from '@/utils/error'
+import { buildMaintenanceCsv, csvFileName, saveAndShareCsv } from '@/services/export'
 import { DEVICE_STATUS_LABELS } from '@/constants/device'
 import { MAINTENANCE_TYPE_LABELS } from '@/constants/maintenance'
 import StatusView from '@/components/StatusView.vue'
@@ -205,6 +215,27 @@ const timelineHasMore = ref(false)
 const timelineLoadingMore = ref(false)
 
 const maintenances = ref<MaintenanceDoc[]>([])
+const exportingMaintenance = ref(false)
+
+/** 导出当前设备的维护记录 CSV */
+async function exportMaintenanceCsv(): Promise<void> {
+  if (!device.value || exportingMaintenance.value) return
+  if (maintenances.value.length === 0) {
+    uni.showToast({ title: '暂无维护记录可导出', icon: 'none' })
+    return
+  }
+  exportingMaintenance.value = true
+  try {
+    const csv = buildMaintenanceCsv(device.value, maintenances.value, (id) =>
+      id ? getCategoryName(id) : '',
+    )
+    await saveAndShareCsv(csvFileName(`gearflow_${device.value.name}_维护记录`), csv)
+  } catch (err) {
+    uni.showToast({ title: toAppError(err).message, icon: 'none' })
+  } finally {
+    exportingMaintenance.value = false
+  }
+}
 const maintenanceState = ref<PageState>('idle')
 const maintenanceErrorText = ref('')
 
@@ -509,6 +540,12 @@ async function confirmDelete(): Promise<void> {
   min-width: 0;
   flex: 1;
   margin-bottom: 0;
+}
+
+.maintenance-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
 }
 
 .add-maintenance {

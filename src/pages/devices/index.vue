@@ -6,10 +6,16 @@
         <text class="page-title">设备</text>
         <text class="page-subtitle">集中管理设备资料、状态与购买成本。</text>
       </view>
-      <button class="header-action" @click="gotoCreate">
-        <text class="header-action-mark">＋</text>
-        <text>添加</text>
-      </button>
+      <view class="header-actions">
+        <button class="header-action" :disabled="exporting" @click="exportDevicesCsv">
+          <text class="header-action-mark">⇩</text>
+          <text>导出</text>
+        </button>
+        <button class="header-action" @click="gotoCreate">
+          <text class="header-action-mark">＋</text>
+          <text>添加</text>
+        </button>
+      </view>
     </view>
 
     <view class="toolbar">
@@ -95,15 +101,46 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { useDeviceStore } from '@/stores/device'
+import { listDevices } from '@/services/device'
+import { buildDevicesCsv, csvFileName, saveAndShareCsv } from '@/services/export'
+import { toAppError } from '@/utils/error'
 import { formatMoney } from '@/utils/money'
 import { DEVICE_STATUS_LABELS, DEVICE_SORT_OPTIONS } from '@/constants/device'
 import StatusView from '@/components/StatusView.vue'
 import type { DeviceDoc } from '@/types/device'
 
 const store = useDeviceStore()
+
+const exporting = ref(false)
+
+/** 导出全部设备清单 CSV（分页拉全量，经 RLS 仅本人数据） */
+async function exportDevicesCsv(): Promise<void> {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    await store.ensureCategories()
+    const all: DeviceDoc[] = []
+    const pageSize = 100
+    for (let page = 1; ; page += 1) {
+      const result = await listDevices({ sortBy: 'createdAt', sortOrder: 'desc', page, pageSize })
+      all.push(...result.items)
+      if (!result.hasMore) break
+    }
+    if (all.length === 0) {
+      uni.showToast({ title: '还没有设备可导出', icon: 'none' })
+      return
+    }
+    const csv = buildDevicesCsv(all, (id) => store.categoryNameOf(id))
+    await saveAndShareCsv(csvFileName('gearflow_设备清单'), csv)
+  } catch (err) {
+    uni.showToast({ title: toAppError(err).message, icon: 'none' })
+  } finally {
+    exporting.value = false
+  }
+}
 
 async function refreshDevices(): Promise<void> {
   // 每次进入都刷新：详情页的编辑/软删除需要同步回列表
@@ -254,6 +291,12 @@ function gotoDetail(id: string): void {
   font-size: $gf-font-sm;
   line-height: 1.45;
   color: $gf-text-3;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
 }
 
 .header-action {

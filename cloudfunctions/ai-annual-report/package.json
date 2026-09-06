@@ -1,0 +1,9 @@
+{
+  "name": "ai-annual-report",
+  "version": "1.0.0",
+  "description": "GearFlow AI annual device report (Phase 12)",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.16.0"
+  }
+}
