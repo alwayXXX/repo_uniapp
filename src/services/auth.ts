@@ -1,4 +1,4 @@
-import { asSdkResult, callRpc, getCloudbaseApp, getAuth, getRdb, throwIfError } from './cloudbase'
+import { asSdkResult, callRpc, getAuth, getRdb, throwIfError } from './cloudbase'
 import { AppError, isRecord } from '@/utils/error'
 import type { GearFlowUser } from '@/types/user'
 import type { ApiErrorCode } from '@/types/api/common'
@@ -56,30 +56,89 @@ function getWxLoginCode(): Promise<string> {
   })
 }
 
+/** wx-login 云函数的 HTTP 网关公网地址（无密钥公开配置；调用免鉴权路由） */
+const WX_LOGIN_URL =
+  'https://myrepo-d1gfju7se642a63ce-1331619055.ap-shanghai.app.tcloudbase.com/wx-login'
+
 /** 建立微信可信身份会话，返回 CloudBase 身份 UID（即 users.identity_id） */
 export async function signInSilently(): Promise<string> {
-  const app = getCloudbaseApp()
   const auth = getAuth()
-  // 自包含登录通道：云函数 wx-login 用 AppSecret 换 openid 并签发自定义登录
-  // 票据，不依赖微信侧第三方授权（OPS-7）。openid 不回传前端。
-  const res = (await app.callFunction({
-    name: 'wx-login',
-    data: { code: await getWxLoginCode() },
-    parse: true,
-  })) as { result?: unknown }
-  const raw: unknown = res?.result
-  const payload = (typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw) as {
-    ok?: boolean
-    ticket?: string
-  } | null
+  // 自包含登录通道（OPS-7）：uni.login 的 code 直接 POST 到 wx-login 公网路由，
+  // 云函数用 AppSecret 换 openid 并签发自定义登录票据。openid 不回传前端。
+  const code = await getWxLoginCode()
+  const res = await new Promise<{ data?: unknown }>((resolve, reject) => {
+    uni.request({
+      url: WX_LOGIN_URL,
+      method: 'POST',
+      data: { code },
+      timeout: 15000,
+      success: resolve,
+      fail: () => reject(new AppError('UNAUTHORIZED', '登录服务连接失败')),
+    })
+  })
+  let raw: unknown = res?.data
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      throw new AppError('UNAUTHORIZED', '微信身份登录失败')
+    }
+  }
+  const payload = raw as { ok?: boolean; ticket?: string } | null
   if (!payload || payload.ok !== true || typeof payload.ticket !== 'string') {
     throw new AppError('UNAUTHORIZED', '微信身份登录失败')
   }
   const ticket = payload.ticket
-  const loginState = (await auth.signInWithCustomTicket(async () => ticket)) as {
-    user?: { uid?: string }
+  // 清掉匿名态再做票据交换，避免会话类型冲突
+  await auth.signOut()
+  const rawLogin: unknown = await auth.signInWithCustomTicket(async () => ticket)
+  // v3 回包可能是 {data:{session:{user:{id}}}} 或 {user:{uid}}，且可能带 error 信封
+  const loginEnvelope = rawLogin as { error?: unknown; data?: unknown; user?: unknown } | null
+  if (isRecord(loginEnvelope) && isRecord(loginEnvelope.error) && loginEnvelope.error !== null) {
+    throw new AppError('UNAUTHORIZED', '自定义登录失败')
   }
-  const uid = loginState?.user?.uid
+  const nodes: unknown[] = [
+    loginEnvelope?.user,
+    loginEnvelope?.data,
+    (auth as unknown as { currentUser?: unknown }).currentUser,
+  ]
+  let uid: string | undefined
+  for (const node of nodes) {
+    if (!isRecord(node)) continue
+    for (const candidate of [
+      node,
+      node.user,
+      node.session,
+      (node.session as { user?: unknown })?.user,
+    ]) {
+      if (isRecord(candidate)) {
+        for (const key of ['uid', 'id']) {
+          if (typeof candidate[key] === 'string' && candidate[key]) {
+            uid = candidate[key]
+            break
+          }
+        }
+      }
+      if (uid) break
+    }
+    if (uid) break
+  }
+  if (!uid) {
+    const session = asSdkResult<unknown>(await auth.getSession())
+    if (isRecord(session.data) && isRecord(session.data.session)) {
+      for (const key of ['uid', 'id']) {
+        const node = session.data.session
+        if (isRecord(node) && typeof node[key] === 'string') {
+          uid = node[key]
+          break
+        }
+        if (isRecord(node) && isRecord(node.user) && typeof node.user[key] === 'string') {
+          uid = node.user[key]
+          break
+        }
+      }
+    }
+  }
   if (typeof uid !== 'string' || !uid) {
     throw new AppError('UNAUTHORIZED', '会话中缺少用户标识')
   }

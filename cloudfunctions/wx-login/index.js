@@ -46,7 +46,9 @@ exports.main = async (event) => {
       // errcode/errmsg 可能携带 appid 等上下文，不落日志
       return { ok: false, errorCode: 'UNAUTHORIZED' }
     }
-    const ticket = await getApp().auth().createTicket(wxData.openid, { refresh: true })
+    const ticket = await getApp()
+      .auth()
+      .createTicket(wxData.openid, { refresh: 3600 * 1000 })
     return { ok: true, ticket }
   } catch (e) {
     console.log('wx-login invoke failed: internal error')
