@@ -9,10 +9,12 @@ import uni from '@dcloudio/vite-plugin-uni'
  */
 function cloudbaseSync(): Plugin {
   let outDir = ''
+  let isProductionBuild = false
   return {
     name: 'gearflow:cloudbase-sync',
     configResolved(config) {
       outDir = resolve(config.root, config.build.outDir)
+      isProductionBuild = config.env.APP_ENV === 'production'
     },
     closeBundle() {
       const sourceDir = resolve(__dirname, 'cloudfunctions')
@@ -32,6 +34,9 @@ function cloudbaseSync(): Plugin {
         // 转译会把 900KB 级产物膨胀到 2.1MB 触发 80051 主包超限
         projectConfig.setting = {
           ...(projectConfig.setting as Record<string, unknown> | undefined),
+          // Development builds keep URL validation relaxed; release builds must
+          // rely on the configured WeChat legal request-domain allowlist.
+          urlCheck: isProductionBuild,
           minified: false,
           uploadWithSourceMap: false,
           es6: false,

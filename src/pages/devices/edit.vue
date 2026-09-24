@@ -6,132 +6,145 @@
       <text class="page-subtitle">记录关键资料，后续维护和统计会自动关联。</text>
     </view>
 
-    <view class="card">
-      <view class="section-heading">
-        <view>
-          <text class="section-title">基本信息</text>
-          <text class="section-caption">设备识别与资产归属</text>
+    <StatusView :state="loadState" :error-text="loadError" @retry="load">
+      <view class="card">
+        <view class="section-heading">
+          <view>
+            <text class="section-title">基本信息</text>
+            <text class="section-caption">设备识别与资产归属</text>
+          </view>
+          <text class="section-index">01</text>
         </view>
-        <text class="section-index">01</text>
+
+        <FormField label="分类" required :error="errors.categoryId">
+          <view class="select-field" @click="showCategorySheet = true">
+            <text :class="categoryName ? 'select-value' : 'select-placeholder'">
+              {{ categoryName || '请选择分类' }}
+            </text>
+            <text class="select-arrow">›</text>
+          </view>
+        </FormField>
+
+        <FormField label="名称" required :error="errors.name">
+          <input v-model="form.name" class="input" placeholder="例如：MacBook Pro" maxlength="64" />
+        </FormField>
+
+        <FormField label="状态">
+          <view class="status-row">
+            <view
+              v-for="option in DEVICE_STATUS_OPTIONS"
+              :key="option.value"
+              class="status-chip"
+              :class="{ active: form.status === option.value }"
+              @click="form.status = option.value"
+            >
+              <text class="status-chip-text">{{ option.label }}</text>
+            </view>
+          </view>
+        </FormField>
+
+        <FormField label="品牌">
+          <input v-model="form.brand" class="input" placeholder="选填" maxlength="64" />
+        </FormField>
+
+        <FormField label="型号">
+          <input v-model="form.model" class="input" placeholder="选填" maxlength="128" />
+        </FormField>
+
+        <FormField
+          label="序列号"
+          :error="errors.serialNumber"
+          hint="选填，仅供查询和报修；账号注销时删除"
+        >
+          <input v-model="form.serialNumber" class="input" placeholder="选填" maxlength="128" />
+        </FormField>
+
+        <FormField label="购买日期" :error="errors.purchaseDate">
+          <picker mode="date" :value="form.purchaseDate" @change="onPurchaseDateChange">
+            <view class="select-field">
+              <text :class="form.purchaseDate ? 'select-value' : 'select-placeholder'">
+                {{ form.purchaseDate || '选择日期（可选）' }}
+              </text>
+              <text class="select-arrow">›</text>
+            </view>
+          </picker>
+        </FormField>
+
+        <FormField label="购买渠道">
+          <input
+            v-model="form.purchaseChannel"
+            class="input"
+            placeholder="选填，例如 Apple Store"
+            maxlength="128"
+          />
+        </FormField>
+
+        <FormField label="购买价格（元）" :error="errors.purchasePrice">
+          <input
+            v-model="form.purchasePriceYuan"
+            class="input"
+            type="digit"
+            placeholder="选填，例如 9999.00"
+          />
+        </FormField>
+
+        <FormField label="备注" :error="errors.notes">
+          <textarea v-model="form.notes" class="textarea" placeholder="选填" maxlength="1000" />
+        </FormField>
       </view>
 
-      <FormField label="分类" required :error="errors.categoryId">
-        <view class="select-field" @click="showCategorySheet = true">
-          <text :class="categoryName ? 'select-value' : 'select-placeholder'">
-            {{ categoryName || '请选择分类' }}
-          </text>
-          <text class="select-arrow">›</text>
-        </view>
-      </FormField>
-
-      <FormField label="名称" required :error="errors.name">
-        <input v-model="form.name" class="input" placeholder="例如：MacBook Pro" maxlength="64" />
-      </FormField>
-
-      <FormField label="状态">
-        <view class="status-row">
-          <view
-            v-for="option in DEVICE_STATUS_OPTIONS"
-            :key="option.value"
-            class="status-chip"
-            :class="{ active: form.status === option.value }"
-            @click="form.status = option.value"
-          >
-            <text class="status-chip-text">{{ option.label }}</text>
+      <view class="card">
+        <view class="section-heading">
+          <view>
+            <text class="section-title">保修信息</text>
+            <text class="section-caption">选填，起止日期需成对填写</text>
           </view>
+          <text class="section-index">02</text>
         </view>
-      </FormField>
-
-      <FormField label="品牌">
-        <input v-model="form.brand" class="input" placeholder="选填" maxlength="64" />
-      </FormField>
-
-      <FormField label="型号">
-        <input v-model="form.model" class="input" placeholder="选填" maxlength="128" />
-      </FormField>
-
-      <FormField label="序列号" :error="errors.serialNumber">
-        <input v-model="form.serialNumber" class="input" placeholder="选填" maxlength="128" />
-      </FormField>
-
-      <FormField label="购买日期" :error="errors.purchaseDate">
-        <picker mode="date" :value="form.purchaseDate" @change="onPurchaseDateChange">
-          <view class="select-field">
-            <text :class="form.purchaseDate ? 'select-value' : 'select-placeholder'">
-              {{ form.purchaseDate || '选择日期（可选）' }}
-            </text>
-            <text class="select-arrow">›</text>
-          </view>
-        </picker>
-      </FormField>
-
-      <FormField label="购买渠道">
-        <input
-          v-model="form.purchaseChannel"
-          class="input"
-          placeholder="选填，例如 Apple Store"
-          maxlength="128"
-        />
-      </FormField>
-
-      <FormField label="购买价格（元）" :error="errors.purchasePrice">
-        <input
-          v-model="form.purchasePriceYuan"
-          class="input"
-          type="digit"
-          placeholder="选填，例如 9999.00"
-        />
-      </FormField>
-
-      <FormField label="备注" :error="errors.notes">
-        <textarea v-model="form.notes" class="textarea" placeholder="选填" maxlength="1000" />
-      </FormField>
-    </view>
-
-    <view class="card">
-      <view class="section-heading">
-        <view>
-          <text class="section-title">保修信息</text>
-          <text class="section-caption">选填，填写结束日期后自动计算状态</text>
-        </view>
-        <text class="section-index">02</text>
+        <FormField label="保修开始日期" :error="errors.warrantyDates">
+          <picker mode="date" :value="warrantyStart" @change="onWarrantyStartChange">
+            <view class="select-field">
+              <text :class="warrantyStart ? 'select-value' : 'select-placeholder'">
+                {{ warrantyStart || '选择日期' }}
+              </text>
+              <text class="select-arrow">›</text>
+            </view>
+          </picker>
+        </FormField>
+        <FormField label="保修结束日期" :error="errors.warrantyDates">
+          <picker mode="date" :value="warrantyEnd" @change="onWarrantyEndChange">
+            <view class="select-field">
+              <text :class="warrantyEnd ? 'select-value' : 'select-placeholder'">
+                {{ warrantyEnd || '选择日期（填写后自动计算保修状态）' }}
+              </text>
+              <text class="select-arrow">›</text>
+            </view>
+          </picker>
+        </FormField>
+        <FormField label="保修提供方">
+          <input
+            v-model="warrantyProvider"
+            class="input"
+            placeholder="选填，例如 Apple"
+            maxlength="128"
+          />
+        </FormField>
+        <button
+          v-if="warrantyStart || warrantyEnd || warrantyProvider"
+          class="clear-warranty"
+          @click="clearWarranty"
+        >
+          清除保修
+        </button>
       </view>
-      <FormField label="保修开始日期" :error="errors.warrantyDates">
-        <picker mode="date" :value="warrantyStart" @change="onWarrantyStartChange">
-          <view class="select-field">
-            <text :class="warrantyStart ? 'select-value' : 'select-placeholder'">
-              {{ warrantyStart || '选择日期' }}
-            </text>
-            <text class="select-arrow">›</text>
-          </view>
-        </picker>
-      </FormField>
-      <FormField label="保修结束日期" :error="errors.warrantyDates">
-        <picker mode="date" :value="warrantyEnd" @change="onWarrantyEndChange">
-          <view class="select-field">
-            <text :class="warrantyEnd ? 'select-value' : 'select-placeholder'">
-              {{ warrantyEnd || '选择日期（填写后自动计算保修状态）' }}
-            </text>
-            <text class="select-arrow">›</text>
-          </view>
-        </picker>
-      </FormField>
-      <FormField label="保修提供方">
-        <input
-          v-model="warrantyProvider"
-          class="input"
-          placeholder="选填，例如 Apple"
-          maxlength="128"
-        />
-      </FormField>
-    </view>
 
-    <view class="action-area">
-      <button class="save-button" :disabled="saving" @click="onSave">
-        {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存设备' }}
-      </button>
-      <text class="action-note">信息只会保存在你的 GearFlow 账户中</text>
-    </view>
+      <view class="action-area">
+        <button class="save-button" :disabled="saving || loadState !== 'success'" @click="onSave">
+          {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存设备' }}
+        </button>
+        <text class="action-note">信息只会保存在你的 GearFlow 账户中</text>
+      </view>
+    </StatusView>
 
     <view v-if="showCategorySheet" class="sheet-mask" @click="showCategorySheet = false">
       <view class="sheet" @click.stop>
@@ -159,11 +172,16 @@ import { useDeviceStore } from '@/stores/device'
 import { getDevice, saveDeviceWithWarranty } from '@/services/device'
 import { getWarranty } from '@/services/warranty'
 import { ensureSession } from '@/services/auth'
+import { requireCurrentConsent } from '@/services/consent'
+import { assertClientRevision, clientRevision } from '@/services/client-state'
+import { AppError, toAppError } from '@/utils/error'
 import { normalizeDeviceForm, type DeviceFormErrors } from '@/validators/device'
 import { centsToYuan } from '@/utils/money'
 import { isValidDateString } from '@/utils/date'
 import { DEVICE_STATUS_OPTIONS } from '@/constants/device'
 import FormField from '@/components/FormField.vue'
+import StatusView from '@/components/StatusView.vue'
+import type { PageState } from '@/types/api/common'
 import type { DeviceCategory, DeviceFormInput } from '@/types/device'
 
 const store = useDeviceStore()
@@ -171,12 +189,15 @@ const categories = ref<DeviceCategory[]>([])
 const isEdit = ref(false)
 const editId = ref('')
 const saving = ref(false)
+const loadState = ref<PageState>('loading')
+const loadError = ref('')
 const showCategorySheet = ref(false)
 const errors = ref<DeviceFormErrors>({})
 
 const warrantyStart = ref('')
 const warrantyEnd = ref('')
 const warrantyProvider = ref('')
+let loadedWarranty = { startDate: '', endDate: '', provider: '' }
 
 const emptyForm = (): DeviceFormInput => ({
   categoryId: '',
@@ -198,18 +219,32 @@ const categoryName = computed(() => {
   return found ? found.name : ''
 })
 
-onLoad(async (query) => {
-  categories.value = await store.ensureCategories()
-  const id = query?.id ?? ''
-  if (id) {
-    isEdit.value = true
-    editId.value = id
+onLoad((query) => {
+  editId.value = query?.id ?? ''
+  isEdit.value = editId.value !== ''
+  void load()
+})
+
+async function load(): Promise<void> {
+  if (!requireCurrentConsent()) return
+  const revision = clientRevision()
+  loadState.value = 'loading'
+  loadError.value = ''
+  try {
     await ensureSession()
-    const device = await getDevice(id)
-    if (!device) {
-      uni.showToast({ title: '设备不存在或已被删除', icon: 'none' })
-      setTimeout(() => uni.navigateBack(), 600)
+    const [loadedCategories, device, warranty] = await Promise.all([
+      store.ensureCategories(),
+      isEdit.value ? getDevice(editId.value) : Promise.resolve(null),
+      isEdit.value ? getWarranty(editId.value) : Promise.resolve(null),
+    ])
+    assertClientRevision(revision)
+    categories.value = loadedCategories
+    if (!isEdit.value) {
+      loadState.value = 'success'
       return
+    }
+    if (!device) {
+      throw new AppError('DEVICE_NOT_FOUND', '设备不存在或已被删除')
     }
     form.value = {
       categoryId: device.categoryId ?? '',
@@ -223,18 +258,28 @@ onLoad(async (query) => {
       purchasePriceYuan: centsToYuan(device.purchasePriceCents),
       notes: device.notes ?? '',
     }
-    try {
-      const warranty = await getWarranty(id)
-      if (warranty) {
-        warrantyStart.value = warranty.startDate ?? ''
-        warrantyEnd.value = warranty.endDate
-        warrantyProvider.value = warranty.provider ?? ''
-      }
-    } catch {
-      // 保修信息读取失败不阻塞表单
+    loadedWarranty = {
+      startDate: warranty?.startDate ?? '',
+      endDate: warranty?.endDate ?? '',
+      provider: warranty?.provider ?? '',
     }
+    warrantyStart.value = loadedWarranty.startDate
+    warrantyEnd.value = loadedWarranty.endDate
+    warrantyProvider.value = loadedWarranty.provider
+    loadState.value = 'success'
+  } catch (err) {
+    const error = toAppError(err)
+    loadError.value = error.message
+    loadState.value = error.code === 'FORBIDDEN' ? 'forbidden' : 'error'
   }
-})
+}
+
+function clearWarranty(): void {
+  warrantyStart.value = ''
+  warrantyEnd.value = ''
+  warrantyProvider.value = ''
+  delete errors.value.warrantyDates
+}
 
 function onWarrantyStartChange(event: { detail: { value: string } }): void {
   warrantyStart.value = event.detail.value
@@ -277,9 +322,14 @@ function onPurchaseDateChange(event: { detail: { value: string } }): void {
 }
 
 async function onSave(): Promise<void> {
-  if (saving.value) return
+  if (saving.value || loadState.value !== 'success') return
   const normalized = normalizeDeviceForm(form.value)
-  const warrantyError = validateWarranty()
+  const unchanged =
+    isEdit.value &&
+    warrantyStart.value === loadedWarranty.startDate &&
+    warrantyEnd.value === loadedWarranty.endDate &&
+    warrantyProvider.value.trim() === loadedWarranty.provider.trim()
+  const warrantyError = unchanged ? undefined : validateWarranty()
   errors.value = {
     ...normalized.errors,
     ...(warrantyError ? { warrantyDates: warrantyError } : {}),
@@ -290,18 +340,23 @@ async function onSave(): Promise<void> {
   }
   saving.value = true
   try {
-    await saveDeviceWithWarranty(isEdit.value ? editId.value : null, normalized.values, {
-      mode: warrantyEnd.value === '' ? 'CLEAR' : 'SET',
-      startDate: warrantyStart.value === '' ? null : warrantyStart.value,
-      endDate: warrantyEnd.value === '' ? null : warrantyEnd.value,
-      provider: warrantyProvider.value.trim() === '' ? null : warrantyProvider.value.trim(),
-    })
-
+    const result = await saveDeviceWithWarranty(
+      isEdit.value ? editId.value : null,
+      normalized.values,
+      {
+        mode: unchanged ? 'KEEP' : warrantyEnd.value === '' ? 'CLEAR' : 'SET',
+        startDate: warrantyStart.value === '' ? null : warrantyStart.value,
+        endDate: warrantyEnd.value === '' ? null : warrantyEnd.value,
+        provider: warrantyProvider.value.trim() === '' ? null : warrantyProvider.value.trim(),
+      },
+    )
+    editId.value = result.id
+    isEdit.value = true
     uni.showToast({ title: '已保存', icon: 'success' })
     await store.loadFirst()
     setTimeout(() => uni.navigateBack(), 500)
-  } catch {
-    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  } catch (err) {
+    uni.showToast({ title: toAppError(err).message, icon: 'none' })
   } finally {
     saving.value = false
   }
@@ -309,6 +364,15 @@ async function onSave(): Promise<void> {
 </script>
 
 <style scoped lang="scss">
+.clear-warranty {
+  margin: 12rpx 0;
+  min-height: 72rpx;
+  line-height: 72rpx;
+  font-size: $gf-font-sm;
+  color: $gf-color-danger;
+  background-color: $gf-color-danger-weak;
+}
+
 .page {
   min-height: 100vh;
   padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));

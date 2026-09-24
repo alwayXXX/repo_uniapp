@@ -1,6 +1,6 @@
 # OPS-7 登录凭据自包含化方案（自定义登录）
 
-> 状态：已落地（2026-09-06 上线，真机验证通过；实施要点以本文件 + git 历史 9280489..fbcf0b0 为准）。
+> 状态：登录链路已于 2026-09-06 落地并有真机验收记录；2026-09-23 同步实际 HTTP 路由和密钥依赖。此处不是小程序正式发布证明。历史实施记录为 9280489..fbcf0b0；当前行为以源码及本文更新为准。
 
 ## 1. 背景与问题
 
@@ -19,7 +19,7 @@
 
 ```text
 小程序 uni.login() → code
-  → app.callFunction('wx-login', { code })        # 走 HTTP 网关（域名与现有 rdb/auth 同源）
+  → uni.request POST wx-login 公网路由 { code }  # 免鉴权入口，与 rdb/auth 数据网关不同域名
     → 云函数 wx-login：
         jscode2session(WX_APPID, WX_SECRET, code) → openid   # 密钥仅存函数环境变量
         node-sdk auth().createTicket(openid)                  # 需自定义登录私钥
@@ -32,6 +32,8 @@
 - 日志红线：函数日志不输出 code/openid/errcode/errmsg，仅记成功布尔与静态文案。
 - 失败语义：统一返回 `{ ok:false, errorCode }`，前端映射为既有 `UNAUTHORIZED`。
 
+当前公开登录地址：`https://myrepo-d1gfju7se642a63ce-1331619055.ap-shanghai.app.tcloudbase.com/wx-login`。不要替换成 SDK `callFunction` 或数据网关下的猜测路径。
+
 ## 4. 密钥管理（密钥不过聊天）
 
 | 密钥           | 来源                                                   | 去向                                              |
@@ -40,6 +42,8 @@
 | 自定义登录私钥 | 控制台启用「自定义登录」后下载 `tcb_custom_login.json` | 用户亲手整份粘贴进环境变量 `TCB_CREDENTIALS_JSON` |
 
 环境变量清单（云函数 wx-login）：`WX_APPID`、`WX_SECRET`、`TCB_ENV`、`TCB_CREDENTIALS_JSON`。
+
+用户已确认曾暴露的 AppSecret 与自定义登录私钥均已更换，并已在体验版扫码登录成功。仍需记录既有数据归属连续性；仅重置微信侧 AppSecret 会中断当前登录。本轮不读取、不轮换、不部署这些密钥；“不依赖第三方授权”不等于“不依赖 AppSecret”。
 
 ## 5. 身份连续性风险与预案
 
@@ -56,6 +60,6 @@
 ## 7. 迁移完成后的终态
 
 1. 解除微信侧第三方授权（微搭），**不再重新授权**——版本管理永久可用。
-2. mp 后台服务器域名手动配置（原自动托管失效）：request 合法域名加 `https://myrepo-d1gfju7se642a63ce.api.tcloudbasegateway.com`。
+2. mp 后台 request 合法域名同时核对数据网关 `https://myrepo-d1gfju7se642a63ce.api.tcloudbasegateway.com` 与登录域名 `https://myrepo-d1gfju7se642a63ce-1331619055.ap-shanghai.app.tcloudbase.com`；`/wx-login` 是路径，不写进域名白名单。正式构建启用 `urlCheck` 后重新真机验证。
 3. 旧 WX_QRCODE_MICRO_APP 身份源停用（保留观察一个版本后删除）。
-4. 发版流程回归：CLI 上传 → 设为体验版，两步。
+4. 体验分发流程：正式构建与检查 → 上传 → 设为体验版。正式审核发布另按 `docs/LAUNCH.md` 完成。

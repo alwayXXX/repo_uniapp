@@ -102,9 +102,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
+import { onHide, onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { useDeviceStore } from '@/stores/device'
 import { listDevices } from '@/services/device'
+import { ensureSession } from '@/services/auth'
+import { requireCurrentConsent } from '@/services/consent'
+import { assertClientRevision, clientRevision } from '@/services/client-state'
 import { buildDevicesCsv, csvFileName, saveAndShareCsv } from '@/services/export'
 import { toAppError } from '@/utils/error'
 import { formatMoney } from '@/utils/money'
@@ -120,12 +123,15 @@ const exporting = ref(false)
 async function exportDevicesCsv(): Promise<void> {
   if (exporting.value) return
   exporting.value = true
+  const revision = clientRevision()
   try {
+    await ensureSession()
     await store.ensureCategories()
     const all: DeviceDoc[] = []
-    const pageSize = 100
+    const pageSize = 50
     for (let page = 1; ; page += 1) {
       const result = await listDevices({ sortBy: 'createdAt', sortOrder: 'desc', page, pageSize })
+      assertClientRevision(revision)
       all.push(...result.items)
       if (!result.hasMore) break
     }
@@ -134,7 +140,7 @@ async function exportDevicesCsv(): Promise<void> {
       return
     }
     const csv = buildDevicesCsv(all, (id) => store.categoryNameOf(id))
-    await saveAndShareCsv(csvFileName('gearflow_设备清单'), csv)
+    await saveAndShareCsv(csvFileName('gearflow_设备清单'), csv, revision)
   } catch (err) {
     uni.showToast({ title: toAppError(err).message, icon: 'none' })
   } finally {
@@ -143,19 +149,30 @@ async function exportDevicesCsv(): Promise<void> {
 }
 
 async function refreshDevices(): Promise<void> {
-  // 每次进入都刷新：详情页的编辑/软删除需要同步回列表
-  await store.ensureCategories()
-  const pendingCategory = uni.getStorageSync('gf_stats_category_id')
-  if (typeof pendingCategory === 'string') {
-    uni.removeStorageSync('gf_stats_category_id')
-    const categoryExists = store.categories.some((item) => item.id === pendingCategory)
-    store.setCategoryFilter(categoryExists ? pendingCategory : '')
-    return
+  const revision = clientRevision()
+  try {
+    // 每次进入都刷新：详情页的编辑/软删除需要同步回列表
+    await ensureSession()
+    await store.ensureCategories()
+    assertClientRevision(revision)
+    const pendingCategory = uni.getStorageSync('gf_stats_category_id')
+    if (typeof pendingCategory === 'string') {
+      uni.removeStorageSync('gf_stats_category_id')
+      const categoryExists = store.categories.some((item) => item.id === pendingCategory)
+      store.setCategoryFilter(categoryExists ? pendingCategory : '')
+      return
+    }
+    await store.loadFirst()
+  } catch (err) {
+    if (revision !== clientRevision()) return
+    const error = toAppError(err)
+    store.errorText = error.message
+    store.status = error.code === 'FORBIDDEN' ? 'forbidden' : 'error'
   }
-  await store.loadFirst()
 }
 
 onShow(() => {
+  if (!requireCurrentConsent()) return
   void refreshDevices()
 })
 
@@ -180,6 +197,10 @@ function categoryName(device: DeviceDoc): string {
 }
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+onHide(() => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = null
+})
 function onKeywordInput(event: unknown): void {
   const value = (event as { detail?: { value?: string } }).detail?.value ?? ''
   store.setKeyword(value)

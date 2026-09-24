@@ -324,6 +324,8 @@ P1 表，MVP 不启用。
 
 P1 引入附件后，云存储删除失败任务写入 CloudBase 删除任务集合，并由云函数重试，不能静默丢失。
 
+客户端补充约束（2026-09-23）：退出与注销同时清理业务 Store、筛选缓存、协议版本标记和本应用生成的 CSV 临时文件；已分享至其他应用的副本由用户管理。过期的异步请求不能在清理后重新填充数据。本轮不改变云端删除顺序或 RLS。
+
 ## 6. 用户数据隔离
 
 所有业务表均冗余 `userId`，原因：
@@ -436,7 +438,7 @@ CREATE INDEX idx_devices_user_category ON devices (user_id, category_id, deleted
 CREATE INDEX idx_devices_user_purchase ON devices (user_id, purchase_date);
 ```
 
-RLS：客户端仅可查询本人且 `deleted_at IS NULL` 的设备；`INSERT/UPDATE/DELETE` 不授予客户端，由 `gf_save_device_with_warranty` 与 `gf_soft_delete_device` 以 `auth.uid()` 校验后执行。删除 = 软删除（置 `deleted_at`），列表与统计过滤 `deleted_at IS NULL`。
+RLS：设备表 `devices_select_own` 限定本人，`deleted_at IS NULL` 由设备列表、详情查询与统计额外过滤；关联保修、维护、成本和时间线的 RLS 同时检查设备未软删除。`INSERT/UPDATE/DELETE` 不授予客户端，由 `gf_save_device_with_warranty` 与 `gf_soft_delete_device` 以 `auth.uid()` 校验后执行。删除 = 软删除（置 `deleted_at`），并非物理删除设备行。
 
 ### 9.2.1 device_categories（Phase 4）
 
@@ -488,6 +490,8 @@ CREATE TABLE consent_records (
 ```
 
 RLS：客户端仅可 `SELECT` 本人记录；`INSERT/UPDATE/DELETE` 均不授予客户端，由身份初始化/注销 RPC 维护。同意记录不可篡改，仅随账号注销物理删除。协议正文为静态法律文本，由前端常量维护（`src/constants/policies.ts`），数据库只记录版本与时间。
+
+仅用户显式确认协议时调用带版本的 bootstrap RPC。普通会话恢复只查询当前用户，不写同意记录；本机版本标记只控制引导，不参与数据库鉴权。
 
 ### 9.6 device_timelines（Phase 6）
 
@@ -577,3 +581,10 @@ CREATE INDEX idx_warranty_user_end ON warranties (user_id, end_date);
 ```
 
 RLS：客户端仅可查询本人且关联设备未软删除的行；`INSERT/UPDATE/DELETE` 不授予客户端，由 `gf_save_device_with_warranty` 在设备事务中维护。**保修状态不落库**，客户端按 `end_date` 实时计算（`IN_WARRANTY`/`EXPIRING`（≤30 天）/`EXPIRED`/`UNKNOWN`），首页临期看板据此生成。
+
+### 9.10 当前身份列与隔离测试
+
+- 2026-09-06 的 `ops_seven_widen_uid_columns_retry` 将 `users.identity_id` 及六张业务表的 `user_id` 放宽为 `varchar(255)`；以上历史建表片段不代表当前长度仍为 64。
+- 本轮不新增线上迁移。数据库回归仅在测试专用的内存 PostgreSQL（PGlite）执行，重放仓库迁移并模拟 CloudBase 的 `auth.uid()`、角色和建表默认授权。
+- 历史文件 `20260830141710_gearflow_phase_one_tables.sql` 含两条语句，当时 runner 只执行第一条；随后 `20260830141730` 单独建 devices。测试须显式记录这一历史例外，不修改已应用的迁移原文，也不能把忽略失败推广到其他迁移。
+- 隔离测试验证 SQL 约束、RLS、RPC 权限和注销残留；不替代真实 CloudBase 身份签发、线上 schema 漂移或生产配置验收。

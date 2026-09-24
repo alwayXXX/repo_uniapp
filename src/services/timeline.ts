@@ -3,6 +3,7 @@ import { AppError, isRecord } from '@/utils/error'
 import { isTimelineEventType, parseTimelinePayload, sortTimelineEvents } from '@/utils/timeline'
 import type { ListTimelineParams, ListTimelineResult } from '@/types/api/timeline'
 import type { DeviceTimelineEvent } from '@/types/timeline'
+import { ensureSession } from './auth'
 
 const DEVICE_TIMELINES = 'device_timelines'
 const MAX_PAGE_SIZE = 50
@@ -50,6 +51,7 @@ function toTimelineEvent(row: TimelineRow): DeviceTimelineEvent | null {
 
 /** timeline.list：RLS 限定本人且关联设备未软删除。 */
 export async function listDeviceTimeline(params: ListTimelineParams): Promise<ListTimelineResult> {
+  await ensureSession()
   const page = Math.max(1, Math.trunc(params.page))
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(params.pageSize)))
   const from = (page - 1) * pageSize

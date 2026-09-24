@@ -1,6 +1,7 @@
 import { asSdkResult, getRdb, throwIfError } from './cloudbase'
 import { AppError, isRecord } from '@/utils/error'
 import type { DeviceCategory } from '@/types/device'
+import { ensureSession } from './auth'
 
 /** 系统分类服务：只读数据，进程内缓存（分类极少变化） */
 let cache: DeviceCategory[] | null = null
@@ -15,6 +16,7 @@ export function getCategoryName(categoryId: string): string {
 
 export async function listCategories(force = false): Promise<DeviceCategory[]> {
   if (cache && !force) return cache
+  await ensureSession()
   const rdb = getRdb()
   const result = asSdkResult<unknown>(
     await rdb

@@ -33,5 +33,14 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-      - name: Build (mp-weixin)
-        run: pnpm build:mp-weixin
+      - name: Release checker tests
+        run: pnpm test:release
+
+      - name: Database regression (isolated PostgreSQL)
+        run: pnpm test:database
+
+      - name: Release build (mp-weixin)
+        run: pnpm build:mp-weixin:release
+
+      - name: Verify release artifact
+        run: pnpm verify:phase10

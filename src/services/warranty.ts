@@ -1,6 +1,8 @@
 import { asSdkResult, getRdb, throwIfError } from './cloudbase'
 import { AppError, isRecord } from '@/utils/error'
 import type { WarrantyDoc } from '@/types/maintenance'
+import { ensureSession } from './auth'
+import { isValidDateString } from '@/utils/date'
 
 const WARRANTIES = 'warranties'
 
@@ -33,17 +35,32 @@ function toWarrantyDoc(row: WarrantyRow): WarrantyDoc {
 }
 
 function parseRows(raw: unknown): WarrantyRow[] {
-  if (!Array.isArray(raw)) {
+  if (
+    !Array.isArray(raw) ||
+    !raw.every(
+      (row): row is WarrantyRow =>
+        isRecord(row) &&
+        typeof row.id === 'string' &&
+        typeof row.device_id === 'string' &&
+        typeof row.end_date === 'string' &&
+        isValidDateString(row.end_date) &&
+        (row.start_date === null ||
+          (typeof row.start_date === 'string' && isValidDateString(row.start_date))) &&
+        ['user_id', 'provider', 'scope', 'notes'].every(
+          (field) => row[field] === null || typeof row[field] === 'string',
+        ) &&
+        typeof row.created_at === 'string' &&
+        typeof row.updated_at === 'string',
+    )
+  ) {
     throw new AppError('INTERNAL_ERROR', '保修数据格式错误')
   }
-  return raw.filter(
-    (row): row is WarrantyRow =>
-      isRecord(row) && typeof row.id === 'string' && typeof row.device_id === 'string',
-  )
+  return raw
 }
 
 /** 某设备的保修（一设备一保修）；未填写返回 null */
 export async function getWarranty(deviceId: string): Promise<WarrantyDoc | null> {
+  await ensureSession()
   const rdb = getRdb()
   const result = asSdkResult<unknown>(
     await rdb.from(WARRANTIES).select('*').eq('device_id', deviceId).limit(1),

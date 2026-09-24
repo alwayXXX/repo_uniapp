@@ -33,11 +33,12 @@
       </view>
 
       <view class="card">
+        <button class="action-button" open-type="feedback">意见反馈</button>
         <button class="action-button" @click="onLogout">退出登录</button>
         <button class="danger-button" :disabled="deleting" @click="onDeleteAccount">
           {{ deleting ? '注销中…' : '注销账号' }}
         </button>
-        <text class="danger-hint">注销将物理删除你的全部数据，且不可恢复</text>
+        <text class="danger-hint">注销将删除业务数据并匿名化账号资料，无法恢复</text>
       </view>
     </StatusView>
   </view>
@@ -50,8 +51,8 @@ import { useUserStore } from '@/stores/user'
 import StatusView from '@/components/StatusView.vue'
 import { PRIVACY_VERSION, TERMS_VERSION } from '@/constants/policies'
 import { toAppError } from '@/utils/error'
+import { requireCurrentConsent } from '@/services/consent'
 
-const ONBOARDED_KEY = 'gf_onboarded'
 const CONFIRM_TEXT = '注销我的账号'
 
 const store = useUserStore()
@@ -69,10 +70,7 @@ const displayName = computed(() => store.user?.nickname || 'GearFlow 用户')
 const avatarChar = computed(() => displayName.value.slice(0, 1).toUpperCase())
 
 onShow(() => {
-  if (uni.getStorageSync(ONBOARDED_KEY) !== '1') {
-    uni.reLaunch({ url: '/pages/onboarding/index' })
-    return
-  }
+  if (!requireCurrentConsent()) return
   if (store.status === 'idle') {
     void bootstrap()
   }
@@ -113,7 +111,7 @@ function editNickname(): void {
 function onLogout(): void {
   uni.showModal({
     title: '退出登录',
-    content: '将清除本机登录状态，你的云端数据不受影响。',
+    content: '将清除本机登录状态、设备缓存和应用内导出文件，你的云端数据不受影响。',
     success: (res) => {
       if (res.confirm) {
         void store
@@ -122,7 +120,10 @@ function onLogout(): void {
             uni.showToast({ title: '已退出登录状态', icon: 'none' })
             setTimeout(() => uni.reLaunch({ url: '/pages/onboarding/index' }), 400)
           })
-          .catch(() => uni.showToast({ title: '退出失败，请重试', icon: 'none' }))
+          .catch((err: unknown) => {
+            uni.showToast({ title: toAppError(err).message, icon: 'none' })
+            setTimeout(() => uni.reLaunch({ url: '/pages/onboarding/index' }), 800)
+          })
       }
     },
   })
@@ -131,7 +132,7 @@ function onLogout(): void {
 function onDeleteAccount(): void {
   uni.showModal({
     title: '注销账号',
-    content: `将删除你的全部设备与维护数据（协议同意版本：隐私 ${PRIVACY_VERSION} / 条款 ${TERMS_VERSION} 亦一并删除），此操作不可恢复。`,
+    content: `将删除设备、保修、维护、成本、时间线及同意记录（隐私 ${PRIVACY_VERSION} / 条款 ${TERMS_VERSION}），匿名化账号资料并清理本机缓存和导出文件，无法恢复。已分享或另行保存的 CSV 副本需由你和接收者自行删除。`,
     confirmText: '继续',
     success: (res) => {
       if (res.confirm) askConfirmationText()
@@ -149,12 +150,14 @@ function askConfirmationText(): void {
       store
         .deleteAccount((res.content ?? '').trim())
         .then(() => {
-          uni.removeStorageSync(ONBOARDED_KEY)
           uni.showToast({ title: '账号已注销', icon: 'none' })
           setTimeout(() => uni.reLaunch({ url: '/pages/home/index' }), 600)
         })
         .catch((err: unknown) => {
           uni.showToast({ title: toAppError(err).message, icon: 'none' })
+          if (store.status === 'idle') {
+            setTimeout(() => uni.reLaunch({ url: '/pages/onboarding/index' }), 800)
+          }
         })
     },
   })

@@ -54,30 +54,36 @@
           </view>
         </view>
 
-        <view class="card">
+        <view class="card warranty-section">
           <view class="card-title-row">
             <text class="card-title">保修信息</text>
             <text v-if="warrantyState" class="status-badge" :class="warrantyBadgeClass">
               {{ warrantyState.statusLabel }}
             </text>
           </view>
-          <template v-if="warranty">
-            <view class="row">
-              <text class="row-label">保修期限</text>
-              <text class="row-value">
-                {{ warranty.startDate || '?' }} 至 {{ warranty.endDate }}
-              </text>
-            </view>
-            <view class="row">
-              <text class="row-label">保修提供方</text>
-              <text class="row-value">{{ warranty.provider || '未填写' }}</text>
-            </view>
-            <view class="row">
-              <text class="row-label">剩余天数</text>
-              <text class="row-value">{{ remainingText }}</text>
-            </view>
-          </template>
-          <text v-else class="placeholder">未填写保修——在设备编辑页填写保修日期后自动计算状态</text>
+          <StatusView
+            :state="warrantyLoadState"
+            :error-text="warrantyErrorText"
+            empty-title="未填写保修"
+            @retry="loadWarranty"
+          >
+            <template v-if="warranty">
+              <view class="row">
+                <text class="row-label">保修期限</text>
+                <text class="row-value">
+                  {{ warranty.startDate || '?' }} 至 {{ warranty.endDate }}
+                </text>
+              </view>
+              <view class="row">
+                <text class="row-label">保修提供方</text>
+                <text class="row-value">{{ warranty.provider || '未填写' }}</text>
+              </view>
+              <view class="row">
+                <text class="row-label">剩余天数</text>
+                <text class="row-value">{{ remainingText }}</text>
+              </view>
+            </template>
+          </StatusView>
         </view>
 
         <view class="card">
@@ -86,7 +92,7 @@
             <view class="maintenance-actions">
               <button
                 class="add-maintenance"
-                :disabled="exportingMaintenance"
+                :disabled="exportingMaintenance || maintenanceState !== 'success'"
                 @click="exportMaintenanceCsv"
               >
                 导出
@@ -105,7 +111,7 @@
             @retry="loadMaintenances"
           >
             <view
-              v-for="record in maintenances"
+              v-for="record in visibleMaintenances"
               :key="record.id"
               class="maint-row"
               :data-maintenance-id="record.id"
@@ -124,6 +130,13 @@
                 formatMoney(record.costCents, device.currency)
               }}</text>
             </view>
+            <button
+              v-if="visibleMaintenances.length < maintenances.length"
+              class="timeline-more-button"
+              @click="maintenanceVisibleCount += 20"
+            >
+              加载更多
+            </button>
           </StatusView>
         </view>
 
@@ -177,14 +190,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getCategoryName } from '@/services/category'
 import { getDevice, softDeleteDevice } from '@/services/device'
 import { listDeviceTimeline } from '@/services/timeline'
-import { listByDevice } from '@/services/maintenance'
+import { listAllByDevice } from '@/services/maintenance'
 import { getWarranty } from '@/services/warranty'
 import { ensureSession } from '@/services/auth'
+import { requireCurrentConsent } from '@/services/consent'
+import { clientRevision } from '@/services/client-state'
 import { formatMoney } from '@/utils/money'
 import { computeWarranty, WARRANTY_STATUS_LABELS } from '@/utils/warranty'
 import { toAppError } from '@/utils/error'
@@ -205,6 +220,8 @@ const errorText = ref('')
 const deleting = ref(false)
 const confirmVisible = ref(false)
 const warranty = ref<WarrantyDoc | null>(null)
+const warrantyLoadState = ref<PageState>('loading')
+const warrantyErrorText = ref('')
 
 const TIMELINE_PAGE_SIZE = 20
 const timelineItems = ref<DeviceTimelineEvent[]>([])
@@ -215,21 +232,33 @@ const timelineHasMore = ref(false)
 const timelineLoadingMore = ref(false)
 
 const maintenances = ref<MaintenanceDoc[]>([])
+const maintenanceVisibleCount = ref(20)
+const visibleMaintenances = computed(() =>
+  maintenances.value.slice(0, maintenanceVisibleCount.value),
+)
 const exportingMaintenance = ref(false)
 
 /** 导出当前设备的维护记录 CSV */
 async function exportMaintenanceCsv(): Promise<void> {
-  if (!device.value || exportingMaintenance.value) return
+  if (
+    !device.value ||
+    exportingMaintenance.value ||
+    loadState.value !== 'success' ||
+    maintenanceState.value !== 'success' ||
+    !requireCurrentConsent()
+  )
+    return
   if (maintenances.value.length === 0) {
     uni.showToast({ title: '暂无维护记录可导出', icon: 'none' })
     return
   }
   exportingMaintenance.value = true
+  const revision = clientRevision()
   try {
     const csv = buildMaintenanceCsv(device.value, maintenances.value, (id) =>
       id ? getCategoryName(id) : '',
     )
-    await saveAndShareCsv(csvFileName(`gearflow_${device.value.name}_维护记录`), csv)
+    await saveAndShareCsv(csvFileName(`gearflow_${device.value.name}_维护记录`), csv, revision)
   } catch (err) {
     uni.showToast({ title: toAppError(err).message, icon: 'none' })
   } finally {
@@ -262,6 +291,7 @@ const remainingText = computed(() => {
   return `剩余 ${days} 天`
 })
 const maintenanceSubtotal = computed(() => {
+  if (maintenanceState.value !== 'success') return null
   const withCost = maintenances.value.filter((r) => r.costCents !== null)
   if (withCost.length === 0) return null
   return withCost.reduce((sum, r) => sum + (r.costCents ?? 0), 0)
@@ -272,13 +302,45 @@ function typeLabel(type: MaintenanceType): string {
 }
 
 let deviceId = ''
+let loadVersion = 0
+let warrantyVersion = 0
+let maintenanceVersion = 0
+let timelineVersion = 0
+
+function invalidateLoads(): void {
+  loadVersion += 1
+  warrantyVersion += 1
+  maintenanceVersion += 1
+  timelineVersion += 1
+}
+
+onScopeDispose(invalidateLoads)
 
 async function load(): Promise<void> {
+  if (!requireCurrentConsent()) return
+  invalidateLoads()
+  const version = loadVersion
+  const revision = clientRevision()
   loadState.value = 'loading'
   errorText.value = ''
+  device.value = null
+  warranty.value = null
+  warrantyLoadState.value = 'loading'
+  warrantyErrorText.value = ''
+  maintenances.value = []
+  maintenanceState.value = 'loading'
+  maintenanceErrorText.value = ''
+  maintenanceVisibleCount.value = 20
+  timelineItems.value = []
+  timelineState.value = 'loading'
+  timelineErrorText.value = ''
+  timelineHasMore.value = false
+  timelineLoadingMore.value = false
   try {
     await ensureSession()
+    if (version !== loadVersion || revision !== clientRevision()) return
     const result = await getDevice(deviceId)
+    if (version !== loadVersion || revision !== clientRevision()) return
     if (!result) {
       // RLS 下他人的设备与不存在的设备同样不可见（docs/PRD 4.3 异常态）
       uni.showToast({ title: '设备不存在或已被删除', icon: 'none' })
@@ -287,10 +349,9 @@ async function load(): Promise<void> {
     }
     device.value = result
     loadState.value = 'success'
-    await loadTimeline()
-    await loadWarranty()
-    await loadMaintenances()
+    await Promise.all([loadTimeline(), loadWarranty(), loadMaintenances()])
   } catch (err) {
+    if (version !== loadVersion || revision !== clientRevision()) return
     const appError = toAppError(err)
     errorText.value = appError.message
     loadState.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
@@ -298,20 +359,38 @@ async function load(): Promise<void> {
 }
 
 async function loadWarranty(): Promise<void> {
+  const version = ++warrantyVersion
+  const revision = clientRevision()
+  warrantyLoadState.value = 'loading'
+  warrantyErrorText.value = ''
+  warranty.value = null
   try {
-    warranty.value = await getWarranty(deviceId)
-  } catch {
-    warranty.value = null
+    const result = await getWarranty(deviceId)
+    if (version !== warrantyVersion || revision !== clientRevision()) return
+    warranty.value = result
+    warrantyLoadState.value = result ? 'success' : 'empty'
+  } catch (err) {
+    if (version !== warrantyVersion || revision !== clientRevision()) return
+    const error = toAppError(err)
+    warrantyErrorText.value = error.message
+    warrantyLoadState.value = error.code === 'FORBIDDEN' ? 'forbidden' : 'error'
   }
 }
 
 async function loadMaintenances(): Promise<void> {
+  const version = ++maintenanceVersion
+  const revision = clientRevision()
   maintenanceState.value = 'loading'
   maintenanceErrorText.value = ''
+  maintenances.value = []
+  maintenanceVisibleCount.value = 20
   try {
-    maintenances.value = await listByDevice(deviceId, 50)
+    const records = await listAllByDevice(deviceId)
+    if (version !== maintenanceVersion || revision !== clientRevision()) return
+    maintenances.value = records
     maintenanceState.value = maintenances.value.length === 0 ? 'empty' : 'success'
   } catch (err) {
+    if (version !== maintenanceVersion || revision !== clientRevision()) return
     const appError = toAppError(err)
     maintenanceErrorText.value = appError.message
     maintenanceState.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
@@ -325,21 +404,26 @@ function gotoMaintenance(recordId: string): void {
 
 async function loadTimeline(): Promise<void> {
   if (deviceId === '') return
+  const version = ++timelineVersion
+  const revision = clientRevision()
   timelineState.value = 'loading'
   timelineErrorText.value = ''
   timelineItems.value = []
   timelinePage.value = 1
   timelineHasMore.value = false
+  timelineLoadingMore.value = false
   try {
     const result = await listDeviceTimeline({
       deviceId,
       page: 1,
       pageSize: TIMELINE_PAGE_SIZE,
     })
+    if (version !== timelineVersion || revision !== clientRevision()) return
     timelineItems.value = result.items
     timelineHasMore.value = result.hasMore
     timelineState.value = result.items.length === 0 ? 'empty' : 'success'
   } catch (err) {
+    if (version !== timelineVersion || revision !== clientRevision()) return
     const appError = toAppError(err)
     timelineErrorText.value = appError.message
     timelineState.value = appError.code === 'FORBIDDEN' ? 'forbidden' : 'error'
@@ -349,6 +433,8 @@ async function loadTimeline(): Promise<void> {
 async function loadMoreTimeline(): Promise<void> {
   if (timelineLoadingMore.value || !timelineHasMore.value) return
   timelineLoadingMore.value = true
+  const version = timelineVersion
+  const revision = clientRevision()
   try {
     const nextPage = timelinePage.value + 1
     const result = await listDeviceTimeline({
@@ -356,6 +442,7 @@ async function loadMoreTimeline(): Promise<void> {
       page: nextPage,
       pageSize: TIMELINE_PAGE_SIZE,
     })
+    if (version !== timelineVersion || revision !== clientRevision()) return
     const known = new Set(timelineItems.value.map((item) => item.id))
     timelineItems.value = [
       ...timelineItems.value,
@@ -364,9 +451,13 @@ async function loadMoreTimeline(): Promise<void> {
     timelinePage.value = nextPage
     timelineHasMore.value = result.hasMore
   } catch {
-    uni.showToast({ title: '加载更多失败，请重试', icon: 'none' })
+    if (version === timelineVersion && revision === clientRevision()) {
+      uni.showToast({ title: '加载更多失败，请重试', icon: 'none' })
+    }
   } finally {
-    timelineLoadingMore.value = false
+    if (version === timelineVersion && revision === clientRevision()) {
+      timelineLoadingMore.value = false
+    }
   }
 }
 
@@ -376,6 +467,7 @@ onLoad((query) => {
 
 // 页面显示即刷新：从编辑页返回（栈恢复）也能拿到最新数据
 onShow(() => {
+  if (!requireCurrentConsent()) return
   if (deviceId !== '') {
     void load()
   }

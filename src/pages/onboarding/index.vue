@@ -55,8 +55,6 @@ import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { toAppError } from '@/utils/error'
 
-const ONBOARDED_KEY = 'gf_onboarded'
-
 const userStore = useUserStore()
 const agreed = ref(false)
 const bootstrapping = ref(false)
@@ -75,8 +73,7 @@ async function onEnter(): Promise<void> {
   bootstrapping.value = true
   errorMessage.value = ''
   try {
-    await userStore.bootstrap()
-    uni.setStorageSync(ONBOARDED_KEY, '1')
+    await userStore.acceptPolicies()
     uni.reLaunch({ url: '/pages/home/index' })
   } catch (err) {
     errorMessage.value = toAppError(err).message

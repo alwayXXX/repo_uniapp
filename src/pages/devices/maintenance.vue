@@ -6,65 +6,76 @@
       <text class="page-subtitle">费用会同步进入统计，记录越完整，设备历史越清晰。</text>
     </view>
 
-    <view class="card">
-      <view class="section-heading">
-        <view>
-          <text class="section-title">维护详情</text>
-          <text class="section-caption">填写本次服务的基本信息</text>
+    <StatusView :state="loadState" :error-text="loadError" @retry="load">
+      <view class="card">
+        <view class="section-heading">
+          <view>
+            <text class="section-title">维护详情</text>
+            <text class="section-caption">填写本次服务的基本信息</text>
+          </view>
+          <text class="section-index">01</text>
         </view>
-        <text class="section-index">01</text>
+
+        <FormField label="标题" required :error="errors.title">
+          <input v-model="form.title" class="input" placeholder="例如：更换电池" maxlength="64" />
+        </FormField>
+
+        <FormField label="类型" :error="errors.type">
+          <view class="type-row">
+            <view
+              v-for="option in MAINTENANCE_TYPE_OPTIONS"
+              :key="option.value"
+              class="type-chip"
+              :class="{ active: form.type === option.value }"
+              @click="form.type = option.value"
+            >
+              <text class="type-chip-text">{{ option.label }}</text>
+            </view>
+          </view>
+        </FormField>
+
+        <FormField label="发生日期" required :error="errors.occurredAt">
+          <picker mode="date" :value="form.occurredAt" @change="onDateChange">
+            <view class="select-field">
+              <text class="select-value">{{ form.occurredAt }}</text>
+              <text class="select-arrow">›</text>
+            </view>
+          </picker>
+        </FormField>
+
+        <FormField label="费用（元）" :error="errors.cost">
+          <input
+            v-model="form.costYuan"
+            class="input"
+            type="digit"
+            placeholder="选填，例如 500.00"
+          />
+        </FormField>
+
+        <FormField label="服务商">
+          <input v-model="form.vendor" class="input" placeholder="选填" maxlength="128" />
+        </FormField>
+
+        <FormField label="备注" :error="errors.notes">
+          <textarea v-model="form.notes" class="textarea" placeholder="选填" maxlength="1000" />
+        </FormField>
       </view>
 
-      <FormField label="标题" required :error="errors.title">
-        <input v-model="form.title" class="input" placeholder="例如：更换电池" maxlength="64" />
-      </FormField>
+      <view class="action-area">
+        <button
+          class="save-button"
+          :disabled="saving || deleting || loadState !== 'success'"
+          @click="onSave"
+        >
+          {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存记录' }}
+        </button>
+        <text class="action-note">维护金额仅用于你的设备统计</text>
+      </view>
 
-      <FormField label="类型" :error="errors.type">
-        <view class="type-row">
-          <view
-            v-for="option in MAINTENANCE_TYPE_OPTIONS"
-            :key="option.value"
-            class="type-chip"
-            :class="{ active: form.type === option.value }"
-            @click="form.type = option.value"
-          >
-            <text class="type-chip-text">{{ option.label }}</text>
-          </view>
-        </view>
-      </FormField>
-
-      <FormField label="发生日期" required :error="errors.occurredAt">
-        <picker mode="date" :value="form.occurredAt" @change="onDateChange">
-          <view class="select-field">
-            <text class="select-value">{{ form.occurredAt }}</text>
-            <text class="select-arrow">›</text>
-          </view>
-        </picker>
-      </FormField>
-
-      <FormField label="费用（元）" :error="errors.cost">
-        <input v-model="form.costYuan" class="input" type="digit" placeholder="选填，例如 500.00" />
-      </FormField>
-
-      <FormField label="服务商">
-        <input v-model="form.vendor" class="input" placeholder="选填" maxlength="128" />
-      </FormField>
-
-      <FormField label="备注" :error="errors.notes">
-        <textarea v-model="form.notes" class="textarea" placeholder="选填" maxlength="1000" />
-      </FormField>
-    </view>
-
-    <view class="action-area">
-      <button class="save-button" :disabled="saving" @click="onSave">
-        {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存记录' }}
+      <button v-if="isEdit" class="delete-button" :disabled="deleting || saving" @click="askDelete">
+        {{ deleting ? '删除中…' : '删除此维护记录' }}
       </button>
-      <text class="action-note">维护金额仅用于你的设备统计</text>
-    </view>
-
-    <button v-if="isEdit" class="delete-button" :disabled="deleting" @click="askDelete">
-      {{ deleting ? '删除中…' : '删除此维护记录' }}
-    </button>
+    </StatusView>
 
     <view v-if="confirmVisible" class="mask" @click="confirmVisible = false">
       <view class="confirm-card" @click.stop>
@@ -87,10 +98,15 @@ import { onLoad } from '@dcloudio/uni-app'
 import {
   addMaintenance,
   deleteMaintenance,
-  listByDevice,
+  getMaintenance,
   updateMaintenance,
 } from '@/services/maintenance'
 import { getDevice } from '@/services/device'
+import { ensureSession } from '@/services/auth'
+import { requireCurrentConsent } from '@/services/consent'
+import { assertClientRevision, clientRevision } from '@/services/client-state'
+import { AppError, toAppError } from '@/utils/error'
+import type { PageState } from '@/types/api/common'
 import {
   normalizeMaintenanceForm,
   todayString,
@@ -99,11 +115,14 @@ import {
 import type { MaintenanceFormInput } from '@/types/maintenance'
 import { MAINTENANCE_TYPE_OPTIONS } from '@/constants/maintenance'
 import FormField from '@/components/FormField.vue'
+import StatusView from '@/components/StatusView.vue'
 
 const isEdit = ref(false)
 const recordId = ref('')
 let deviceId = ''
 const saving = ref(false)
+const loadState = ref<PageState>('loading')
+const loadError = ref('')
 const deleting = ref(false)
 const confirmVisible = ref(false)
 const errors = ref<MaintenanceFormErrors>({})
@@ -121,33 +140,29 @@ const emptyForm = (): MaintenanceFormInput => ({
 
 const form = ref<MaintenanceFormInput>(emptyForm())
 
-onLoad(async (query) => {
+onLoad((query) => {
   deviceId = query?.deviceId ?? ''
-  const id = query?.id ?? ''
-  if (deviceId === '') {
-    uni.showToast({ title: '缺少设备上下文', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 600)
-    return
-  }
+  recordId.value = query?.id ?? ''
+  isEdit.value = recordId.value !== ''
+  void load()
+})
+
+async function load(): Promise<void> {
+  if (!requireCurrentConsent()) return
+  const revision = clientRevision()
+  loadState.value = 'loading'
+  loadError.value = ''
   try {
-    // 购买日期用于「发生日期不早于购买日期」校验
+    if (deviceId === '') throw new AppError('DEVICE_NOT_FOUND', '缺少设备上下文')
+    await ensureSession()
     const device = await getDevice(deviceId)
-    devicePurchaseDate.value = device?.purchaseDate ?? null
-  } catch {
-    devicePurchaseDate.value = null
-  }
-  if (id) {
-    isEdit.value = true
-    recordId.value = id
-    try {
-      // 编辑模式：重新拉取该设备维护列表定位目标记录
-      const records = await listByDevice(deviceId)
-      const record = records.find((r) => r.id === id)
-      if (!record) {
-        uni.showToast({ title: '维护记录不存在', icon: 'none' })
-        setTimeout(() => uni.navigateBack(), 600)
-        return
-      }
+    assertClientRevision(revision)
+    if (!device) throw new AppError('DEVICE_NOT_FOUND', '设备不存在或已被删除')
+    devicePurchaseDate.value = device.purchaseDate
+    if (isEdit.value) {
+      const record = await getMaintenance(deviceId, recordId.value)
+      assertClientRevision(revision)
+      if (!record) throw new AppError('RESOURCE_NOT_FOUND', '维护记录不存在')
       form.value = {
         title: record.title,
         type: record.type,
@@ -156,11 +171,14 @@ onLoad(async (query) => {
         vendor: record.vendor ?? '',
         notes: record.notes ?? '',
       }
-    } catch {
-      uni.showToast({ title: '加载维护记录失败', icon: 'none' })
     }
+    loadState.value = 'success'
+  } catch (err) {
+    const error = toAppError(err)
+    loadError.value = error.message
+    loadState.value = error.code === 'FORBIDDEN' ? 'forbidden' : 'error'
   }
-})
+}
 
 function onDateChange(event: { detail: { value: string } }): void {
   form.value.occurredAt = event.detail.value
@@ -168,7 +186,7 @@ function onDateChange(event: { detail: { value: string } }): void {
 }
 
 async function onSave(): Promise<void> {
-  if (saving.value) return
+  if (saving.value || deleting.value || loadState.value !== 'success') return
   const normalized = normalizeMaintenanceForm(form.value, devicePurchaseDate.value)
   errors.value = normalized.errors
   if (!normalized.values) {
@@ -180,12 +198,13 @@ async function onSave(): Promise<void> {
     if (isEdit.value) {
       await updateMaintenance(recordId.value, normalized.values)
     } else {
-      await addMaintenance(deviceId, normalized.values)
+      recordId.value = await addMaintenance(deviceId, normalized.values)
+      isEdit.value = true
     }
     uni.showToast({ title: '已保存', icon: 'success' })
     setTimeout(() => uni.navigateBack(), 500)
-  } catch {
-    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  } catch (err) {
+    uni.showToast({ title: toAppError(err).message, icon: 'none' })
   } finally {
     saving.value = false
   }
@@ -196,7 +215,7 @@ function askDelete(): void {
 }
 
 async function confirmDelete(): Promise<void> {
-  if (deleting.value) return
+  if (deleting.value || saving.value || loadState.value !== 'success') return
   deleting.value = true
   try {
     await deleteMaintenance(recordId.value)

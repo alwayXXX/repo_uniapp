@@ -4,6 +4,8 @@ import { AppError, isRecord } from '@/utils/error'
 import type { MaintenanceDoc } from '@/types/maintenance'
 import type { MaintenanceFormValues } from '@/validators/maintenance'
 import type { MaintenanceType } from '@/types/device'
+import type { ListMaintenanceParams, ListMaintenanceResult } from '@/types/api/maintenance'
+import { assertClientRevision, clientRevision } from './client-state'
 
 const MAINTENANCE = 'maintenance_records'
 
@@ -58,19 +60,80 @@ function parseRows(raw: unknown): MaintenanceRow[] {
   )
 }
 
-/** 某设备的维护记录列表，按发生日期倒序（docs/API.md 8.1） */
-export async function listByDevice(deviceId: string, limit = 50): Promise<MaintenanceDoc[]> {
+export async function listMaintenancePage(
+  params: ListMaintenanceParams,
+): Promise<ListMaintenanceResult> {
+  if (
+    !Number.isInteger(params.page) ||
+    params.page < 1 ||
+    !Number.isInteger(params.pageSize) ||
+    params.pageSize < 1 ||
+    params.pageSize > 50
+  ) {
+    throw new AppError('VALIDATION_ERROR', '分页参数无效')
+  }
+  await ensureSession()
   const rdb = getRdb()
+  const from = (params.page - 1) * params.pageSize
   const result = asSdkResult<unknown>(
     await rdb
       .from(MAINTENANCE)
-      .select('*')
-      .eq('device_id', deviceId)
+      .select('*', { count: 'exact' })
+      .eq('device_id', params.deviceId)
       .order('occurred_at', { ascending: false })
-      .limit(limit),
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + params.pageSize - 1),
   )
   throwIfError(result.error, '读取维护记录失败')
-  return parseRows(result.data).map(toMaintenanceDoc)
+  const items = parseRows(result.data).map(toMaintenanceDoc)
+  if (typeof result.count !== 'number' || !Number.isSafeInteger(result.count) || result.count < 0) {
+    throw new AppError('INTERNAL_ERROR', '维护记录总数缺失，请重试')
+  }
+  return {
+    items,
+    page: params.page,
+    pageSize: params.pageSize,
+    total: result.count,
+    hasMore: from + items.length < result.count,
+  }
+}
+
+/** Read every bounded page before exposing a total or exporting the result. */
+export async function listAllByDevice(deviceId: string): Promise<MaintenanceDoc[]> {
+  const revision = clientRevision()
+  const records: MaintenanceDoc[] = []
+  const known = new Set<string>()
+  let total: number | undefined
+  for (let page = 1; ; page += 1) {
+    assertClientRevision(revision)
+    const result = await listMaintenancePage({ deviceId, page, pageSize: 50 })
+    assertClientRevision(revision)
+    if (total !== undefined && result.total !== total) {
+      throw new AppError('INTERNAL_ERROR', '维护记录已变化，请刷新后重试')
+    }
+    total = result.total
+    for (const record of result.items) {
+      if (known.has(record.id)) throw new AppError('INTERNAL_ERROR', '维护记录已变化，请刷新后重试')
+      known.add(record.id)
+      records.push(record)
+    }
+    if (!result.hasMore) {
+      if (records.length !== total) throw new AppError('INTERNAL_ERROR', '维护记录不完整，请重试')
+      return records
+    }
+    if (result.items.length === 0) throw new AppError('INTERNAL_ERROR', '维护记录不完整，请重试')
+  }
+}
+
+export async function getMaintenance(deviceId: string, id: string): Promise<MaintenanceDoc | null> {
+  await ensureSession()
+  const result = asSdkResult<unknown>(
+    await getRdb().from(MAINTENANCE).select('*').eq('device_id', deviceId).eq('id', id).limit(1),
+  )
+  throwIfError(result.error, '读取维护记录失败')
+  const row = parseRows(result.data)[0]
+  return row ? toMaintenanceDoc(row) : null
 }
 
 /** 首页「最近维护」：本人全部维护记录按日期倒序取前 N 条 */

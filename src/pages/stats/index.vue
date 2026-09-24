@@ -161,6 +161,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { ensureSession } from '@/services/auth'
+import { requireCurrentConsent } from '@/services/consent'
 import { getStatisticsOverview } from '@/services/stats'
 import { listCategories } from '@/services/category'
 import { formatMoney } from '@/utils/money'
@@ -278,6 +279,7 @@ function onCategoryChange(event: { detail: { value: string | number } }): void {
 }
 
 onShow(() => {
+  if (!requireCurrentConsent()) return
   void load()
 })
 </script>

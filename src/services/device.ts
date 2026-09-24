@@ -139,6 +139,7 @@ export async function saveDeviceWithWarranty(
 
 /** 列表（docs/API.md 7.1）：RLS 限定本人 + deleted_at IS NULL；keyword 搜名称/品牌/型号 */
 export async function listDevices(params: ListDevicesParams): Promise<ListDevicesResult> {
+  await ensureSession()
   const rdb = getRdb()
   let query = rdb.from(DEVICES).select('*', { count: 'exact' }).is('deleted_at', null)
 
@@ -155,6 +156,7 @@ export async function listDevices(params: ListDevicesParams): Promise<ListDevice
     query = query.eq('status', params.status)
   }
   query = query.order(SORT_COLUMNS[params.sortBy], { ascending: params.sortOrder === 'asc' })
+  query = query.order('id', { ascending: params.sortOrder === 'asc' })
 
   const from = (params.page - 1) * params.pageSize
   query = query.range(from, from + params.pageSize - 1)
@@ -168,6 +170,7 @@ export async function listDevices(params: ListDevicesParams): Promise<ListDevice
 
 /** 单台设备（编辑表单回填）；不存在或非本人时返回 null */
 export async function getDevice(id: string): Promise<DeviceDoc | null> {
+  await ensureSession()
   const rdb = getRdb()
   const result = asSdkResult<unknown>(
     await rdb.from(DEVICES).select('*').eq('id', id).is('deleted_at', null).limit(1),

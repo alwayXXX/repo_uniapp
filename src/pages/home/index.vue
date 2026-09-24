@@ -91,6 +91,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getHomeDashboard } from '@/services/dashboard'
+import { requireCurrentConsent } from '@/services/consent'
 import { formatMoney } from '@/utils/money'
 import { toAppError } from '@/utils/error'
 import StatusView from '@/components/StatusView.vue'
@@ -145,17 +146,9 @@ async function loadBoard(): Promise<void> {
 
 onShow(() => {
   // 首次使用引导（PRD 4.1）：未完成引导时进入 onboarding
-  if (uni.getStorageSync(ONBOARDED_KEY) !== '1') {
-    uni.reLaunch({ url: '/pages/onboarding/index' })
-    return
-  }
+  if (!requireCurrentConsent()) return
   void loadBoard()
 })
-</script>
-
-<script lang="ts">
-const ONBOARDED_KEY = 'gf_onboarded'
-export default {}
 </script>
 
 <style scoped lang="scss">

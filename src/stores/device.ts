@@ -24,6 +24,7 @@ export const useDeviceStore = defineStore('device', () => {
   const status = ref<PageState>('idle')
   const errorText = ref('')
   const loadingMore = ref(false)
+  let requestVersion = 0
 
   const keyword = ref('')
   const categoryId = ref('')
@@ -51,11 +52,14 @@ export const useDeviceStore = defineStore('device', () => {
   }
 
   async function loadFirst(): Promise<void> {
+    const version = ++requestVersion
+    loadingMore.value = false
     status.value = 'loading'
     errorText.value = ''
     try {
       // 自愈过期会话：冷启动恢复的令牌可能已过 2 小时时效
       await ensureSession()
+      if (version !== requestVersion) return
       const result = await listDevicesApi({
         keyword: keyword.value.trim() || undefined,
         categoryId: categoryId.value || undefined,
@@ -65,11 +69,13 @@ export const useDeviceStore = defineStore('device', () => {
         page: 1,
         pageSize: PAGE_SIZE,
       })
+      if (version !== requestVersion) return
       items.value = result.items
       total.value = result.total
       page.value = 1
       status.value = result.items.length === 0 ? 'empty' : 'success'
     } catch (err) {
+      if (version !== requestVersion) return
       const appError = toAppError(err)
       console.error('[devices] loadFirst failed:', appError.code)
       items.value = []
@@ -82,6 +88,7 @@ export const useDeviceStore = defineStore('device', () => {
   async function loadMore(): Promise<void> {
     if (loadingMore.value || !hasMore.value || status.value !== 'success') return
     loadingMore.value = true
+    const version = requestVersion
     try {
       const result = await listDevicesApi({
         keyword: keyword.value.trim() || undefined,
@@ -92,6 +99,7 @@ export const useDeviceStore = defineStore('device', () => {
         page: page.value + 1,
         pageSize: PAGE_SIZE,
       })
+      if (version !== requestVersion) return
       const known = new Set(items.value.map((item) => item.id))
       items.value = [...items.value, ...result.items.filter((item) => !known.has(item.id))]
       total.value = result.total
@@ -99,7 +107,7 @@ export const useDeviceStore = defineStore('device', () => {
     } catch {
       // 加载更多失败不打断已有列表，下拉刷新可重试
     } finally {
-      loadingMore.value = false
+      if (version === requestVersion) loadingMore.value = false
     }
   }
 
@@ -132,9 +140,27 @@ export const useDeviceStore = defineStore('device', () => {
 
   /** 软删除后同步本地列表 */
   async function removeDevice(id: string): Promise<void> {
+    const version = requestVersion
     await softDeleteDeviceApi(id)
+    if (version !== requestVersion) return
     items.value = items.value.filter((item) => item.id !== id)
     total.value = Math.max(0, total.value - 1)
+  }
+
+  function reset(): void {
+    requestVersion += 1
+    items.value = []
+    total.value = 0
+    page.value = 1
+    status.value = 'idle'
+    errorText.value = ''
+    loadingMore.value = false
+    keyword.value = ''
+    categoryId.value = ''
+    deviceStatus.value = ''
+    sortBy.value = 'createdAt'
+    sortOrder.value = 'desc'
+    categories.value = []
   }
 
   return {
@@ -161,5 +187,6 @@ export const useDeviceStore = defineStore('device', () => {
     setSort,
     clearFilters,
     removeDevice,
+    reset,
   }
 })

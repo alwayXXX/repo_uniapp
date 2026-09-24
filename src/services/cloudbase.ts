@@ -23,7 +23,7 @@ export function getRdb(): ReturnType<ReturnType<typeof cloudbase.init>['rdb']> {
   return getCloudbaseApp().rdb()
 }
 
-/** 身份认证客户端（signInWithOpenId 静默登录，无需登录页） */
+/** 身份认证客户端（wx-login 自定义票据登录，详见 services/auth.ts） */
 export function getAuth() {
   return getCloudbaseApp().auth({ persistence: 'local' })
 }

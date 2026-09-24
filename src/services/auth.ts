@@ -2,6 +2,8 @@ import { asSdkResult, callRpc, getAuth, getRdb, throwIfError } from './cloudbase
 import { AppError, isRecord } from '@/utils/error'
 import type { GearFlowUser } from '@/types/user'
 import type { ApiErrorCode } from '@/types/api/common'
+import { assertClientRevision, clientRevision } from './client-state'
+import { hasCurrentConsent } from './consent'
 
 /**
  * 身份与用户（docs/API.md 第 3-4 节，docs/DATABASE.md 9.4）。
@@ -61,7 +63,18 @@ const WX_LOGIN_URL =
   'https://myrepo-d1gfju7se642a63ce-1331619055.ap-shanghai.app.tcloudbase.com/wx-login'
 
 /** 建立微信可信身份会话，返回 CloudBase 身份 UID（即 users.identity_id） */
-export async function signInSilently(): Promise<string> {
+let pendingSignIn: Promise<string> | null = null
+
+export function signInSilently(): Promise<string> {
+  if (pendingSignIn) return pendingSignIn
+  const task = establishSession(clientRevision()).finally(() => {
+    if (pendingSignIn === task) pendingSignIn = null
+  })
+  pendingSignIn = task
+  return task
+}
+
+async function establishSession(revision: number): Promise<string> {
   const auth = getAuth()
   // 自包含登录通道（OPS-7）：uni.login 的 code 直接 POST 到 wx-login 公网路由，
   // 云函数用 AppSecret 换 openid 并签发自定义登录票据。openid 不回传前端。
@@ -89,12 +102,19 @@ export async function signInSilently(): Promise<string> {
     throw new AppError('UNAUTHORIZED', '微信身份登录失败')
   }
   const ticket = payload.ticket
-  // 清掉匿名态再做票据交换，避免会话类型冲突
-  await auth.signOut()
+  assertClientRevision(revision)
+  // Only revoke an existing session; a first login has no token to revoke.
+  const previous = asSdkResult<unknown>(await auth.getSession())
+  assertClientRevision(revision)
+  if (isRecord(previous.data) && isRecord(previous.data.session)) {
+    await signOutSdk()
+  }
+  assertClientRevision(revision)
   const rawLogin: unknown = await auth.signInWithCustomTicket(async () => ticket)
+  assertClientRevision(revision)
   // v3 回包可能是 {data:{session:{user:{id}}}} 或 {user:{uid}}，且可能带 error 信封
   const loginEnvelope = rawLogin as { error?: unknown; data?: unknown; user?: unknown } | null
-  if (isRecord(loginEnvelope) && isRecord(loginEnvelope.error) && loginEnvelope.error !== null) {
+  if (loginEnvelope?.error) {
     throw new AppError('UNAUTHORIZED', '自定义登录失败')
   }
   const nodes: unknown[] = [
@@ -125,6 +145,8 @@ export async function signInSilently(): Promise<string> {
   }
   if (!uid) {
     const session = asSdkResult<unknown>(await auth.getSession())
+    assertClientRevision(revision)
+    throwIfError(session.error, '读取登录状态失败')
     if (isRecord(session.data) && isRecord(session.data.session)) {
       for (const key of ['uid', 'id']) {
         const node = session.data.session
@@ -145,9 +167,18 @@ export async function signInSilently(): Promise<string> {
   return uid
 }
 
+async function signOutSdk(): Promise<void> {
+  const result: unknown = await getAuth().signOut()
+  if (isRecord(result) && result.error) {
+    throw new AppError('INTERNAL_ERROR', '本机登录状态清理失败，请重试')
+  }
+}
+
 /** 结束本机持久化 CloudBase 会话。 */
 export async function signOut(): Promise<void> {
-  await getAuth().signOut()
+  // Let an already-started ticket exchange settle before ending the SDK session.
+  if (pendingSignIn) await pendingSignIn.catch(() => undefined)
+  await signOutSdk()
 }
 
 /**
@@ -155,11 +186,22 @@ export async function signOut(): Promise<void> {
  * 冷启动恢复的过期会话由这里静默续期，避免各页面各自处理 401。
  */
 export async function ensureSession(): Promise<void> {
+  if (!hasCurrentConsent()) {
+    throw new AppError('UNAUTHORIZED', '请先确认最新的用户协议与隐私政策')
+  }
+  const revision = clientRevision()
   const auth = getAuth()
   const result = asSdkResult<unknown>(await auth.getSession())
-  if (!isRecord(result.data) || !isRecord(result.data.session)) {
+  assertClientRevision(revision)
+  const session = isRecord(result.data) ? result.data.session : null
+  if (
+    result.error ||
+    !isRecord(session) ||
+    (isRecord(session.user) && session.user.is_anonymous === true)
+  ) {
     await signInSilently()
   }
+  assertClientRevision(revision)
 }
 
 function toGearFlowUser(row: UserRow): GearFlowUser {

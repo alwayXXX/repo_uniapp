@@ -5,6 +5,7 @@
     <view class="content-card">
       <text class="content">{{ policy.content }}</text>
     </view>
+    <button class="feedback-button" open-type="feedback">意见反馈</button>
   </view>
 </template>
 
@@ -63,5 +64,13 @@ onLoad((query) => {
   line-height: 1.8;
   white-space: pre-line;
   word-break: break-word;
+}
+
+.feedback-button {
+  margin-top: $gf-space-md;
+  color: $gf-color-primary;
+  background-color: $gf-color-primary-weak;
+  min-height: 88rpx;
+  line-height: 88rpx;
 }
 </style>

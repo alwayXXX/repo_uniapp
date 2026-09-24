@@ -12,7 +12,7 @@ GearFlow 第一阶段采用 CloudBase BaaS 架构，将基础设施维护交给�
               ├─ PostgreSQL 数据库（RLS 行级安全）
               ├─ PostgreSQL RPC / 可信业务逻辑
               ├─ 云存储（P1 附件）
-              ├─ 微信用户身份（signInWithOpenId）
+              ├─ 微信登录云函数（wx-login）与自定义票据身份
               └─ 日志、监控及其他按需云能力
 ```
 
@@ -22,23 +22,23 @@ GearFlow 第一阶段采用 CloudBase BaaS 架构，将基础设施维护交给�
 
 ### 必要性判断
 
-| 技术               | 第一阶段是否使用 | 原因                                             |
-| ------------------ | ---------------- | ------------------------------------------------ |
-| uni-app            | 使用             | 指定小程序第一发布平台                           |
-| Vue 3              | 使用             | Composition API 适合复杂表单和状态复用           |
-| TypeScript strict  | 使用             | 降低接口和业务模型错误率                         |
-| Pinia              | 使用             | 管理用户、设备列表、筛选和统计状态               |
-| CloudBase          | 使用             | 承担身份、数据、云函数、云存储和托管运维能力     |
-| CloudBase 数据库   | 使用             | 保存账号、设备、维护、时间线和统计相关数据       |
-| PostgreSQL RPC     | 使用             | 承担可信身份、业务校验、跨表写入、统计和注销     |
-| CloudBase 云函数   | 按需             | 仅在未来需要异步任务、文件处理或更复杂边界时使用 |
-| CloudBase 云存储   | P1               | 保存设备照片、发票和维修凭证，不在 MVP 启用      |
-| NestJS             | 未来可选         | 业务复杂度提升后可部署于 CloudBase 云托管        |
-| Prisma             | 未来可选         | 引入关系型数据库后作为 ORM 候选                  |
-| PostgreSQL / MySQL | 未来可选         | 复杂关系查询或事务需求明确后再评估               |
-| Redis              | 不使用           | 当前无高频缓存和任务队列需求，属过度设计         |
-| ECharts            | 不使用           | 基础图表用轻量自绘组件，避免包体积               |
-| Nginx / VPS        | 不使用           | 当前由 CloudBase 承担托管接入和基础设施维护      |
+| 技术                    | 第一阶段是否使用 | 原因                                                      |
+| ----------------------- | ---------------- | --------------------------------------------------------- |
+| uni-app                 | 使用             | 指定小程序第一发布平台                                    |
+| Vue 3                   | 使用             | Composition API 适合复杂表单和状态复用                    |
+| TypeScript strict       | 使用             | 降低接口和业务模型错误率                                  |
+| Pinia                   | 使用             | 管理用户、设备列表、筛选和统计状态                        |
+| CloudBase               | 使用             | 承担身份、数据、云函数、云存储和托管运维能力              |
+| CloudBase 数据库        | 使用             | 保存账号、设备、维护、时间线和统计相关数据                |
+| PostgreSQL RPC          | 使用             | 承担可信身份、业务校验、跨表写入、统计和注销              |
+| CloudBase 云函数        | 使用             | wx-login 处理微信 code 换自定义登录票据；业务写入仍走 RPC |
+| CloudBase 云存储        | P1               | 保存设备照片、发票和维修凭证，不在 MVP 启用               |
+| NestJS                  | 未来可选         | 业务复杂度提升后可部署于 CloudBase 云托管                 |
+| Prisma                  | 未来可选         | 引入关系型数据库后作为 ORM 候选                           |
+| 自管 PostgreSQL / MySQL | 未来可选         | 当前已使用 CloudBase 托管 PostgreSQL，不自建数据库服务器  |
+| Redis                   | 不使用           | 当前无高频缓存和任务队列需求，属过度设计                  |
+| ECharts                 | 不使用           | 基础图表用轻量自绘组件，避免包体积                        |
+| Nginx / VPS             | 不使用           | 当前由 CloudBase 承担托管接入和基础设施维护               |
 
 ## 2. 前端架构
 
@@ -60,18 +60,21 @@ src/
 
 ### 核心模块
 
-| 模块                      | 职责                                                     |
-| ------------------------- | -------------------------------------------------------- |
-| `services/cloudbase.ts`   | CloudBase 初始化、调用封装和错误转换                     |
-| `services/device.ts`      | 设备业务操作契约                                         |
-| `services/maintenance.ts` | 维护记录业务操作契约                                     |
-| `services/stats.ts`       | 统计业务操作契约                                         |
-| `stores/user.ts`          | 登录态、注销                                             |
-| `stores/device.ts`        | 列表、筛选、缓存                                         |
-| `utils/date.ts`           | 日期计算和保修剩余天数                                   |
-| `utils/money.ts`          | 金额展示                                                 |
-| `validators/device.ts`    | 设备表单校验                                             |
-| `components/`             | Empty、Error、Loading、DeviceCard、DateField、MoneyField |
+| 模块                       | 职责                                                     |
+| -------------------------- | -------------------------------------------------------- |
+| `services/cloudbase.ts`    | CloudBase 初始化、调用封装和错误转换                     |
+| `services/consent.ts`      | 当前协议版本与引导守卫；不承担服务端鉴权                 |
+| `services/client-state.ts` | 退出/注销使在途请求与导出失效                            |
+| `services/export.ts`       | 既有 CSV 导出、分享及临时文件清理                        |
+| `services/device.ts`       | 设备业务操作契约                                         |
+| `services/maintenance.ts`  | 维护记录业务操作契约                                     |
+| `services/stats.ts`        | 统计业务操作契约                                         |
+| `stores/user.ts`           | 登录态、注销                                             |
+| `stores/device.ts`         | 列表、筛选、缓存                                         |
+| `utils/date.ts`            | 日期计算和保修剩余天数                                   |
+| `utils/money.ts`           | 金额展示                                                 |
+| `validators/device.ts`     | 设备表单校验                                             |
+| `components/`              | Empty、Error、Loading、DeviceCard、DateField、MoneyField |
 
 ### UI 策略
 
@@ -104,15 +107,10 @@ P0 只需要：
 
 ```text
 cloudfunctions/
-├── users/
-├── devices/
-├── maintenance-records/
-├── statistics/
-├── privacy/
-└── account-deletion/
+└── wx-login/
 ```
 
-目录保留未来云函数边界；当前 MVP 的可信写入、统计和注销由 PostgreSQL RPC 承担。
+当前云函数仅承担微信 code 到 CloudBase 自定义票据的转换；业务写入、统计和注销由 PostgreSQL RPC 承担。附件和异步业务仍是未来独立授权范围。
 
 ### 调用分层
 
@@ -128,11 +126,14 @@ cloudfunctions/
 
 ### 身份与权限
 
-第一阶段使用 CloudBase 身份认证的微信小程序静默登录（`signInWithOpenId`），不自行实现 `code2Session + JWT` 会话体系。
+自 2026-09-06 起使用自包含登录（OPS-7）。云函数调用微信 code2session 后签发 CloudBase 自定义登录票据，access/refresh token 的会话生命周期仍由 CloudBase SDK 管理，不自建 JWT 会话服务。
 
 ```text
 用户打开微信小程序
-→ JS SDK 调用 signInWithOpenId 建立 CloudBase 会话（用户无感）
+→ 确认当前用户协议与隐私政策
+→ uni.login 获取 code，uni.request POST 到 wx-login 公网路由
+→ 云函数用 AppSecret 换 OpenID，并签发自定义登录票据
+→ auth.signInWithCustomTicket 建立 CloudBase 会话
 → SDK 会话自动携带身份，数据库 RLS 通过 auth.uid() 判定归属
 → 服务端边界创建或查询 GearFlow User 行
 → RLS 策略和受保护 RPC 共同限制用户数据访问
@@ -146,6 +147,8 @@ cloudfunctions/
 - AppSecret 和管理端凭据（API Key / service_role）不得进入客户端
 - 账号注销删除 GearFlow 业务数据；平台身份本身按 CloudBase 和微信官方能力处理
 - 如果未来引入 CloudBase 云托管或独立 API，再单独设计服务间鉴权和会话机制
+- 登录 HTTP 路由与数据网关域名不同，发布时都必须核对；准确公开地址见 `docs/OPS7-LOGIN-DESIGN.md`。
+- 正常恢复只读取已有用户，不记录新的协议同意；只有 `acceptPolicies()` 在显式确认后调用带版本的 bootstrap RPC。
 
 Phase 6 设备时间线遵循以下边界：
 
@@ -169,7 +172,9 @@ P0 不做完整离线同步。原因：
 - 用户偏好缓存
 - 静态分类缓存
 
-缓存必须在编辑、删除、注销后清理。
+编辑/删除后刷新相关缓存；退出/注销清空用户与设备 Store、筛选、本机协议版本，并使在途请求失效。协议升级时必须重新明确确认。
+
+既有 CSV 导出存入微信本机专用临时目录，分享成功、取消或失败后删除；退出、注销及再次登录前清理遗留文件。清理失败必须提示。已由用户分享至聊天或其他应用的副本不受本应用控制，CSV 也不是完整数据库备份。
 
 ## 5. 环境规划
 
@@ -231,7 +236,6 @@ P0 不做完整离线同步。原因：
 允许记录：
 
 - requestId
-- userId
 - 接口路径
 - 状态码
 - 耗时
@@ -239,6 +243,7 @@ P0 不做完整离线同步。原因：
 
 禁止记录：
 
+- CloudBase UID 等可关联身份标识
 - OpenID
 - 手机号
 - Token
@@ -267,6 +272,10 @@ P0 不做完整离线同步。原因：
 - 统计查询
 - 越权访问
 - 账号注销
+
+`pnpm test:database` 在内存 PGlite 中重放迁移，模拟 CloudBase 角色和身份函数，覆盖匿名拒绝、A/B RLS、长 UID、事务回滚、维护成本与注销。测试不连接线上，不验证真实网关、平台签名、并发或线上 schema 漂移。
+
+CI 执行 lint、类型、单元/页面、发布检查器和隔离数据库测试，随后生成正式构建并扫描产物。通用凭据模式扫描始终运行；未配置真实密钥时必须明确报告附加精确值扫描未执行，不要求把生产密钥注入 CI。
 
 ### 手工测试
 
@@ -334,4 +343,4 @@ uni-app
           → PostgreSQL / MySQL
 ```
 
-NestJS、Prisma 和关系型数据库属于演进选项，不进入当前 MVP，也不在 Phase 1 预先安装。
+NestJS、Prisma 和自管数据库服务器属于演进选项，不进入当前 MVP。已使用的 CloudBase 托管 PostgreSQL 与仅用于隔离回归的 PGlite 不属于新增自建后端。
