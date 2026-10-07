@@ -48,7 +48,7 @@ GearFlow 属于个人设备信息管理工具，不涉及：
 
 - CloudBase 环境与当前微信小程序 AppID 正确绑定
 - 前端只保存 CloudBase 环境 ID 等公开配置
-- 微信 AppSecret、CloudBase 管理凭据和服务端密钥不出现在客户端代码
+- CloudBase 管理凭据和服务端密钥不出现在客户端代码
 - 如平台要求配置合法域名，按 CloudBase 和微信官方文档当时给出的域名清单执行
 - 开发数据与生产数据隔离
 
@@ -159,24 +159,24 @@ GearFlow 收集：
 
 ## 6. 用户身份
 
-当前使用 `wx-login` 云函数完成微信 code2session 并签发 CloudBase 自定义票据，后续会话由 CloudBase SDK 管理，不自建 access/refresh JWT 服务。
+当前使用微信小程序原生 CloudBase 身份。客户端只调用 `gearflow-api`，微信运行环境自动注入 OPENID，不自建 access/refresh JWT 服务。
 
 核心流程：
 
 ```text
 用户明确确认当前协议
-→ uni.login → 公网 wx-login（服务端 AppSecret + 自定义登录私钥）
-→ CloudBase SDK 交换票据、建立身份会话
-→ PostgreSQL RPC 从 auth.uid() 创建用户并记录显式同意
-→ RLS 与受保护 RPC 限制用户只能访问自己的数据
+→ wx.cloud.callFunction('gearflow-api')
+→ 微信运行环境注入 OPENID
+→ 云函数在 CloudBase MySQL 创建用户并记录显式同意
+→ 后续所有查询和写入都按 OPENID 过滤
 ```
 
-普通恢复只读已有用户，不重复写同意。AppSecret 与登录私钥曾暴露的轮换事项仍待确认；重置必须同步函数配置并核验既有用户的数据归属。
+普通恢复只读已有用户，不重复写同意。AppSecret 与自定义登录私钥不再属于当前运行链路。
 
 安全要求：
 
-- AppSecret 和 CloudBase 管理凭据只能保存在服务端或平台配置中
-- 不把 AppSecret 打包进小程序
+- CloudBase 管理凭据只能保存在服务端或平台配置中
+- 不把服务端密钥打包进小程序
 - 不向客户端返回 OpenID 或管理凭据
 - `userId` 必须由可信身份上下文派生，客户端不能传入
 - 账号注销后 GearFlow 业务数据不可访问，云存储文件同步删除
@@ -272,7 +272,7 @@ P1 启用前必须：
 - [ ] 云函数权限与错误处理验证
 - [ ] 云存储权限验证（P1 附件启用后）
 - [ ] 数据备份及恢复演练（CSV 导出不能代替数据库备份）
-- [x] AppSecret / 自定义登录私钥已由用户轮换，体验版扫码登录正常；既有数据身份连续性待补充记录
+- [x] 当前运行链路已移除 AppSecret / 自定义登录私钥；体验版与 OPENID 云函数链路待重新上传验证
 - [ ] 错误监控与资源告警
 - [ ] 日志不包含敏感信息
 - [ ] 当前套餐、免费额度和费用上限已确认

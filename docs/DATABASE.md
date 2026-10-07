@@ -10,19 +10,18 @@
 6. 账号注销必须删除或匿名化用户数据。
 7. 设备删除使用软删除，用户主动清除和账号注销使用物理删除或匿名化。
 
-当前实现使用 **CloudBase PostgreSQL**（平台托管，PG 模式环境）。下文首先定义与存储技术无关的逻辑实体，再说明表、索引和权限实现。字段长度、枚举和值域属于业务约束，由前端校验和云函数共同执行，不依赖 MySQL 或 Prisma。
+> **2026-10-07 当前实现**：`myrepo-d7go4fyg918beac63` 使用 CloudBase MySQL 8.0 Serverless。当前 schema 见 `database/mysql/schema.sql`，业务详情见 `docs/MYSQL-MIGRATION.md`。下文 PG、RLS、RPC、`auth.uid()` 段落保留为 Phase 0-10 历史设计，不再代表当前环境。
 
-> **存储引擎决策（2026-08-30）**：开发环境 `myrepo-d1gfju7se642a63ce` 为 PG 模式（`RuntimeBackends.nosql=false`），无文档型数据库实例，故由原定的文档型数据库调整为 CloudBase PostgreSQL。本文件其余章节的实体、字段语义、索引策略与删除策略保持不变；集合（collection）对应 PG 表（snake_case 列名），文档 `_id` 对应 UUID 主键，数据库安全规则对应行级安全（RLS）策略。
+当前实现使用 **CloudBase MySQL**。用户归属列为 `openid`，由 `gearflow-api` 云函数从微信运行环境注入，客户端无法指定。客户端不直连数据库，所有业务读写统一通过云函数完成。
 
-## 2. CloudBase PostgreSQL 实现原则
+## 2. CloudBase MySQL 实现原则
 
-- 每个逻辑实体映射为一张 PG 表，物理列使用 snake_case（如 `user_id`、`created_at`），服务层负责 camelCase 映射。
-- `id` 使用 UUID 主键（`gen_random_uuid()`）；`user_id` 存放 CloudBase 可信身份 UID（`auth.uid()`），与 `users.identity_id` 同值。
-- 表与保修、维护、时间线、成本之间使用 UUID 外键和用户归属复合外键维持引用完整性；软删除仍保留设备及其历史行，物理删除（仅账号注销）按依赖顺序执行并由外键级联兜底。
-- 数据权限由 RLS 策略强制（`auth.uid()` 判定归属），客户端无法伪造归属列；写入统一经过受保护 RPC，函数内部仍以 `auth.uid()` 做归属校验。
-- 简单只读走 JS SDK v3 `app.rdb()`（受 RLS 约束）；设备、维护、资料、注销等写操作走 `SECURITY DEFINER` RPC，跨表一致性由 RPC 或 PG 触发器承担。
-- 按实际查询组合创建普通或组合索引，不照搬关系型数据库索引语法。
-- 保留稳定业务 ID、明确时间字段和扁平引用，未来若迁移到自建 PostgreSQL / MySQL 属同引擎平移。
+- 每个逻辑实体映射为一张 MySQL 表，物理列使用 snake_case，服务层负责 camelCase 映射。
+- `id` 使用应用生成的 UUID 字符串主键；用户业务表使用 `openid varchar(128)` 作为归属列。
+- 表与保修、维护、时间线、成本之间使用外键维持引用完整性；软删除保留设备行，账号注销按依赖顺序删除或匿名化。
+- 微信小程序通过 `wx.cloud.callFunction('gearflow-api')` 调用；云函数读取可信 OPENID 后，所有查询和写入都附加 `openid` 条件。
+- Node SDK 使用 `app.rdb()` 访问 MySQL；JSON 字段写入前序列化为字符串。
+- 按实际查询组合创建普通或组合索引。
 
 ## 3. 实体总览
 

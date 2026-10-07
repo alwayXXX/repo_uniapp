@@ -1,5 +1,7 @@
 # GearFlow 技术架构文档
 
+> **2026-10-07 当前架构**：原 PG 环境注销后，运行环境为 CloudBase MySQL。小程序使用 `wx.cloud.callFunction('gearflow-api')`，云函数从微信运行环境读取 OPENID，再通过 `@cloudbase/node-sdk app.rdb()` 访问 MySQL。下文 PG/RLS/RPC/AppSecret 描述是 Phase 0-10 历史架构，当前实现以 `docs/MYSQL-MIGRATION.md` 为准。
+
 ## 1. 总体结论
 
 GearFlow 第一阶段采用 CloudBase BaaS 架构，将基础设施维护交给托管云能力，同时保留清晰的业务边界：
@@ -9,36 +11,36 @@ GearFlow 第一阶段采用 CloudBase BaaS 架构，将基础设施维护交给�
   └─ uni-app
       └─ Vue 3 + TypeScript + Pinia
           └─ CloudBase
-              ├─ PostgreSQL 数据库（RLS 行级安全）
-              ├─ PostgreSQL RPC / 可信业务逻辑
+              ├─ CloudBase MySQL（业务数据）
+              ├─ gearflow-api 云函数（OPENID + 业务逻辑）
               ├─ 云存储（P1 附件）
-              ├─ 微信登录云函数（wx-login）与自定义票据身份
+              ├─ 微信原生 OPENID 身份
               └─ 日志、监控及其他按需云能力
 ```
 
 当前使用规模是本人和少量朋友。第一阶段不购买独立服务器，不自行部署关系型数据库、Nginx 或 HTTPS 基础设施，将开发精力集中在产品和数据安全上。
 
-> **存储引擎决策（2026-08-30）**：开发环境为 CloudBase PG 模式（无文档型数据库实例），数据层使用平台托管的 CloudBase PostgreSQL + RLS。该调整仅为存储引擎替换，业务分层不变；详见 `docs/DATABASE.md` 存储引擎决策说明。
+> **当前存储引擎（2026-10-07）**：`myrepo-d7go4fyg918beac63`，CloudBase MySQL 8.0 Serverless。客户端不直连数据库，所有业务调用先进入 `gearflow-api`，服务端以 OPENID 过滤数据。
 
 ### 必要性判断
 
-| 技术                    | 第一阶段是否使用 | 原因                                                      |
-| ----------------------- | ---------------- | --------------------------------------------------------- |
-| uni-app                 | 使用             | 指定小程序第一发布平台                                    |
-| Vue 3                   | 使用             | Composition API 适合复杂表单和状态复用                    |
-| TypeScript strict       | 使用             | 降低接口和业务模型错误率                                  |
-| Pinia                   | 使用             | 管理用户、设备列表、筛选和统计状态                        |
-| CloudBase               | 使用             | 承担身份、数据、云函数、云存储和托管运维能力              |
-| CloudBase 数据库        | 使用             | 保存账号、设备、维护、时间线和统计相关数据                |
-| PostgreSQL RPC          | 使用             | 承担可信身份、业务校验、跨表写入、统计和注销              |
-| CloudBase 云函数        | 使用             | wx-login 处理微信 code 换自定义登录票据；业务写入仍走 RPC |
-| CloudBase 云存储        | P1               | 保存设备照片、发票和维修凭证，不在 MVP 启用               |
-| NestJS                  | 未来可选         | 业务复杂度提升后可部署于 CloudBase 云托管                 |
-| Prisma                  | 未来可选         | 引入关系型数据库后作为 ORM 候选                           |
-| 自管 PostgreSQL / MySQL | 未来可选         | 当前已使用 CloudBase 托管 PostgreSQL，不自建数据库服务器  |
-| Redis                   | 不使用           | 当前无高频缓存和任务队列需求，属过度设计                  |
-| ECharts                 | 不使用           | 基础图表用轻量自绘组件，避免包体积                        |
-| Nginx / VPS             | 不使用           | 当前由 CloudBase 承担托管接入和基础设施维护               |
+| 技术                    | 第一阶段是否使用 | 原因                                                       |
+| ----------------------- | ---------------- | ---------------------------------------------------------- |
+| uni-app                 | 使用             | 指定小程序第一发布平台                                     |
+| Vue 3                   | 使用             | Composition API 适合复杂表单和状态复用                     |
+| TypeScript strict       | 使用             | 降低接口和业务模型错误率                                   |
+| Pinia                   | 使用             | 管理用户、设备列表、筛选和统计状态                         |
+| CloudBase               | 使用             | 承担身份、数据、云函数、云存储和托管运维能力               |
+| CloudBase 数据库        | 使用             | 保存账号、设备、维护、时间线和统计相关数据                 |
+| CloudBase MySQL         | 使用             | 当前托管关系数据库，保存用户、设备、保修、维护与统计明细   |
+| CloudBase 云函数        | 使用             | `gearflow-api` 读取 OPENID，承担校验、跨表写入、统计和注销 |
+| CloudBase 云存储        | P1               | 保存设备照片、发票和维修凭证，不在 MVP 启用                |
+| NestJS                  | 未来可选         | 业务复杂度提升后可部署于 CloudBase 云托管                  |
+| Prisma                  | 未来可选         | 引入关系型数据库后作为 ORM 候选                            |
+| 自管 PostgreSQL / MySQL | 未来可选         | 当前使用 CloudBase 托管 MySQL，不自建数据库服务器          |
+| Redis                   | 不使用           | 当前无高频缓存和任务队列需求，属过度设计                   |
+| ECharts                 | 不使用           | 基础图表用轻量自绘组件，避免包体积                         |
+| Nginx / VPS             | 不使用           | 当前由 CloudBase 承担托管接入和基础设施维护                |
 
 ## 2. 前端架构
 
@@ -107,53 +109,51 @@ P0 只需要：
 
 ```text
 cloudfunctions/
-└── wx-login/
+├── gearflow-api/
+└── wx-login/               # 历史自定义登录函数，不再部署
 ```
 
-当前云函数仅承担微信 code 到 CloudBase 自定义票据的转换；业务写入、统计和注销由 PostgreSQL RPC 承担。附件和异步业务仍是未来独立授权范围。
+当前云函数 `gearflow-api` 是唯一业务数据入口；客户端不再持有数据库查询链或自定义登录票据。附件和异步业务仍是未来独立授权范围。
 
 ### 调用分层
 
-| 场景                 | 第一阶段实现方式                            | 原因                                                       |
-| -------------------- | ------------------------------------------- | ---------------------------------------------------------- |
-| 系统分类读取         | JS SDK v3 `app.rdb()` 直接读取              | 只读、规则简单、数据非敏感                                 |
-| 用户设备列表与详情   | JS SDK v3 `app.rdb()`                       | 只读查询受用户身份与 RLS 约束                              |
-| 设备创建、编辑、删除 | PostgreSQL `SECURITY DEFINER` RPC + 触发器  | RPC 校验归属，时间线由数据库可信边界追加                   |
-| 维护记录写入         | PostgreSQL `SECURITY DEFINER` RPC           | 在事务内同步维护、成本和时间线数据                         |
-| 统计查询             | CloudBase PostgreSQL `SECURITY DEFINER` RPC | 集中维护统计口径，避免客户端篡改；首页与统计页复用聚合边界 |
-| 账号注销             | `SECURITY DEFINER` RPC                      | 需要跨表删除、匿名化和审计                                 |
-| P1 附件上传          | CloudBase 云存储 + 云函数元数据校验         | 文件和业务数据分离                                         |
+| 场景                 | 第一阶段实现方式                      | 原因                                       |
+| -------------------- | ------------------------------------- | ------------------------------------------ |
+| 系统分类读取         | `gearflow-api.category.list`          | 只读系统数据                               |
+| 用户设备列表与详情   | `gearflow-api.device.*`               | 云函数按 OPENID 过滤，客户端不传归属       |
+| 设备创建、编辑、删除 | `gearflow-api.device.save/softDelete` | 云函数校验归属，并同步保修与时间线         |
+| 维护记录写入         | `gearflow-api.maintenance.*`          | 云函数同步维护、成本和时间线，并做失败补偿 |
+| 统计查询             | `gearflow-api.stats/dashboard`        | 服务端按 OPENID 聚合，避免客户端伪造归属   |
+| 账号注销             | `SECURITY DEFINER` RPC                | 需要跨表删除、匿名化和审计                 |
+| P1 附件上传          | CloudBase 云存储 + 云函数元数据校验   | 文件和业务数据分离                         |
 
 ### 身份与权限
 
-自 2026-09-06 起使用自包含登录（OPS-7）。云函数调用微信 code2session 后签发 CloudBase 自定义登录票据，access/refresh token 的会话生命周期仍由 CloudBase SDK 管理，不自建 JWT 会话服务。
+当前使用微信小程序原生 CloudBase 身份：`wx.cloud.callFunction` 自动附带可信 OPENID，云函数通过 `cloud.getWXContext()` 读取。不再调用 `uni.login` 或维护自定义票据。
 
 ```text
 用户打开微信小程序
 → 确认当前用户协议与隐私政策
-→ uni.login 获取 code，uni.request POST 到 wx-login 公网路由
-→ 云函数用 AppSecret 换 OpenID，并签发自定义登录票据
-→ auth.signInWithCustomTicket 建立 CloudBase 会话
-→ SDK 会话自动携带身份，数据库 RLS 通过 auth.uid() 判定归属
-→ 服务端边界创建或查询 GearFlow User 行
-→ RLS 策略和受保护 RPC 共同限制用户数据访问
+→ wx.cloud.callFunction('gearflow-api')
+→ 微信运行环境注入 OPENID，云函数读取 cloud.getWXContext()
+→ 云函数创建或查询 GearFlow User 行
+→ 后续所有读写都以 OPENID 作为唯一归属条件
 ```
 
 规则：
 
-- `userId` 必须由 CloudBase 可信身份上下文派生（`auth.uid()`），不能由客户端指定
-- 用户只能查询自己的行；写操作必须经过受保护 RPC，归属由 `auth.uid()` 强制，UI 隐藏不作为权限手段
+- OPENID 只能由云函数运行环境注入，客户端不能传入或覆盖
+- 用户只能查询自己的行；所有查询和写入都必须在云函数内附加 OPENID 条件
 - 系统分类等公共只读数据单独设置权限
-- AppSecret 和管理端凭据（API Key / service_role）不得进入客户端
+- CloudBase 管理凭据不得进入客户端；当前运行链路不再需要微信 AppSecret
 - 账号注销删除 GearFlow 业务数据；平台身份本身按 CloudBase 和微信官方能力处理
 - 如果未来引入 CloudBase 云托管或独立 API，再单独设计服务间鉴权和会话机制
-- 登录 HTTP 路由与数据网关域名不同，发布时都必须核对；准确公开地址见 `docs/OPS7-LOGIN-DESIGN.md`。
-- 正常恢复只读取已有用户，不记录新的协议同意；只有 `acceptPolicies()` 在显式确认后调用带版本的 bootstrap RPC。
+- 正常恢复只读取已有用户，不记录新的协议同意；只有 `acceptPolicies()` 在显式确认后调用 `auth.bootstrap`。
 
 Phase 6 设备时间线遵循以下边界：
 
-- `device_timelines` 对小程序客户端只读，不授予 `INSERT / UPDATE / DELETE`
-- `devices` 的创建、有效字段更新和软删除由 PG 触发器自动追加 `CREATED / UPDATED / DISPOSED`
+- `device_timelines` 仅由 `gearflow-api` 读写，小程序客户端不直连 MySQL
+- `devices` 的创建、有效字段更新和软删除由云函数同步追加 `CREATED / UPDATED / DISPOSED`
 - 设备状态转为 `SOLD / DISCARDED` 时生成可见的 `DISPOSED`；软删除也会生成审计事件，但删除后整条时间线对客户端不可见
 - 事件只保存变更字段名等非敏感摘要，不复制序列号、价格、备注或其他字段原值
 - 时间线查询同时校验设备仍未软删除；删除后历史行保留，但客户端不可见
@@ -191,7 +191,7 @@ P0 不做完整离线同步。原因：
 - `CLOUDBASE_ENV_ID`
 - `APP_ENV`
 
-管理端密钥、微信 AppSecret 和未来第三方服务密钥只允许放在 CloudBase 服务端配置中。
+CloudBase 管理凭据和未来第三方服务密钥只允许放在服务端或平台配置中。
 
 ## 6. 错误处理规范
 

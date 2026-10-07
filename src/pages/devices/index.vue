@@ -119,7 +119,7 @@ const store = useDeviceStore()
 
 const exporting = ref(false)
 
-/** 导出全部设备清单 CSV（分页拉全量，经 RLS 仅本人数据） */
+/** 导出全部设备清单 CSV（分页拉全量，云函数按 OPENID 仅返回本人数据） */
 async function exportDevicesCsv(): Promise<void> {
   if (exporting.value) return
   exporting.value = true

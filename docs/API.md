@@ -1,25 +1,27 @@
 # GearFlow 业务操作契约
 
+> **2026-10-07 当前实现**：客户端通过 `wx.cloud.callFunction('gearflow-api')` 调用业务 action；云函数读取 OPENID 并访问 CloudBase MySQL。下文 PostgreSQL RPC、RLS 和 `auth.uid()` 描述保留为历史实现，当前调用边界见 `docs/MYSQL-MIGRATION.md`。
+
 ## 1. 通用约定
 
 ### 实现方式
 
 本文件保留原有业务能力定义，但不再假设所有操作都通过 NestJS REST API 实现。
 
-| 类型         | 调用方式                          | 适用场景                                   |
-| ------------ | --------------------------------- | ------------------------------------------ |
-| 直接数据读取 | CloudBase SDK + 数据库安全规则    | 系统分类、用户自己的简单列表和详情         |
-| 业务操作     | CloudBase 云函数 / PostgreSQL RPC | 跨集合写入、复杂校验、统计、注销和敏感操作 |
-| 文件操作     | CloudBase 云存储 + 云函数         | P1 设备照片、发票和维修凭证                |
+| 类型         | 调用方式                  | 适用场景                                 |
+| ------------ | ------------------------- | ---------------------------------------- |
+| 直接数据读取 | 无；统一走 `gearflow-api` | 避免客户端持有数据库查询与归属规则       |
+| 业务操作     | `gearflow-api` 云函数     | 跨表写入、复杂校验、统计、注销和敏感操作 |
+| 文件操作     | CloudBase 云存储 + 云函数 | P1 设备照片、发票和维修凭证              |
 
 下文的 `device.create`、`statistics.overview` 等名称是稳定的业务操作标识，不是 HTTP 路径。未来如果引入 CloudBase 云托管 + NestJS，可以在不改变前端业务类型的前提下映射为 REST API。
 
 ### 身份
 
-- 小程序用微信 code 经 `wx-login` 云函数换取 CloudBase 自定义票据，再由 SDK 建立会话。
-- 数据库 RLS 与受保护 RPC 从会话对应的 `auth.uid()` 获取当前身份，不信任客户端指定的归属。
-- 客户端不得传入或覆盖 `userId`。
-- 当前阶段不自行签发 accessToken / refreshToken，也不要求 Bearer JWT。
+- 微信小程序调用云函数时由运行环境自动注入 OPENID。
+- `gearflow-api` 使用该 OPENID 作为唯一归属条件，不信任客户端指定的归属。
+- 客户端不得传入或覆盖 `userId` / `openid`。
+- 当前不再使用自定义登录票据、accessToken 或 refreshToken。
 
 ### 响应格式
 
@@ -111,7 +113,7 @@ auth.bootstrap
 
 规则：
 
-- PostgreSQL RPC 从 CloudBase 会话的 `auth.uid()` 读取可信用户标识
+- `gearflow-api` 从微信运行环境读取可信 OPENID
 - 创建或查询 GearFlow `users` 行
 - 不返回 OpenID 或 CloudBase 管理凭据
 - 未同意当前协议版本不能进入需要保存个人数据的功能
@@ -349,7 +351,7 @@ device.create
 - 价格不能为负且不能超过数据库整数分上限
 - 当前 MVP 币种固定为 `CNY`
 
-实现说明：设备创建/更新与保修同步通过 PostgreSQL `SECURITY DEFINER` RPC 在一个事务内完成；`userId` 由 `auth.uid()` 派生，PG 触发器同步追加设备时间线事件。客户端不持有设备或保修表写权限。
+实现说明：设备创建/更新与保修同步由 `gearflow-api` 编排；归属取可信 OPENID，时间线事件由云函数追加。客户端不持有 MySQL 连接或写权限。
 
 编辑表单加载完成前不允许保存。保修读取失败与“没有保修”必须区分：失败时显示重试并禁止覆盖；未改动保修字段发送 `KEEP`，只有用户明确清空已加载的日期才发送 `CLEAR`。
 
@@ -361,7 +363,7 @@ device.create
 device.update
 ```
 
-支持部分更新。业务字段确实变化时，PG 触发器追加 `UPDATED` 事件；状态转为 `SOLD / DISCARDED` 时改为追加 `DISPOSED`。仅 `updatedAt` 变化不生成事件。事件摘要只包含变更字段名，不包含变更前后原值。设备与保修更新在同一事务内提交。
+支持部分更新。业务字段确实变化时，云函数追加 `UPDATED` 事件；状态转为 `SOLD / DISCARDED` 时追加处置相关事件。事件摘要只包含变更字段名，不包含变更前后原值。
 
 ### 7.5 删除设备
 
@@ -377,7 +379,7 @@ device.delete
 }
 ```
 
-MVP 为软删除，默认列表和统计不再显示。`device.delete` 通过受保护 RPC 执行，PG 触发器在软删除时追加 `DISPOSED` 审计事件；时间线、维护、保修和成本 RLS 随后因设备已删除而不再向客户端返回任何历史行。
+MVP 为软删除，默认列表和统计不再显示。`device.delete` 由云函数校验归属后置 `deleted_at`，后续列表、详情、时间线与统计均过滤已删除设备。
 
 ## 8. 维护记录接口
 
@@ -424,7 +426,7 @@ maintenance.update
 maintenance.delete
 ```
 
-维护记录写操作通过 PostgreSQL `SECURITY DEFINER` RPC 执行，并在服务端再次校验标题、类型、日期、金额、长度、设备归属和软删除状态；失败时事务整体回滚。成功后同步：
+维护记录写操作在 `gearflow-api` 内再次校验标题、类型、日期、金额、长度、设备归属和软删除状态；失败时执行补偿清理。成功后同步：
 
 - 时间线（payload 仅含非敏感摘要，不含费用）
 - 统计成本表（`MAINTENANCE` 行以 `maintenanceId` 唯一关联）
@@ -439,7 +441,7 @@ timeline.list
 
 | 参数      | 类型   | 说明                                                        |
 | --------- | ------ | ----------------------------------------------------------- |
-| deviceId  | string | 设备 ID，必填；RLS 仍强制校验归属                           |
+| deviceId  | string | 设备 ID，必填；云函数仍强制校验 OPENID 归属                 |
 | page      | number | 页码，从 1 开始                                             |
 | pageSize  | number | 每页数量，默认 20、最大 50                                  |
 | eventType | string | 可选；CREATED / UPDATED / MAINTENANCE / WARRANTY / DISPOSED |
@@ -482,7 +484,7 @@ timeline.list
 statistics.overview
 ```
 
-实现约束：统计通过 CloudBase PostgreSQL `SECURITY DEFINER` RPC 执行，服务端从 `auth.uid()` 绑定用户，不接受客户端传入的 `userId`。所有统计过滤 `devices.deleted_at IS NULL`。
+实现约束：统计由 `gearflow-api` 执行，服务端从 OPENID 绑定用户，不接受客户端传入的 `userId`。所有统计过滤 `deleted_at IS NULL`。
 
 查询参数：
 
@@ -561,7 +563,7 @@ saveAndShareCsv
 clearGeneratedExports
 ```
 
-附件和提醒接口不在 MVP P0 实现。CSV 导出已于 2026-09-06 作为独立功能落地，本轮只修复其完整性与清理边界：本人设备及单设备维护数据经 RLS 读取，本机生成 CSV 后交给微信分享；分享结束或取消后清理临时文件，退出和注销再次清理历史遗留文件。导出不构成可恢复的数据库备份，不代表其他 Phase 11 功能获准实施。
+附件和提醒接口不在 MVP P0 实现。CSV 导出已于 2026-09-06 作为独立功能落地：本人设备及单设备维护数据经云函数读取，本机生成 CSV 后交给微信分享；分享结束或取消后清理临时文件，退出和注销再次清理历史遗留文件。导出不构成可恢复的数据库备份。
 
 这里是客户端本机导出，不存在远程导出任务；原规划的 `export.create` / `export.get` 仍未实现。
 

@@ -13,7 +13,8 @@
     },
     "lib": ["esnext", "dom"],
     "types": ["@dcloudio/types", "node"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowJs": true
   },
   "include": [
     "src/**/*.ts",

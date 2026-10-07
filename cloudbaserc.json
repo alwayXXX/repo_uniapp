@@ -1,0 +1,16 @@
+{
+  "envId": "myrepo-d7go4fyg918beac63",
+  "region": "ap-shanghai",
+  "functionRoot": "cloudfunctions",
+  "functions": [
+    {
+      "name": "gearflow-api",
+      "handler": "index.main",
+      "runtime": "Nodejs18.15",
+      "timeout": 20,
+      "memorySize": 256,
+      "installDependency": true,
+      "ignore": ["node_modules/**", ".git/**", "*.md"]
+    }
+  ]
+}

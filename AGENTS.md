@@ -2,7 +2,7 @@
 
 ## 项目状态
 
-**Phase 0-9 已完成并通过验收**。截至 2026-09-23，用户已上传体验版并邀请朋友实测正常；当前执行用户确认的 **Phase 0-10 收尾修复**，不等同于正式审核通过或发布。2026-09-06 已落地的 CSV 导出按既有功能维护，不扩展新的 Phase 11/12 能力。每个新 Phase 开始前仍需用户明确确认。
+**Phase 0-9 已完成并通过验收**。截至 2026-10-07，原 CloudBase PG 环境因欠费注销，项目已迁移到新环境的 **CloudBase MySQL + `wx.cloud.callFunction` + 微信 OPENID** 架构；这是当前唯一运行路径，不再依赖 AppSecret、自定义登录私钥、RLS 或 PL/pgSQL RPC。旧 PG 迁移和设计文档仅作历史记录。迁移详情见 `docs/MYSQL-MIGRATION.md`。
 
 **接手必读**：`docs/HANDOFF.md`（环境事实、踩坑经验、验收方法——大量内容不在代码里）。
 
@@ -32,7 +32,7 @@
 
 - NestJS：保留为未来复杂业务层的可选技术，不属于当前 MVP
 - Prisma：保留为未来关系型数据库 ORM 的可选技术，不属于当前 MVP
-- MySQL / PostgreSQL：不自行部署关系型数据库（CloudBase 平台托管的 PostgreSQL 服务属于 BaaS 能力，已于 2026-08-30 确认使用，见 docs/DATABASE.md 存储引擎决策）
+- MySQL / PostgreSQL：不自行部署关系型数据库；当前使用 CloudBase 平台托管的 MySQL 8.0 Serverless（见 `docs/MYSQL-MIGRATION.md`）
 - Redis：当前无高频读写、任务队列或复杂缓存需求
 - Nginx：当前不自行维护反向代理和 HTTPS 基础设施
 - 独立服务器 / VPS：当前不购买或维护后端服务器
@@ -58,7 +58,7 @@ uni-app
 ## 开发原则
 
 1. **MVP 纪律**：只实现 `docs/PRD.md` 中的 P0 功能；P1/P2 必须先通过文档变更进入范围。
-2. **业务边界**：前端负责展示和输入校验；CloudBase RLS 与角色授权负责基础数据权限；`wx-login` 云函数负责可信登录票据，受保护 PostgreSQL RPC 负责业务校验、跨表一致性、统计和删除流程。
+2. **业务边界**：前端负责展示和输入校验；微信 `wx.cloud.callFunction` 自动注入 OPENID；`gearflow-api` 云函数以 OPENID 过滤全部数据，并负责业务校验、跨表一致性、统计和删除流程。
 3. **用户隔离**：所有用户数据必须绑定 CloudBase 可信身份上下文派生的 `userId`，禁止信任前端传入的用户 ID。
 4. **隐私优先**：日志禁止输出序列号、发票、价格、照片地址、手机号、OpenID、access token。
 5. **删除语义**：账号注销必须物理删除或匿名化用户数据，不能只做前端隐藏。
@@ -110,7 +110,7 @@ feat(device): add device creation flow
 
 - 仓库只提交 `.env.example`，禁止提交真实 `.env`。
 - 密钥只允许通过 CloudBase 配置、部署平台或本机环境变量注入。
-- 前端只保存 CloudBase 环境 ID 等公开配置；微信 AppSecret 和服务端密钥不得进入客户端。
+- 前端只保存 CloudBase 环境 ID 等公开配置；CloudBase 管理凭据和服务端密钥不得进入客户端。
 
 ## 状态与错误处理
 

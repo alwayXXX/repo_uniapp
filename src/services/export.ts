@@ -1,6 +1,6 @@
 /**
  * 既有数据导出：把设备台账与维护记录导出为 CSV 并分享。
- * 数据经客户端 RLS 查询获取，CSV 在本机生成后通过微信分享给用户，
+ * 数据经 `gearflow-api` 按当前 OPENID 获取，CSV 在本机生成后通过微信分享给用户，
  * 不经过任何第三方服务器。
  */
 import { buildCsvWithBom, type CsvColumn } from '@/utils/csv'

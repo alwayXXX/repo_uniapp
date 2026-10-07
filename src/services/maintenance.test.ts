@@ -1,147 +1,99 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getMaintenance, listAllByDevice, listMaintenancePage } from './maintenance'
+import { deviceFixture } from '@/test/fixtures'
 import { invalidateClientRequests } from './client-state'
-import { deviceFixture, maintenanceFixture } from '@/test/fixtures'
+import type { MaintenanceDoc } from '@/types/maintenance'
 
 const mocks = vi.hoisted(() => ({
-  from: vi.fn(),
-  select: vi.fn(),
-  eq: vi.fn(),
-  order: vi.fn(),
-  range: vi.fn(),
-  limit: vi.fn(),
-  ensureSession: vi.fn(),
-}))
-vi.mock('./auth', () => ({ ensureSession: mocks.ensureSession }))
-vi.mock('./cloudbase', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./cloudbase')>()),
-  getRdb: () => ({ from: mocks.from }),
+  callGearFlowApi: vi.fn(),
 }))
 
-function row(index: number) {
-  const record = maintenanceFixture(index)
+vi.mock('./auth', () => ({ ensureSession: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('./cloudbase', () => ({ callGearFlowApi: mocks.callGearFlowApi }))
+
+function row(index: number): MaintenanceDoc {
   return {
-    id: record.id,
-    device_id: record.deviceId,
-    user_id: record.userId,
-    title: record.title,
-    type: record.type,
-    occurred_at: record.occurredAt,
-    cost_cents: record.costCents,
-    vendor: record.vendor,
-    notes: record.notes,
-    created_at: record.createdAt,
-    updated_at: record.updatedAt,
+    id: `m-${String(index).padStart(4, '0')}`,
+    deviceId: deviceFixture.id,
+    userId: 'openid-test',
+    title: `维护 ${index}`,
+    type: 'INSPECT',
+    occurredAt: '2026-09-01',
+    costCents: null,
+    vendor: null,
+    notes: null,
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
   }
 }
-const firstPage = Array.from({ length: 50 }, (_, i) => row(i + 1))
-const response = (data: ReturnType<typeof row>[], count: number | null) => ({
-  data,
-  count,
-  error: null,
-})
+
+function pageResponse(total: number, page: number, pageSize = 50) {
+  const records = Array.from({ length: total }, (_, index) => row(index + 1))
+  const from = (page - 1) * pageSize
+  return {
+    items: records.slice(from, from + pageSize),
+    page,
+    pageSize,
+    total,
+    hasMore: from + pageSize < total,
+  }
+}
 
 beforeEach(() => {
   vi.resetAllMocks()
-  for (const method of [mocks.from, mocks.select, mocks.eq, mocks.order])
-    method.mockReturnValue(mocks)
-  mocks.ensureSession.mockResolvedValue(undefined)
+  invalidateClientRequests()
 })
 
 describe('bounded complete maintenance queries', () => {
-  it.each([1, 49, 50, 51, 100, 101])(
-    'reads all %i records across page boundaries',
-    async (total) => {
-      const rows = Array.from({ length: total }, (_, i) => row(i + 1))
-      mocks.range.mockImplementation(async (from: number, to: number) =>
-        response(rows.slice(from, to + 1), total),
-      )
-      const records = await listAllByDevice(deviceFixture.id)
-      expect(records.map((record) => record.id)).toEqual(rows.map((record) => record.id))
-      expect(mocks.range).toHaveBeenCalledTimes(Math.ceil(total / 50))
-    },
-  )
-
-  it('reads every page in a stable order with an exact count', async () => {
-    mocks.range
-      .mockResolvedValueOnce(response(firstPage, 51))
-      .mockResolvedValueOnce(response([row(51)], 51))
-    const records = await listAllByDevice(deviceFixture.id)
-    expect(records).toHaveLength(51)
-    expect(records[50]).toEqual(maintenanceFixture(51))
-    expect(mocks.range.mock.calls).toEqual([
-      [0, 49],
-      [50, 99],
-    ])
-    expect(mocks.select).toHaveBeenCalledWith('*', { count: 'exact' })
-    expect(mocks.order.mock.calls.slice(0, 3)).toEqual([
-      ['occurred_at', { ascending: false }],
-      ['created_at', { ascending: false }],
-      ['id', { ascending: false }],
-    ])
-  })
-
-  it('looks up an edit target by both IDs without loading a list', async () => {
-    mocks.limit.mockResolvedValueOnce({ data: [row(51)], error: null })
-    expect(await getMaintenance(deviceFixture.id, 'synthetic-maintenance-51')).toEqual(
-      maintenanceFixture(51),
+  it.each([1, 49, 50, 51, 100, 101])('reads all %i records across pages', async (total) => {
+    mocks.callGearFlowApi.mockImplementation(async (_action, payload) =>
+      pageResponse(total, Number(payload.page), Number(payload.pageSize)),
     )
-    expect(mocks.eq.mock.calls).toEqual([
-      ['device_id', deviceFixture.id],
-      ['id', 'synthetic-maintenance-51'],
-    ])
-    expect(mocks.range).not.toHaveBeenCalled()
+    await expect(listAllByDevice(deviceFixture.id)).resolves.toHaveLength(total)
   })
 
-  it('returns an empty complete list for no records', async () => {
-    mocks.range.mockResolvedValueOnce(response([], 0))
-    expect(await listAllByDevice(deviceFixture.id)).toEqual([])
-  })
-
-  it('rejects out-of-contract page sizes before accessing the database', async () => {
+  it('returns an exact page and total from the function', async () => {
+    mocks.callGearFlowApi.mockResolvedValueOnce(pageResponse(75, 2))
     await expect(
-      listMaintenancePage({ deviceId: deviceFixture.id, page: 1, pageSize: 51 }),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
-    expect(mocks.from).not.toHaveBeenCalled()
+      listMaintenancePage({ deviceId: deviceFixture.id, page: 2, pageSize: 50 }),
+    ).resolves.toMatchObject({ page: 2, total: 75, hasMore: false })
   })
 
-  it('fails closed when the exact count is missing', async () => {
-    mocks.range.mockResolvedValueOnce(response([row(1)], null))
-    await expect(listAllByDevice(deviceFixture.id)).rejects.toThrow('总数缺失')
+  it('fetches an edit target by device and record IDs', async () => {
+    mocks.callGearFlowApi.mockResolvedValueOnce({ item: row(7) })
+    await expect(getMaintenance(deviceFixture.id, row(7).id)).resolves.toEqual(row(7))
+    expect(mocks.callGearFlowApi).toHaveBeenCalledWith('maintenance.get', {
+      deviceId: deviceFixture.id,
+      id: row(7).id,
+    })
   })
 
-  it('rejects the whole result when a later page fails', async () => {
-    mocks.range
-      .mockResolvedValueOnce(response(firstPage, 51))
-      .mockResolvedValueOnce({ data: null, error: { message: 'synthetic error' } })
-    await expect(listAllByDevice(deviceFixture.id)).rejects.toThrow('读取维护记录失败')
+  it('fails closed on a missing total', async () => {
+    mocks.callGearFlowApi.mockResolvedValueOnce({
+      items: [row(1)],
+      page: 1,
+      pageSize: 50,
+      hasMore: false,
+    })
+    await expect(listAllByDevice(deviceFixture.id)).rejects.toThrow('维护记录不完整')
   })
 
-  it.each(['count', 'duplicate', 'empty', 'short'])(
-    'rejects an incomplete or changing result: %s',
-    async (scenario) => {
-      mocks.range.mockResolvedValueOnce(
-        response(scenario === 'short' ? firstPage.slice(0, 10) : firstPage, 51),
-      )
-      mocks.range.mockResolvedValueOnce(
-        response(
-          scenario === 'empty' ? [] : [row(scenario === 'duplicate' ? 1 : 51)],
-          scenario === 'count' ? 52 : 51,
-        ),
-      )
-      await expect(listAllByDevice(deviceFixture.id)).rejects.toMatchObject({
-        code: 'INTERNAL_ERROR',
-      })
-      expect(mocks.range).toHaveBeenCalledTimes(2)
-    },
-  )
+  it('fails closed on a malformed row', async () => {
+    mocks.callGearFlowApi.mockResolvedValueOnce({
+      items: [{ id: 'broken' }],
+      page: 1,
+      pageSize: 50,
+      total: 1,
+      hasMore: false,
+    })
+    await expect(listAllByDevice(deviceFixture.id)).rejects.toThrow('维护记录数据格式错误')
+  })
 
-  it('cancels remaining pages when the login state changes', async () => {
-    mocks.range.mockImplementationOnce(async () => {
+  it('cancels pagination when login state changes', async () => {
+    mocks.callGearFlowApi.mockImplementationOnce(() => {
       invalidateClientRequests()
-      return response(firstPage, 51)
+      return pageResponse(51, 1)
     })
     await expect(listAllByDevice(deviceFixture.id)).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
-    expect(mocks.range).toHaveBeenCalledOnce()
   })
 })

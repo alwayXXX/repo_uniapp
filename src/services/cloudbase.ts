@@ -1,65 +1,93 @@
-import cloudbase from '@cloudbase/js-sdk'
 import { AppError, isRecord } from '@/utils/error'
+import type { ApiErrorCode } from '@/types/api/common'
+
+interface WxCloudFunctionResult {
+  result: unknown
+}
+
+interface WxCloudApi {
+  init(options: { env: string; traceUser?: boolean }): void
+  callFunction(options: {
+    name: string
+    data?: Record<string, unknown>
+    timeout?: number
+  }): Promise<WxCloudFunctionResult>
+}
+
+interface WxGlobal {
+  cloud?: WxCloudApi
+}
+
+let initialized = false
+
+function getWxCloud(): WxCloudApi {
+  const wxApi = (globalThis as unknown as { wx?: WxGlobal }).wx
+  if (!wxApi?.cloud) {
+    throw new AppError('INTERNAL_ERROR', '当前运行环境不支持微信云开发')
+  }
+  return wxApi.cloud
+}
+
+/** 初始化当前微信小程序的 CloudBase 环境；环境 ID 是公开配置。 */
+export function ensureCloudbaseInit(): void {
+  if (initialized) return
+  const envId = import.meta.env.CLOUDBASE_ENV_ID
+  if (!envId) {
+    throw new AppError('INTERNAL_ERROR', '缺少 CLOUDBASE_ENV_ID，请检查 .env 配置')
+  }
+  getWxCloud().init({ env: envId, traceUser: true })
+  initialized = true
+}
+
+const API_ERROR_CODES: readonly ApiErrorCode[] = [
+  'UNAUTHORIZED',
+  'VALIDATION_ERROR',
+  'FORBIDDEN',
+  'RESOURCE_NOT_FOUND',
+  'DEVICE_NOT_FOUND',
+  'CATEGORY_NOT_FOUND',
+  'DATE_RANGE_INVALID',
+  'RATE_LIMITED',
+  'INTERNAL_ERROR',
+  'IDENTITY_BOOTSTRAP_FAILED',
+]
+
+function throwCloudFailure(result: Record<string, unknown>): never {
+  const code = typeof result.errorCode === 'string' ? result.errorCode : ''
+  const appCode = (API_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as ApiErrorCode)
+    : 'INTERNAL_ERROR'
+  throw new AppError(appCode, '请求失败，请稍后重试')
+}
 
 /**
- * CloudBase JS SDK v3 初始化与访问入口（PG 模式环境）。
- * 仅使用公开配置 CLOUDBASE_ENV_ID；API Key / service_role 一律不进入前端。
+ * 调用唯一业务云函数。微信 OPENID 由云函数运行环境注入，客户端不传身份字段。
  */
-let cloudbaseApp: ReturnType<typeof cloudbase.init> | null = null
-
-export function getCloudbaseApp(): ReturnType<typeof cloudbase.init> {
-  if (!cloudbaseApp) {
-    const envId = import.meta.env.CLOUDBASE_ENV_ID
-    if (!envId) {
-      throw new AppError('INTERNAL_ERROR', '缺少 CLOUDBASE_ENV_ID，请检查 .env 配置')
-    }
-    cloudbaseApp = cloudbase.init({ env: envId })
+export async function callGearFlowApi<T>(
+  action: string,
+  payload: Record<string, unknown> = {},
+): Promise<T> {
+  ensureCloudbaseInit()
+  let response: WxCloudFunctionResult
+  try {
+    response = await getWxCloud().callFunction({
+      name: 'gearflow-api',
+      data: { action, payload },
+      timeout: 20000,
+    })
+  } catch {
+    throw new AppError('INTERNAL_ERROR', '云服务连接失败，请检查网络后重试')
   }
-  return cloudbaseApp
-}
-
-/** 数据访问客户端（app.rdb，postgREST 风格链式 API，受服务端 RLS 约束） */
-export function getRdb(): ReturnType<ReturnType<typeof cloudbase.init>['rdb']> {
-  return getCloudbaseApp().rdb()
-}
-
-/** 身份认证客户端（wx-login 自定义票据登录，详见 services/auth.ts） */
-export function getAuth() {
-  return getCloudbaseApp().auth({ persistence: 'local' })
-}
-
-/**
- * 调用 PG RPC 函数（SECURITY DEFINER 服务端边界）。
- * 运行时 rdb 客户端支持 rpc，但 SDK 类型未声明，此处做第三方边界窄化。
- */
-export async function callRpc(fn: string, args: Record<string, unknown> = {}): Promise<unknown> {
-  const client = getRdb() as unknown as {
-    rpc: (name: string, args?: Record<string, unknown>) => Promise<unknown>
+  if (!isRecord(response.result) || typeof response.result.ok !== 'boolean') {
+    throw new AppError('INTERNAL_ERROR', '云服务返回格式错误')
   }
-  return client.rpc(fn, args)
-}
-
-/** app.rdb / auth 统一返回结构（SDK 判别联合的第三方边界快照；count 仅列表查询携带） */
-export interface SdkResult<TData> {
-  data: TData | null
-  count?: number | null
-  error: { message: string; code?: string } | null
-}
-
-/** 将 SDK 返回断言为统一结果结构；字段以运行时守卫二次校验，禁止直接信任 */
-export function asSdkResult<TData>(raw: unknown): SdkResult<TData> {
-  if (!isRecord(raw) || !('data' in raw) || !('error' in raw)) {
-    throw new AppError('INTERNAL_ERROR', 'CloudBase SDK 返回格式错误')
+  if (response.result.ok !== true) {
+    throwCloudFailure(response.result)
   }
-  return raw as unknown as SdkResult<TData>
+  return response.result.data as T
 }
 
-/** 校验 SDK 错误并转换为 AppError（docs/API.md 错误码） */
-export function throwIfError(err: SdkResult<unknown>['error'], fallbackMessage?: string): void {
-  if (!err) return
-  if (err.code === '42501') {
-    throw new AppError('FORBIDDEN', '无权访问该数据')
-  }
-  // SDK/database 原始消息可能包含 SQL、表名或请求上下文，不直接回传给 UI/日志。
-  throw new AppError('INTERNAL_ERROR', fallbackMessage || '请求失败')
+/** 供测试或开发验证页重置初始化状态。 */
+export function resetCloudbaseInitForTests(): void {
+  initialized = false
 }

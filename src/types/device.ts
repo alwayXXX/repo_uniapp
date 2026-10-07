@@ -22,7 +22,7 @@ export interface DeviceCategory {
 /** devices 表业务模型（snake_case 由服务层映射） */
 export interface DeviceDoc {
   id: string
-  /** 归属身份（auth.uid()），全库一致约定 */
+  /** 当前登录身份（云函数内部为微信 OPENID），全库一致约定 */
   userId: string | null
   categoryId: string | null
   name: string

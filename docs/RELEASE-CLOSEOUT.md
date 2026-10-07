@@ -8,6 +8,26 @@
 - 工作区原有的正式构建与发布检查脚本继续保留并完善。
 - 2026-09-24 继续核验既有未提交改动；本轮不将文档里的完成标记直接视为测试证据。
 
+### 2026-10-07 MySQL 环境迁移
+
+原 `myrepo-d1gfju7se642a63ce` PG 环境因欠费注销。新环境 `myrepo-d7go4fyg918beac63` 使用 CloudBase MySQL 8.0 Serverless。
+
+- 新增 `gearflow-api` 云函数，以微信 OPENID 为唯一归属条件。
+- 移除客户端 `@cloudbase/js-sdk`、自定义登录票据和 PG `rdb/rpc` 运行路径。
+- 新增 `database/mysql/schema.sql` 和 `database/mysql/seed.sql`，已在新 MySQL 创建 8 张业务表与 12 个系统分类。
+- 真实小程序上下文验证：bootstrap、用户读取、分类、设备、保修、维护、统计、看板、软删除、注销和重新初始化全部成功。
+- 迁移测试设备已从数据库清除；旧 PG 数据未迁移。
+
+| 检查                           | 结果                                          |
+| ------------------------------ | --------------------------------------------- |
+| `pnpm lint`                    | 通过                                          |
+| `pnpm type-check`              | 通过                                          |
+| `pnpm test`                    | 149/149 通过，20 个文件                       |
+| `pnpm test:release`            | 14/14 通过                                    |
+| `pnpm test:database`           | 13/13 通过（旧 PG 历史迁移隔离回归）          |
+| `pnpm build:mp-weixin:release` | 通过，版本 1.1.0                              |
+| `pnpm verify:phase10`          | 通过，通用凭据扫描 103 个文件，精确扫描未配置 |
+
 ## 修复清单
 
 - [x] 保修读取失败、加载中及重试不会误发 CLEAR；未改动保修发送 KEEP。

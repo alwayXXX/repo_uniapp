@@ -1,6 +1,6 @@
 # GearFlow 交接文档（ZCode → Codex）
 
-> 更新于 2026-09-24。Phase 0-9 已完成并通过验收；用户确认体验版已上传、几位朋友实测正常。本轮执行已获确认的收尾修复，不把体验版可用记为正式审核通过或发布。修复和验证记录见 `docs/RELEASE-CLOSEOUT.md`。
+> 更新于 2026-10-07。Phase 0-9 已完成并通过验收。原 CloudBase PG 环境因欠费注销，项目已迁移到 `myrepo-d7go4fyg918beac63` 的 **CloudBase MySQL + 微信 OPENID + 单一业务云函数** 架构；旧 PG/RLS/RPC 文档仅作历史记录。迁移详情见 `docs/MYSQL-MIGRATION.md`。
 > 本文档是环境事实与踩坑经验的唯一权威来源——很多内容不在任何代码或 Phase 0 文档里。
 > 阶段定义与完成标准以 `docs/ROADMAP.md` 为准；数据模型以 `docs/DATABASE.md` 为准；验收记录见 `docs/PHASE1-FINDINGS.md`。
 
@@ -24,9 +24,9 @@
 
 ## 2. 环境事实
 
-- **CloudBase 环境**：`myrepo-d1gfju7se642a63ce`（PG 模式，ap-shanghai，体验版套餐）。管理走 mcporter CLI（已账号级登录）：`npx -y mcporter call cloudbase.<tool> ...`。**IDE 直连的 CloudBase MCP 是独立未登录会话，不可用。**
-- **小程序 AppID**：`wx8f26567f4d54b3f7`（在 src/manifest.json）。自 2026-09-06 起使用 `uni.login → wx-login 公网 HTTP 路由 → code2session → CloudBase 自定义票据`，**依赖函数环境变量中的 AppSecret 和自定义登录私钥**，不依赖微信侧微搭授权。详见 `docs/OPS7-LOGIN-DESIGN.md`。
-- **数据状态**：已有朋友体验使用，应按含真实用户数据处理；不得为验证而清空或重建环境。身份 UID、手机号及其他可关联标识不写入交接文档。
+- **CloudBase 环境**：`myrepo-d7go4fyg918beac63`（ap-shanghai，体验版套餐，MySQL 8.0 Serverless）。管理走 CloudBase CLI：`npx --package @cloudbase/cli tcb ...`。mcporter daemon 当前可能损坏，不要把它作为唯一入口。
+- **小程序 AppID**：`wx8f26567f4d54b3f7`（在 src/manifest.json）。当前使用 `wx.cloud.callFunction('gearflow-api')`，微信运行时自动注入 OPENID；不再使用 AppSecret、自定义登录私钥或 `wx-login`。
+- **数据状态**：新 MySQL 从空库初始化，旧 PG 数据未迁移。不得为验证而清理真实体验账号；身份标识不写入交接文档。
 - **GitHub**：`git@github.com:alwayXXX/repo_uniapp`（main，SSH 可用，直接 `git push`）。
 - **微信开发者工具**：程序在 `F:\WeChat Dev\微信web开发者工具\`（cli.bat 同目录）；服务端口 29456 已开启；自动化端口 9420（启动命令见 §5）。
 - **Node 24 / pnpm 11.22**：不要动全局环境。
@@ -38,17 +38,14 @@
 - **质量门**：`pnpm lint` / `pnpm type-check` / `pnpm test`；发布还要 `pnpm test:release` / `pnpm test:database` / `pnpm build:mp-weixin:release` / `pnpm verify:phase10`。CI 已配置完整检查；Husky 仍为 pre-commit=lint-staged+vue-tsc、pre-push=vitest+普通构建，不能代替发布门。
 - **新 Phase 必须明确授权**；模型或业务契约变化仍先改文档，再编码。本轮不新增线上迁移、不部署、不重置密钥。
 
-## 4. 数据库（CloudBase PostgreSQL）
+## 4. 数据库（CloudBase MySQL）
 
-- 迁移文件：`cloudbase/migrations/`（2026-09-23 仓库共 112 条，包含 2026-09-06 的 UID 列扩宽）。本轮未查询线上历史，不能以本地重放证明线上无漂移。**新迁移一律走 `managePgDatabase action=applyMigration`**，且：
-  - **一个迁移只放一条语句**（runner 按语句切，多语句会静默只执行第一条）
-  - **migrationName 只允许小写字母+下划线，不能含数字**（v2 这种命名会被拒）
-  - 本地文件内容必须与 --sql 参数完全一致（含无末尾换行），否则 LOCAL_MIGRATION_FILE_MISMATCH
-  - 若报「Name 只允许小写字母」但名字明明合规：检查 `config/cloudbase/migrations/` 镜像目录是否有脏文件（该目录已 gitignore，可直接清理）
-- **权限由角色最小授权、RLS 和受保护 RPC 共同保证**：所有用户表 `user_id ≡ auth.uid()`（身份串，不是 users.id 的 UUID）。UID 相关列已扩为 `varchar(255)`。迁移 runner 会自动给 authenticated 授全套权限，**每次建表后必须 REVOKE 收敛到最小**（TRUNCATE 不受 RLS 约束，必收）。SECURITY DEFINER 写操作必须自行校验身份与归属。
-- **身份函数**：`gf_bootstrap_user(privacy, terms)` / `gf_delete_account()`（SECURITY DEFINER RPC，执行权限仅 authenticated）。维护、设备与资料写入也统一走受保护 RPC。
-- **服务端验证方法**（不依赖小程序）：`managePgDatabase action=execute --role authenticated` + `WITH s AS (SELECT set_config('request.jwt.claim.sub','<uid>',true)) SELECT ... FROM s`（LATERAL 保证 set_config 先执行；GUC 不跨调用持久，每次都要带）。
-- **隔离回归**：`scripts/database.test.mjs` 使用内存 PGlite，模拟角色、`auth.uid()` 和 CloudBase 建表授权。显式复现唯一历史例外：`20260830141710` 仅执行首条 users 建表，devices 由 `20260830141730` 创建。不静默跳过其他迁移错误，不连接线上，也不能代替平台鉴权、并发或线上漂移验收。
+- 当前 schema：`database/mysql/schema.sql`；分类种子：`database/mysql/seed.sql`。
+- 业务表：`users`、`device_categories`、`devices`、`warranties`、`maintenance_records`、`device_costs`、`device_timelines`、`consent_records`。
+- 客户端不直接访问数据库。`gearflow-api` 从 `cloud.getWXContext().OPENID` 取得可信身份，所有读写都按 `openid` 过滤。
+- `cloudbase/migrations/` 是已退役的 PostgreSQL 迁移历史，不再对当前环境执行；`pnpm test:database` 只验证历史迁移回归。
+- MySQL 管理命令：`npx --package @cloudbase/cli tcb db execute -e myrepo-d7go4fyg918beac63 --sql "..." --read-only --json`。
+- 写入前先在本地 schema 文件更新，再逐条执行 SQL；不要依赖多语句一次提交。
 
 ## 5. 微信开发者工具自动化（验收用）
 
@@ -67,9 +64,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 
 ## 6. 前端架构事实
 
-- 技术栈：uni-app 3.0.0-5020420260813003 + Vue 3.5 + TS 5.9 strict + Pinia 2.3 + @cloudbase/js-sdk 3.9（数据层 `app.rdb()` postgREST 风格 + `rdb.rpc()`——运行时支持但类型未声明，已用 `callRpc()` 封装窄化）。
-- **js-sdk 的 insert 必须链 `.select()` 才返回新行**；`.update().eq()` / `.delete().eq()` 返回空 data 是正常行为。
-- 状态层：`stores/device.ts` 的 `loadFirst` 已做 `ensureSession()` 会话自愈（令牌 2 小时过期问题）。**新写的数据入口都要前置 ensureSession**。
+- 技术栈：uni-app + Vue 3 + TS strict + Pinia；客户端数据层只保留 `wx.cloud.callFunction`。
+- 状态层：`ensureSession()` 现在只检查协议确认和 `wx.cloud` 初始化，不再维护 2 小时 token。
 - 主题 Token：`src/styles/variables.scss`（scss）+ `src/styles/tokens.ts`（TS）双轨，改色必须两处同步；uni.scss 用 `@import "@/styles/..."` 别名（相对路径会被注入到各组件目录解析而报错）。
 - vitest 已配（`pnpm test`）；小程序端与 Node 端共用 `@/` 别名。
 - 详情页数据加载用 `onShow`（返回栈恢复也要刷新），这是 Phase 5 用户抓过的 bug，新页面照此模式。
@@ -79,8 +75,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 
 ## 7. 待办备忘（非阻塞）
 
-- **密钥轮换状态（2026-09-24）**：用户确认已替换 AppSecret 和自定义登录私钥，并在上传的体验版扫码登录成功。未读取密钥值；既有数据连续性仍需实际检查。
-- 提审前必须使用独立测试账号完成 A/B 数据隔离、注销后线上残留、断网恢复及冷启动验证；当前未补齐证据，本地 PGlite 不能替代。
+- **当前体验版**：使用 `gearflow-api` 和 MySQL；AppSecret/自定义登录私钥已经成为历史，不再配置或轮换。
+- 提审前必须使用独立测试账号完成 A/B 数据隔离、注销后线上残留、断网恢复及冷启动验证；本地测试不能替代真实账号验证。
 - 诊断函数与视图已在 2026-09-03 安全迁移中删除；正式构建不再注册开发页。
 
 ## 8. 改进清单与 Phase 8 特别指令
@@ -97,6 +93,6 @@ UX 类条目（含 UX-1 表单校验框架升级）按 BACKLOG 建议时点执�
 
 ## 9. 当前接手边界
 
-- Phase 0-9 的代码、数据库迁移、文档和质量门已完成；本轮修复只处理已知工程/安全/文档问题，不启动 Phase 11/12。
-- Phase 10 已有用户确认的体验反馈；具体版本、机型、弱网、线上隔离/注销、生产与合规证据仍保留在 `docs/LAUNCH.md` 与 backlog，不以本轮本地测试替代。
-- 历史多语句迁移 `20260830141720` 未进入线上历史，已从活动迁移目录移除；其效果由后续单语句迁移覆盖。2026-09-04 核对为 111 条，随后新增 UID 扩宽迁移，本地现为 112 条。
+- 当前接手边界是维护 CloudBase MySQL 架构和体验版；不要重新引入旧 AppSecret 登录，也不要对当前环境执行 PG 迁移。
+- Phase 10 正式发布证据仍需真实账号、平台配置和合规核对；本地验证不能替代。
+- `cloudbase/migrations/` 与外层历史文档保留供审计，不代表当前线上 schema。

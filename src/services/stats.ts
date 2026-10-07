@@ -1,4 +1,4 @@
-import { asSdkResult, callRpc, throwIfError } from './cloudbase'
+import { callGearFlowApi } from './cloudbase'
 import { ensureSession } from './auth'
 import { AppError, isRecord } from '@/utils/error'
 import { isValidDateString } from '@/utils/statistics'
@@ -139,19 +139,16 @@ function validateParams(params: StatisticsOverviewParams): void {
   }
 }
 
-/** statistics.overview：会话自愈后调用受权限保护的 PG 聚合 RPC。 */
+/** statistics.overview：云函数按 OPENID 汇总本人数据。 */
 export async function getStatisticsOverview(
   params: StatisticsOverviewParams,
 ): Promise<StatisticsOverview> {
   validateParams(params)
   await ensureSession()
-  const result = asSdkResult<unknown>(
-    await callRpc('gf_get_statistics_overview', {
-      p_start_date: params.startDate,
-      p_end_date: params.endDate,
-      p_category_id: params.categoryId ?? null,
-    }),
-  )
-  throwIfError(result.error, '读取统计失败')
-  return parseOverview(result.data)
+  const data = await callGearFlowApi<unknown>('stats.overview', {
+    startDate: params.startDate,
+    endDate: params.endDate,
+    categoryId: params.categoryId ?? null,
+  })
+  return parseOverview(data)
 }

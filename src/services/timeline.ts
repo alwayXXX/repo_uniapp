@@ -1,90 +1,63 @@
-import { asSdkResult, getRdb, throwIfError } from './cloudbase'
-import { AppError, isRecord } from '@/utils/error'
+import { callGearFlowApi } from './cloudbase'
+import { isRecord } from '@/utils/error'
 import { isTimelineEventType, parseTimelinePayload, sortTimelineEvents } from '@/utils/timeline'
 import type { ListTimelineParams, ListTimelineResult } from '@/types/api/timeline'
 import type { DeviceTimelineEvent } from '@/types/timeline'
 import { ensureSession } from './auth'
 
-const DEVICE_TIMELINES = 'device_timelines'
 const MAX_PAGE_SIZE = 50
 
-interface TimelineRow {
-  id: string
-  device_id: string
-  event_type: string
-  event_date: string
-  title: string
-  description: string | null
-  payload: unknown
-  created_at: string
-}
-
-function parseRows(raw: unknown): TimelineRow[] {
-  if (!Array.isArray(raw)) {
-    throw new AppError('INTERNAL_ERROR', '时间线数据格式错误')
+function toTimelineEvent(value: unknown): DeviceTimelineEvent | null {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    typeof value.deviceId !== 'string' ||
+    !isTimelineEventType(value.eventType) ||
+    typeof value.eventDate !== 'string' ||
+    typeof value.title !== 'string' ||
+    typeof value.createdAt !== 'string'
+  ) {
+    return null
   }
-  return raw.filter(
-    (row): row is TimelineRow =>
-      isRecord(row) &&
-      typeof row.id === 'string' &&
-      typeof row.device_id === 'string' &&
-      typeof row.event_type === 'string' &&
-      typeof row.event_date === 'string' &&
-      typeof row.title === 'string' &&
-      typeof row.created_at === 'string',
-  )
-}
-
-function toTimelineEvent(row: TimelineRow): DeviceTimelineEvent | null {
-  if (!isTimelineEventType(row.event_type)) return null
   return {
-    id: row.id,
-    deviceId: row.device_id,
-    eventType: row.event_type,
-    eventDate: row.event_date,
-    title: row.title,
-    description: typeof row.description === 'string' ? row.description : null,
-    payload: parseTimelinePayload(row.payload),
-    createdAt: row.created_at,
+    id: value.id,
+    deviceId: value.deviceId,
+    eventType: value.eventType,
+    eventDate: value.eventDate,
+    title: value.title,
+    description: typeof value.description === 'string' ? value.description : null,
+    payload: parseTimelinePayload(value.payload),
+    createdAt: value.createdAt,
   }
 }
 
-/** timeline.list：RLS 限定本人且关联设备未软删除。 */
+/** timeline.list：云函数按 OPENID 限定本人设备时间线。 */
 export async function listDeviceTimeline(params: ListTimelineParams): Promise<ListTimelineResult> {
   await ensureSession()
   const page = Math.max(1, Math.trunc(params.page))
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(params.pageSize)))
-  const from = (page - 1) * pageSize
-
-  let query = getRdb()
-    .from(DEVICE_TIMELINES)
-    .select('*', { count: 'exact' })
-    .eq('device_id', params.deviceId)
-
-  if (params.eventType) {
-    query = query.eq('event_type', params.eventType)
-  }
-
-  const result = asSdkResult<unknown>(
-    await query
-      .order('event_date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .range(from, from + pageSize - 1),
-  )
-  throwIfError(result.error, '读取时间线失败')
+  const data = await callGearFlowApi<{
+    items: unknown[]
+    page: number
+    pageSize: number
+    total: number
+    hasMore: boolean
+  }>('timeline.list', {
+    deviceId: params.deviceId,
+    eventType: params.eventType ?? null,
+    page,
+    pageSize,
+  })
 
   const items = sortTimelineEvents(
-    parseRows(result.data)
-      .map(toTimelineEvent)
-      .filter((item): item is DeviceTimelineEvent => item !== null),
+    data.items.map(toTimelineEvent).filter((item): item is DeviceTimelineEvent => item !== null),
   )
-  const total = typeof result.count === 'number' ? result.count : from + items.length
 
   return {
     items,
-    page,
-    pageSize,
-    total,
-    hasMore: from + items.length < total,
+    page: Number(data.page) || page,
+    pageSize: Number(data.pageSize) || pageSize,
+    total: Number(data.total) || items.length,
+    hasMore: data.hasMore === true,
   }
 }

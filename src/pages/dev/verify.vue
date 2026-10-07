@@ -20,10 +20,10 @@
     <view class="note">
       <text class="note-title">权限隔离验证说明</text>
       <text class="note-line"
-        >· 归属列 user_id 由数据库 DEFAULT auth.uid() 写入，客户端不可指定。</text
+        >· 归属由云函数从微信运行环境读取的 OPENID 决定，客户端不可指定。</text
       >
       <text class="note-line"
-        >· 数据层为 CloudBase PostgreSQL，行级安全（RLS）策略强制 user_id = auth.uid()。</text
+        >· 数据层为 CloudBase MySQL；云函数以微信 OPENID 过滤所有业务记录。</text
       >
       <text class="note-line">
         · 隔离验证：在微信开发者工具中用账号 A 运行验证，再用账号
@@ -36,7 +36,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { getCloudbaseApp } from '@/services/cloudbase'
+import { ensureCloudbaseInit } from '@/services/cloudbase'
 import {
   createDevice,
   getDevice,
@@ -113,7 +113,7 @@ async function checkCloudbase(): Promise<void> {
   const check = findCheck('cloudbase')
   check.state = 'loading'
   try {
-    getCloudbaseApp()
+    ensureCloudbaseInit()
     check.message = `env=${import.meta.env.CLOUDBASE_ENV_ID}，appEnv=${import.meta.env.APP_ENV}`
     check.state = 'success'
   } catch (err) {

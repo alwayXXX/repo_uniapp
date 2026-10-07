@@ -1,4 +1,4 @@
-import { asSdkResult, callRpc, throwIfError } from './cloudbase'
+import { callGearFlowApi } from './cloudbase'
 import { ensureSession } from './auth'
 import { AppError, isRecord } from '@/utils/error'
 
@@ -117,7 +117,6 @@ function parseDashboard(value: unknown): HomeDashboard {
 /** 首页聚合看板：不再拉取设备/保修全量列表。 */
 export async function getHomeDashboard(): Promise<HomeDashboard> {
   await ensureSession()
-  const result = asSdkResult<unknown>(await callRpc('gf_get_home_dashboard'))
-  throwIfError(result.error, '读取首页看板失败')
-  return parseDashboard(result.data)
+  const data = await callGearFlowApi<unknown>('dashboard.get')
+  return parseDashboard(data)
 }

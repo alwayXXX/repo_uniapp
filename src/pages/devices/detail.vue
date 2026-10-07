@@ -342,7 +342,7 @@ async function load(): Promise<void> {
     const result = await getDevice(deviceId)
     if (version !== loadVersion || revision !== clientRevision()) return
     if (!result) {
-      // RLS 下他人的设备与不存在的设备同样不可见（docs/PRD 4.3 异常态）
+      // 云函数下他人的设备与不存在的设备同样不可见（docs/PRD 4.3 异常态）
       uni.showToast({ title: '设备不存在或已被删除', icon: 'none' })
       setTimeout(() => uni.navigateBack(), 600)
       return

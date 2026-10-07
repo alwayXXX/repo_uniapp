@@ -1,5 +1,7 @@
 # GearFlow 开发路线图
 
+> **2026-10-07 迁移说明**：原 CloudBase PG 环境注销后，Phase 0-10 中的 PostgreSQL、RLS、RPC 和自定义登录实现已由 CloudBase MySQL + `gearflow-api` + 微信 OPENID 取代。下文阶段记录保留历史；当前运行架构见 `docs/MYSQL-MIGRATION.md`。
+
 ## 总原则
 
 1. 每个 Phase 都要有可验证产物。
