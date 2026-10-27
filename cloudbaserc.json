@@ -7,7 +7,10 @@
       "name": "gearflow-api",
       "handler": "index.main",
       "runtime": "Nodejs18.15",
-      "timeout": 20,
+      "timeout": 60,
+      "triggers": [
+        { "name": "gearflow-warranty-reminders", "type": "timer", "config": "0 0 * * * * *" }
+      ],
       "memorySize": 256,
       "installDependency": true,
       "ignore": ["node_modules/**", ".git/**", "*.md"]

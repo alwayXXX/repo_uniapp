@@ -1,0 +1,6 @@
+{
+  "permissions": { "openapi": ["subscribeMessage.getTemplateList", "subscribeMessage.send"] },
+  "triggers": [
+    { "name": "gearflow-warranty-reminders", "type": "timer", "config": "0 0 * * * * *" }
+  ]
+}

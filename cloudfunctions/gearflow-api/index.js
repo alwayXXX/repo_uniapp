@@ -7,6 +7,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 // Resolve the environment ID from the current Event Function context.
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.rdb()
+const createPhase11 = require('./phase11')
 
 const DEVICE_STATUSES = ['IN_USE', 'IDLE', 'SOLD', 'DISCARDED']
 const MAINTENANCE_TYPES = ['REPAIR', 'UPGRADE', 'CLEAN', 'REPLACE', 'INSPECT', 'OTHER']
@@ -42,6 +43,9 @@ function optionalDate(value, field) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     fail('VALIDATION_ERROR', `${field} is invalid`)
   }
+  const parsed = new Date(`${value}T00:00:00Z`)
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value)
+    fail('VALIDATION_ERROR', `${field} is invalid`)
   return value
 }
 
@@ -53,7 +57,8 @@ function requiredDate(value, field) {
 
 function optionalNonNegativeInt(value, field) {
   if (value === null || value === undefined || value === '') return null
-  if (!Number.isInteger(value) || value < 0) fail('VALIDATION_ERROR', `${field} is invalid`)
+  if (!Number.isInteger(value) || value < 0 || value > 2147483647)
+    fail('VALIDATION_ERROR', `${field} is invalid`)
   return value
 }
 
@@ -76,7 +81,6 @@ async function selectRows(query, message = 'Database query failed') {
       'gearflow-api database error:',
       JSON.stringify({
         code: result.error.code || null,
-        message: result.error.message || null,
       }),
     )
     throw new Error(message)
@@ -142,6 +146,9 @@ function mapDevice(row) {
         : Number(row.purchase_price_cents),
     currency: row.currency || 'CNY',
     notes: row.notes || null,
+    disposalDate: row.disposal_date || null,
+    disposalPriceCents: row.disposal_price_cents == null ? null : Number(row.disposal_price_cents),
+    disposalNotes: row.disposal_notes || null,
     deletedAt: row.deleted_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -308,6 +315,10 @@ async function deleteAccount(openid) {
   const user = await findUser(openid)
   if (!user) return { status: 'NOT_FOUND', deletedAt: null }
 
+  await phase11.cancelReminders(openid)
+  await phase11.cleanupAttachments(openid)
+  await deleteRows(db.from('device_reminders').delete().eq('openid', openid))
+
   await deleteRows(db.from('warranties').delete().eq('openid', openid))
   await deleteRows(db.from('device_costs').delete().eq('openid', openid))
   await deleteRows(db.from('maintenance_records').delete().eq('openid', openid))
@@ -414,6 +425,15 @@ async function saveDevice(openid, payload) {
     )
   } else {
     previous = await getOwnedDevice(openid, id)
+    if (mode !== 'KEEP' || previous.status !== deviceFields.status)
+      await phase11.cancelReminders(openid, id)
+    if (['IN_USE', 'IDLE'].includes(deviceFields.status)) {
+      Object.assign(deviceFields, {
+        disposal_date: null,
+        disposal_price_cents: null,
+        disposal_notes: null,
+      })
+    }
     await updateRows(
       db.from('devices').update(deviceFields).eq('id', id).eq('openid', openid),
       'Failed to update device',
@@ -468,6 +488,9 @@ async function saveDevice(openid, payload) {
             currency: previous.currency,
             notes: previous.notes,
             deleted_at: previous.deleted_at,
+            disposal_date: previous.disposal_date || null,
+            disposal_price_cents: previous.disposal_price_cents ?? null,
+            disposal_notes: previous.disposal_notes || null,
           })
           .eq('id', id)
           .eq('openid', openid),
@@ -533,6 +556,8 @@ async function getDevice(openid, payload) {
 
 async function softDeleteDevice(openid, payload) {
   await getOwnedDevice(openid, payload.id)
+  await phase11.cancelReminders(openid, payload.id)
+  await phase11.cleanupAttachments(openid, payload.id)
   const deletedAt = nowValue()
   await updateRows(
     db.from('devices').update({ deleted_at: deletedAt }).eq('id', payload.id).eq('openid', openid),
@@ -967,15 +992,50 @@ async function route(openid, action, payload) {
     case 'dashboard.get':
       return dashboard(await loadOwnerData(openid))
     default:
-      fail('VALIDATION_ERROR', 'Unknown action')
+      return phase11.route(openid, action, payload)
   }
 }
+
+const phase11 = createPhase11({
+  db,
+  cloud,
+  storage: app,
+  fail,
+  selectRows,
+  insertRow,
+  updateRows,
+  deleteRows,
+  getOwnedDevice,
+  findUser,
+  appendTimeline,
+  todayString,
+  nowValue,
+  text,
+  mapDevice,
+  mapWarranty,
+  mapMaintenance,
+})
 
 exports.main = async (event) => {
   const action = event && typeof event.action === 'string' ? event.action : ''
   const payload = event && event.payload && typeof event.payload === 'object' ? event.payload : {}
   const wxContext = cloud.getWXContext()
   const openid = wxContext && typeof wxContext.OPENID === 'string' ? wxContext.OPENID : ''
+  if (
+    !openid &&
+    wxContext &&
+    wxContext.SOURCE === 'wx_trigger' &&
+    event &&
+    event.Type === 'Timer' &&
+    event.TriggerName === 'gearflow-warranty-reminders'
+  ) {
+    try {
+      return { ok: true, data: await phase11.sendDue() }
+    } catch {
+      console.error('gearflow-api scheduler: INTERNAL_ERROR')
+      return { ok: false, errorCode: 'INTERNAL_ERROR' }
+    }
+  }
   if (!openid && action !== 'health') return { ok: false, errorCode: 'UNAUTHORIZED' }
 
   try {
@@ -984,7 +1044,7 @@ exports.main = async (event) => {
     if (error instanceof ApiFailure) {
       return { ok: false, errorCode: error.code, message: error.message }
     }
-    console.error('gearflow-api failed:', error && error.message ? error.message : 'internal error')
+    console.error('gearflow-api failed: INTERNAL_ERROR')
     return { ok: false, errorCode: 'INTERNAL_ERROR' }
   }
 }
