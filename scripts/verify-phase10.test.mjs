@@ -105,6 +105,7 @@ for (const [name, content] of [
   ['private key', JSON.stringify({ private_key: syntheticPem })],
   ['Tencent credential ID', `AKID${'A'.repeat(32)}`],
   ['secret key literal', 'const config = {secretKey: "synthetic-secret-not-a-real-key"}'],
+  ['timer credential literal', `const config = {GEARFLOW_TIMER_TOKEN: "${'b'.repeat(64)}"}`],
   ['service-role JWT', syntheticJwt],
 ]) {
   test(`detects ${name} without any configured production secrets`, () => {

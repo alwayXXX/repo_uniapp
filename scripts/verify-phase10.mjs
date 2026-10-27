@@ -8,6 +8,7 @@ const SECRET_ENV_NAMES = [
   'TCB_SECRET_KEY',
   'TENCENTCLOUD_SECRETKEY',
   'CLOUDBASE_API_KEY',
+  'GEARFLOW_TIMER_TOKEN',
 ]
 
 function credentialPatterns(content) {
@@ -22,7 +23,7 @@ function credentialPatterns(content) {
   }
   if (/\bAKID[A-Za-z0-9]{32,}\b/.test(content)) findings.push('Tencent credential ID')
   if (
-    /\b(?:WX_SECRET|TCB_SECRET_KEY|TENCENTCLOUD_SECRETKEY|CLOUDBASE_API_KEY|CLOUDBASE_APIKEY|appSecret|secretKey|private_key|privateKey)\b["']?\s*[:=]\s*(["'`])[A-Za-z0-9+/=_-]{16,}\1/i.test(
+    /\b(?:WX_SECRET|TCB_SECRET_KEY|TENCENTCLOUD_SECRETKEY|CLOUDBASE_API_KEY|CLOUDBASE_APIKEY|GEARFLOW_TIMER_TOKEN|appSecret|secretKey|private_key|privateKey)\b["']?\s*[:=]\s*(["'`])[A-Za-z0-9+/=_-]{16,}\1/i.test(
       content,
     )
   ) {

@@ -1,6 +1,6 @@
 # GearFlow 交接文档（ZCode → Codex）
 
-> 更新于 2026-10-27。Phase 0-9 已完成并通过验收，Phase 10 已按用户裁定的自用体验版范围完成。原 CloudBase PG 环境因欠费注销，项目已迁移到 `myrepo-d7go4fyg918beac63` 的 **CloudBase MySQL + 微信 OPENID + 单一业务云函数** 架构；旧 PG/RLS/RPC 文档仅作历史记录。迁移详情见 `docs/MYSQL-MIGRATION.md`。
+> 更新于 2026-10-28。Phase 0-9 已完成并通过验收，Phase 10 已按用户裁定的自用体验版范围完成。原 CloudBase PG 环境因欠费注销，项目已迁移到 `myrepo-d7go4fyg918beac63` 的 **CloudBase MySQL + 微信 OPENID + 单一业务云函数** 架构；旧 PG/RLS/RPC 文档仅作历史记录。迁移详情见 `docs/MYSQL-MIGRATION.md`。
 > 本文档是环境事实与踩坑经验的唯一权威来源——很多内容不在任何代码或 Phase 0 文档里。
 > 阶段定义与完成标准以 `docs/ROADMAP.md` 为准；数据模型以 `docs/DATABASE.md` 为准；验收记录见 `docs/PHASE1-FINDINGS.md`。
 
@@ -19,7 +19,7 @@
 | Phase 8 数据统计    | ✅     | A 口径、统计/看板 RPC、权限回归与用户验收                                                                                                    |
 | Phase 9 测试质量    | 完成   | 单测、CI、冒烟脚本；本轮补页面、发布检查与隔离数据库回归                                                                                     |
 | Phase 10 自用体验版 | 已完成 | 2026-10-27 八项本地质量检查、6/6 真实只读冒烟通过；1.1.0 上传成功，用户确认已设为体验版                                                      |
-| Phase 11 自用功能   | 实施中 | 五项代码已实现，四项真实功能验证通过；1.2.0 已上传且用户确认设为体验版，订阅已建立真实待发计划，送达与其他手机验收待完成，见 docs/PHASE11.md |
+| Phase 11 自用功能   | 实施中 | 五项代码已实现，四项真实功能验证通过；1.2.0 已上传且用户确认设为体验版，订阅已送达并获本人确认，手机附件等专项验收待完成，见 docs/PHASE11.md |
 
 里程碑：已完成 1.1.0 自用体验版交付。正式提审与上架清单保留在 `docs/LAUNCH.md`，当前不公开上架。用户随后明确授权「P11 按清单逐项做完」，具体状态见 `docs/PHASE11.md`；Phase 12 未授权。
 
@@ -78,7 +78,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - 退出/注销会清理用户与设备 Store、筛选和本机导出文件，并使旧请求失效。SDK `signOut()` 返回值中的 `error` 也必须检查；CSV 使用专用目录，分享结束后删除，再次登录前重试残留清理。同步文件异常兼容 `message` / `errMsg`，文件已不存在视为完成；一个文件失败仍继续清理其余导出。
 - 维护详情每批最多查询 50 条，完整读取后每次展示 20 条；合计和导出不再截断，刷新立即停用旧结果并拒绝乱序回填。编辑按记录 ID 查询；保修加载或响应格式失败不能保存，详情页也显示重试而非“未填写”。
 - P11 协议版本 1.1.0，用户已在开发工具本人确认；新能力服务端检查对应隐私同意记录。附件不使用客户端直连云存储：函数校验后上传，预览也经鉴权函数返回内容，避免微信下载域名拦截。本机专用预览目录在应用显示、页面刷新和退出时清理，导出支持 CSV/JSON。
-- 提醒 timer 为 `gearflow-warranty-reminders`，cron `0 0 * * * * *`，函数 timeout=60；只有可信运行时 SOURCE=wx_trigger 可执行，消息指向 trial。平台模板未就绪时不创建任务。日志服务未开启，本轮不额外启用收费日志资源。
+- 提醒 timer 为 `gearflow-warranty-reminders`，cron `0 0 * * * * *`，函数 timeout=60；入口要求无 OPENID、正确事件与名称，并校验可信 SOURCE=wx_trigger 或仅云端保存的 GEARFLOW_TIMER_TOKEN（恒定时间比较）。消息指向 trial。独立 SCF 调用未必带微信来源标记，不能仅凭触发器存在宣称扫描成功。本人已确认 2026-10-28 收到保修提醒；接口不明时未重发，按 USER_CONFIRMED 对账为 SENT。
+- 每次部署云函数后用 `node scripts/configure-reminder-timer.mjs --cli <已安装CLI入口>` 核对专用凭据与触发器参数；脚本保留已有环境变量，值不打印、不落本机、不写入仓库。默认维护 cloudbaserc 声明的每小时周期；`--verify` 临时每分钟，finally 恢复声明周期，终端中断后应复跑默认命令检查恢复。日志服务未开启，本轮未新增收费日志资源。
 
 ## 7. 待办备忘（非阻塞）
 

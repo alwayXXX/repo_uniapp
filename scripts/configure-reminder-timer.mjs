@@ -62,7 +62,8 @@ async function main() {
     (item) => item.TriggerName === trigger.name && item.Type === 'timer',
   )
   if (!current) throw new Error('TIMER_NOT_FOUND')
-  const originalCron = JSON.parse(current.TriggerDesc).cron
+  const currentCron = JSON.parse(current.TriggerDesc).cron
+  const originalCron = trigger.config
   if (!originalCron) throw new Error('MISSING_ORIGINAL_CRON')
   const configured = timerVariables(
     detail.Environment?.Variables || [],
@@ -99,7 +100,12 @@ async function main() {
   function update(cron) {
     api('UpdateTrigger', { ...body, TriggerDesc: cron })
   }
-  update(originalCron)
+  if (
+    currentCron !== originalCron ||
+    Number(current.Enable) !== 1 ||
+    previousArgument.timerToken !== configured.token
+  )
+    update(originalCron)
   console.log(
     JSON.stringify({ configured: true, existingEnvironmentPreserved: true, cron: originalCron }),
   )
