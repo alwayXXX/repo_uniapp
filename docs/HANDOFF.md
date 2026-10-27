@@ -6,28 +6,29 @@
 
 ## 1. 状态总览
 
-| 阶段                | 状态   | 验收证据                                                                                |
-| ------------------- | ------ | --------------------------------------------------------------------------------------- |
-| Phase 0 立项        | ✅     | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md）               |
-| Phase 1 初始化      | ✅     | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                                   |
-| Phase 2 UI 基础     | ✅     | 用户视觉验收（Token/五态组件/四 Tab）                                                   |
-| Phase 3 用户体系    | ✅     | scripts/verify-phase3.mjs 7/7 + 数据库核对                                              |
-| Phase 4 设备管理    | ✅     | 用户人工全流程验收（创建/编辑/软删除）                                                  |
-| Phase 5 设备详情    | ✅     | scripts/verify-phase5.mjs 14/14 + 用户人工验收                                          |
-| Phase 6 生命周期    | ✅     | 设备触发器、时间线读取、RLS 隔离与用户验收                                              |
-| Phase 7 维护保修    | ✅     | 维护 CRUD、保修状态、成本联动与用户验收                                                 |
-| Phase 8 数据统计    | ✅     | A 口径、统计/看板 RPC、权限回归与用户验收                                               |
-| Phase 9 测试质量    | 完成   | 单测、CI、冒烟脚本；本轮补页面、发布检查与隔离数据库回归                                |
-| Phase 10 自用体验版 | 已完成 | 2026-10-27 八项本地质量检查、6/6 真实只读冒烟通过；1.1.0 上传成功，用户确认已设为体验版 |
+| 阶段                | 状态   | 验收证据                                                                                    |
+| ------------------- | ------ | ------------------------------------------------------------------------------------------- |
+| Phase 0 立项        | ✅     | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md）                   |
+| Phase 1 初始化      | ✅     | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                                       |
+| Phase 2 UI 基础     | ✅     | 用户视觉验收（Token/五态组件/四 Tab）                                                       |
+| Phase 3 用户体系    | ✅     | scripts/verify-phase3.mjs 7/7 + 数据库核对                                                  |
+| Phase 4 设备管理    | ✅     | 用户人工全流程验收（创建/编辑/软删除）                                                      |
+| Phase 5 设备详情    | ✅     | scripts/verify-phase5.mjs 14/14 + 用户人工验收                                              |
+| Phase 6 生命周期    | ✅     | 设备触发器、时间线读取、RLS 隔离与用户验收                                                  |
+| Phase 7 维护保修    | ✅     | 维护 CRUD、保修状态、成本联动与用户验收                                                     |
+| Phase 8 数据统计    | ✅     | A 口径、统计/看板 RPC、权限回归与用户验收                                                   |
+| Phase 9 测试质量    | 完成   | 单测、CI、冒烟脚本；本轮补页面、发布检查与隔离数据库回归                                    |
+| Phase 10 自用体验版 | 已完成 | 2026-10-27 八项本地质量检查、6/6 真实只读冒烟通过；1.1.0 上传成功，用户确认已设为体验版     |
+| Phase 11 自用功能   | 实施中 | 五项代码已实现，四项真实功能验证通过；订阅模板及 1.2.0 体验版交付待完成，见 docs/PHASE11.md |
 
-里程碑：已完成自用体验版交付。正式提审与上架清单保留在 `docs/LAUNCH.md`，当前不公开上架。CSV 导出已于 2026-09-06 独立落地，仅维护该既有功能，不代表开放全部 Phase 11。
+里程碑：已完成 1.1.0 自用体验版交付。正式提审与上架清单保留在 `docs/LAUNCH.md`，当前不公开上架。用户随后明确授权「P11 按清单逐项做完」，具体状态见 `docs/PHASE11.md`；Phase 12 未授权。
 
 ## 2. 环境事实
 
 - **CloudBase 环境**：`myrepo-d7go4fyg918beac63`（ap-shanghai，体验版套餐，MySQL 8.0 Serverless）。管理走 CloudBase CLI：`npx --package @cloudbase/cli tcb ...`。mcporter daemon 当前可能损坏，不要把它作为唯一入口。
 - **小程序 AppID**：`wx8f26567f4d54b3f7`（在 src/manifest.json）。当前使用 `wx.cloud.callFunction('gearflow-api')`，微信运行时自动注入 OPENID；不再使用 AppSecret、自定义登录私钥或 `wx-login`。
 - **数据状态**：新 MySQL 从空库初始化，旧 PG 数据未迁移。不得为验证而清理真实体验账号；身份标识不写入交接文档。
-- **GitHub**：`git@github.com:alwayXXX/repo_uniapp`（main，SSH 可用，直接 `git push`）。
+- **GitHub**：`git@github.com:alwayXXX/repo_uniapp`（main）。2026-10-27 本机 SSH 22/443 均失败，已用 HTTPS 凭据推送；用户明确授权 origin/main，后续沿用 `git -c credential.interactive=false push https://github.com/alwayXXX/repo_uniapp.git main`。推送钩子执行普通构建，上传前须重新执行 release 构建和扫描。
 - **微信开发者工具**：程序在 `F:\WeChat Dev\微信web开发者工具\`（cli.bat 同目录）；服务端口 29456 已开启；自动化端口 9420（启动命令见 §5）。
 - **Node 24 / pnpm 11.22**：不要动全局环境。
 
@@ -36,12 +37,12 @@
 - **AGENTS.md 是最高规范**：Phase 边界、TypeScript strict、禁 any、隐私约束、提交格式。
 - **每个 Phase 的固定节奏**：先改文档（如涉及）→ 数据库迁移 → 服务端验证 → 前端 → 单测/冒烟脚本 → 质量门全绿 → 提交推送 → 用户验收 → ROADMAP 标记完成。
 - **质量门**：`pnpm lint` / `pnpm type-check` / `pnpm test` / `pnpm test:api`；上传体验版还要 `pnpm test:release` / `pnpm test:database` / `pnpm build:mp-weixin:release` / `pnpm verify:phase10`。`test:api` 使用模拟 SDK 验证当前 MySQL 云函数；`test:database` 只验证历史 PG 迁移。CI 已接入；Husky 仍为 pre-commit=lint-staged+vue-tsc、pre-push=vitest+普通构建，不能代替完整交付检查。
-- **新 Phase 必须明确授权**；模型或业务契约变化仍先改文档，再编码。本轮不新增线上迁移、不部署、不重置密钥。
+- **新 Phase 必须明确授权**；模型或业务契约变化仍先改文档，再编码。用户已授权 P11 全清单、新增两张表和处置备注列及云函数部署；不重置密钥、不清理真实账号。
 
 ## 4. 数据库（CloudBase MySQL）
 
 - 当前 schema：`database/mysql/schema.sql`；分类种子：`database/mysql/seed.sql`。
-- 业务表：`users`、`device_categories`、`devices`、`warranties`、`maintenance_records`、`device_costs`、`device_timelines`、`consent_records`。
+- 业务表：`users`、`device_categories`、`devices`、`warranties`、`maintenance_records`、`device_costs`、`device_timelines`、`consent_records`、`device_attachments`、`device_reminders`。P11 增量迁移 `database/mysql/phase11.sql` 已应用，切勿再次执行其 ADD COLUMN。
 - 客户端不直接访问数据库。`gearflow-api` 从 `cloud.getWXContext().OPENID` 取得可信身份，所有读写都按 `openid` 过滤。
 - `cloudbase/migrations/` 是已退役的 PostgreSQL 迁移历史，不再对当前环境执行；`pnpm test:database` 只验证历史迁移回归。
 - MySQL 管理命令：`npx --package @cloudbase/cli tcb db execute -e myrepo-d7go4fyg918beac63 --sql "..." --read-only --json`。
@@ -59,6 +60,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - **class 选择器和 DOM tap 对 uni-app 编译产物不可靠**（类名带 scoped 哈希 + 自定义组件边界）。用「标签+文本」定位（`page.$$('text')` 遍历 text()）+ 导航 API（`reLaunch/navigateTo/switchTab`）。
 - button 是独立标签，文本断言按 `button` 查，不在 `text` 里。
 - 生产构建下页面 `$vm.$.setupState` 驱动受限——业务动作自动化的深度就到这里，完整交互（原生弹窗、复杂 tap）交用户人工验收。
+- 2026-10-27 可使用本机 Nightly `wechatide -c Codex` 自动化、导航、截图和上传；须在非沙箱运行，先按其 skill 检查版本与登录。异步上传/云写返回 pending 时等待本人确认，再查询原 taskId，禁止重发。
+- P11 云调用权限需在 `cloudfunctions/gearflow-api/config.json` 声明。曾在普通部署后持续报 -604101，使用官方 `cli.bat cloud functions deploy --env <当前环境> --paths <gearflow-api绝对目录> --appid <当前appid> --remote-npm-install` 后恢复为正常模板查询；权限存在缓存，不能只凭部署成功宣称可用。当前返回 NO_TEMPLATE，需本人添加一次性保修模板，不要引入 AppSecret。
 - **编译缓存陈旧**是高频坑：构建后页面行为像旧代码（报奇怪错误如 `ensureSession is not a function`）。修法：往 dist 对应文件追加一行注释触发热重载（`printf '\n// cache-bust %s\n' "$(date +%s)" >> dist/build/mp-weixin/<file>`），或 quit 后重启 cli auto。
 - 现成参考脚本：`scripts/verify-phase3.mjs`、`verify-phase4.mjs`、`verify-phase5.mjs`（数据库预插数据在 bash 侧用 mcporter 做，不要在脚本里 execSync 拼 SQL——Windows cmd 引号会碎）。
 
@@ -72,6 +75,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - 协议版本由 `services/consent.ts` 管理；只有引导页显式确认调用 `acceptPolicies()`。普通 `bootstrap()` 只恢复用户，旧 `gf_onboarded` 不代表同意新版。
 - 退出/注销会清理用户与设备 Store、筛选和本机导出文件，并使旧请求失效。SDK `signOut()` 返回值中的 `error` 也必须检查；CSV 使用专用目录，分享结束后删除，再次登录前重试残留清理。同步文件异常兼容 `message` / `errMsg`，文件已不存在视为完成；一个文件失败仍继续清理其余导出。
 - 维护详情每批最多查询 50 条，完整读取后每次展示 20 条；合计和导出不再截断，刷新立即停用旧结果并拒绝乱序回填。编辑按记录 ID 查询；保修加载或响应格式失败不能保存，详情页也显示重试而非“未填写”。
+- P11 协议版本 1.1.0，用户已在开发工具本人确认；新能力服务端检查对应隐私同意记录。附件不使用客户端直连云存储：函数校验后上传，预览也经鉴权函数返回内容，避免微信下载域名拦截。本机专用预览目录在应用显示、页面刷新和退出时清理，导出支持 CSV/JSON。
+- 提醒 timer 为 `gearflow-warranty-reminders`，cron `0 0 * * * * *`，函数 timeout=60；只有可信运行时 SOURCE=wx_trigger 可执行，消息指向 trial。平台模板未就绪时不创建任务。日志服务未开启，本轮不额外启用收费日志资源。
 
 ## 7. 待办备忘（非阻塞）
 
