@@ -1,5 +1,7 @@
 # GearFlow 逻辑数据模型与 CloudBase 存储设计
 
+> **2026-10-27 Phase 11**：当前使用 MySQL，非破坏性新增 `device_attachments`、`device_reminders` 与设备 `disposal_notes` 列。现有处置日期/收入列复用。元数据表均带 OPENID 与设备外键；删除账号/设备先清理云文件，失败保留可重试记录，不能因级联删除丢失文件引用。具体 schema 见 `database/mysql/schema.sql`、迁移见 `database/mysql/phase11.sql`，安全评估见 `docs/PHASE11.md`。
+
 ## 1. 设计原则
 
 1. 服务 MVP，不为“看起来专业”增加无用表。

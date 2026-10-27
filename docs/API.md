@@ -1,5 +1,7 @@
 # GearFlow 业务操作契约
 
+> **2026-10-27 Phase 11**：用户已授权全清单。新增 `device.dispose`、`report.annual`、`export.json`、`attachment.list/upload/open/delete`、`reminder.config/list/create/cancel`；字段和范围以 `docs/PHASE11.md` 及 `src/types/api/phase11.ts` 为准。全部以可信 OPENID 鉴权，附件和消息必须用户主动触发；报表/导出无持久副作用。
+
 > **2026-10-07 当前实现**：客户端通过 `wx.cloud.callFunction('gearflow-api')` 调用业务 action；云函数读取 OPENID 并访问 CloudBase MySQL。下文 PostgreSQL RPC、RLS 和 `auth.uid()` 描述保留为历史实现，当前调用边界见 `docs/MYSQL-MIGRATION.md`。
 
 ## 1. 通用约定
