@@ -22,6 +22,7 @@
       </view>
     </view>
 
+    <button class="annual-entry" @click="openAnnualReport">查看年度设备报告 ›</button>
     <StatusView
       :state="pageState"
       :retry-loading="pageState === 'loading'"
@@ -174,6 +175,9 @@ import type { CategoryDistributionItem, StatisticsOverview } from '@/services/st
 
 const RANGE_PRESETS: readonly StatisticsRangePreset[] = ['currentYear', 'previousYear', 'all']
 const rangeLabels = ['今年', '去年', '全部时间']
+function openAnnualReport(): void {
+  uni.navigateTo({ url: '/pages/stats/annual' })
+}
 
 const pageState = ref<PageState>('idle')
 const errorText = ref('')
@@ -285,6 +289,12 @@ onShow(() => {
 </script>
 
 <style scoped lang="scss">
+.annual-entry {
+  margin: 12rpx 0 24rpx;
+  color: $gf-color-primary;
+  background: $gf-color-primary-weak;
+  font-size: 28rpx;
+}
 .page {
   min-height: 100vh;
   padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));

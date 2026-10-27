@@ -43,6 +43,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('private export lifecycle', () => {
+  it('cleans JSON exports through the same sharing and logout lifecycle', async () => {
+    await saveAndShareCsv('gearflow_data.json', '{"version":1}')
+    expect(files.size).toBe(0)
+    files.set('/test-user-data/gearflow_leftover.json', 'synthetic')
+    clearGeneratedExports()
+    expect(files.size).toBe(0)
+  })
   it.each(['success', 'cancel', 'error'])('removes the temporary CSV after %s', async (outcome) => {
     share.mockImplementationOnce((options) => {
       expect(files.has(options.filePath)).toBe(true)

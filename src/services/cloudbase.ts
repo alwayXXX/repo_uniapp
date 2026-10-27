@@ -73,7 +73,7 @@ export async function callGearFlowApi<T>(
     response = await getWxCloud().callFunction({
       name: 'gearflow-api',
       data: { action, payload },
-      timeout: 20000,
+      timeout: 60000,
     })
   } catch {
     throw new AppError('INTERNAL_ERROR', '云服务连接失败，请检查网络后重试')

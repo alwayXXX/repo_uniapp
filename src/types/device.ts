@@ -37,6 +37,9 @@ export interface DeviceDoc {
   purchasePriceCents: number | null
   currency: string
   notes: string | null
+  disposalDate?: string | null
+  disposalPriceCents?: number | null
+  disposalNotes?: string | null
   /** 软删除标记 */
   deletedAt: string | null
   createdAt: string

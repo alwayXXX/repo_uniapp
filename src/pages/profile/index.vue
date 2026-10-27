@@ -34,6 +34,13 @@
 
       <view class="card">
         <button class="action-button" open-type="feedback">意见反馈</button>
+        <button class="action-button" @click="openAnnualReport">年度设备报告</button>
+        <button class="action-button" :disabled="exportingJson" @click="exportJson">
+          {{ exportingJson ? '导出中…' : '导出 JSON 数据' }}
+        </button>
+        <text class="danger-hint"
+          >导出设备、保修和维护资料，不含附件文件；分享副本由你保管，不支持直接恢复。</text
+        >
         <button class="action-button" @click="onLogout">退出登录</button>
         <button class="danger-button" :disabled="deleting" @click="onDeleteAccount">
           {{ deleting ? '注销中…' : '注销账号' }}
@@ -52,6 +59,16 @@ import StatusView from '@/components/StatusView.vue'
 import { PRIVACY_VERSION, TERMS_VERSION } from '@/constants/policies'
 import { toAppError } from '@/utils/error'
 import { requireCurrentConsent } from '@/services/consent'
+import { useFeaturePage } from '@/composables/useFeaturePage'
+import { exportAccountJson } from '@/services/phase11'
+
+const { busy: exportingJson, action: runExport } = useFeaturePage()
+function exportJson(): void {
+  void runExport(exportAccountJson)
+}
+function openAnnualReport(): void {
+  uni.navigateTo({ url: '/pages/stats/annual' })
+}
 
 const CONFIRM_TEXT = '注销我的账号'
 

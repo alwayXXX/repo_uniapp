@@ -38,6 +38,13 @@
       }
     },
     {
+      "path": "pages/stats/annual",
+      "style": { "navigationBarTitleText": "年度设备报告" }
+    },
+    { "path": "pages/devices/attachments", "style": { "navigationBarTitleText": "照片与发票" } },
+    { "path": "pages/devices/dispose", "style": { "navigationBarTitleText": "设备处置" } },
+    { "path": "pages/devices/reminders", "style": { "navigationBarTitleText": "保修提醒" } },
+    {
       "path": "pages/profile/index",
       "style": {
         "navigationBarTitleText": "我的"

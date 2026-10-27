@@ -1,7 +1,16 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app'
+import { onLaunch, onShow } from '@dcloudio/uni-app'
 import { ensureCloudbaseInit } from '@/services/cloudbase'
 import { toAppError } from '@/utils/error'
+import { clearPreviewFiles } from '@/services/preview-files'
+
+onShow(() => {
+  try {
+    clearPreviewFiles()
+  } catch {
+    uni.showToast({ title: '附件预览文件清理失败，请重试', icon: 'none' })
+  }
+})
 
 onLaunch(() => {
   try {

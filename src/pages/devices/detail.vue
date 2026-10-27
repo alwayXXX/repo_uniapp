@@ -162,7 +162,30 @@
           </StatusView>
         </view>
 
+        <view v-if="device.disposalDate" class="card">
+          <text class="card-title">处置记录</text>
+          <view class="row"
+            ><text class="row-label">日期</text
+            ><text class="row-value">{{ device.disposalDate }}</text></view
+          >
+          <view class="row"
+            ><text class="row-label">收入</text
+            ><text class="row-value">{{
+              device.disposalPriceCents == null
+                ? '未填写'
+                : formatMoney(device.disposalPriceCents, device.currency)
+            }}</text></view
+          >
+          <view class="row"
+            ><text class="row-label">说明</text
+            ><text class="row-value">{{ device.disposalNotes || '未填写' }}</text></view
+          >
+        </view>
         <view class="card actions">
+          <text class="card-title">设备工具</text>
+          <button class="edit-button" @click="openFeature('attachments')">照片与发票</button>
+          <button class="edit-button" @click="openFeature('reminders')">保修到期提醒</button>
+          <button class="edit-button" @click="openFeature('dispose')">出售 / 报废记录</button>
           <button class="edit-button" @click="gotoEdit">编辑</button>
           <button class="danger-button" :disabled="deleting" @click="askDelete">
             {{ deleting ? '删除中…' : '删除设备' }}
@@ -215,6 +238,10 @@ import type { MaintenanceDoc } from '@/types/maintenance'
 import type { WarrantyDoc } from '@/types/maintenance'
 
 const device = ref<DeviceDoc | null>(null)
+function openFeature(page: 'attachments' | 'reminders' | 'dispose'): void {
+  if (!device.value || !requireCurrentConsent()) return
+  uni.navigateTo({ url: `/pages/devices/${page}?deviceId=${encodeURIComponent(device.value.id)}` })
+}
 const loadState = ref<PageState>('loading')
 const errorText = ref('')
 const deleting = ref(false)
