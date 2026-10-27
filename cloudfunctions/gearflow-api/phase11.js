@@ -311,6 +311,14 @@ module.exports = function createPhase11(deps) {
     if (!config || config.errorCode || payload.templateId !== config.templateId)
       fail('VALIDATION_ERROR', 'Template unavailable')
     const previous = await readAll('device_reminders', owner, 'device_id', device.id)
+    const pending = previous.find(
+      (row) =>
+        row.remind_on === payload.remindOn &&
+        row.status === 'PENDING' &&
+        row.template_id === config.templateId &&
+        row.warranty_end === warranty[0].end_date,
+    )
+    if (pending) return { item: reminderItem(pending) }
     if (
       previous.some(
         (row) =>

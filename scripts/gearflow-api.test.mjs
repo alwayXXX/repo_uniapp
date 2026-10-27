@@ -645,11 +645,17 @@ test('an unavailable subscription template is an explicit configuration state', 
   })
 })
 
-test('reminders require a live owned warranty and reject duplicate plans', async () => {
+test('reminders require a live owned warranty and safely reuse the same pending plan', async () => {
   const api = harness(phase11Fixture())
   const payload = { deviceId: 'device-alpha', remindOn: '2026-11-01', templateId: 'test-template' }
-  assert.equal((await api.call('reminder.create', payload)).ok, true)
-  assert.equal((await api.call('reminder.create', payload)).errorCode, 'VALIDATION_ERROR')
+  const first = await api.call('reminder.create', payload)
+  assert.equal(first.ok, true)
+  const writesBeforeRetry = api.writes.length
+  const retried = await api.call('reminder.create', payload)
+  assert.equal(retried.ok, true)
+  assert.equal(retried.data.item.id, first.data.item.id)
+  assert.equal(api.writes.length, writesBeforeRetry)
+  assert.equal(api.tables.device_reminders[0].status, 'PENDING')
   assert.equal(
     (await api.call('reminder.create', { ...payload, deviceId: 'device-beta' })).errorCode,
     'DEVICE_NOT_FOUND',
@@ -659,6 +665,22 @@ test('reminders require a live owned warranty and reject duplicate plans', async
     'VALIDATION_ERROR',
   )
   assert.equal(api.tables.device_reminders.length, 1)
+})
+
+test('a reminder retry cannot re-arm a sent or possibly delivered task', async () => {
+  for (const status of ['SENDING', 'SENT', 'UNKNOWN']) {
+    const api = harness(phase11Fixture())
+    const payload = {
+      deviceId: 'device-alpha',
+      remindOn: '2026-11-01',
+      templateId: 'test-template',
+    }
+    await api.call('reminder.create', payload)
+    api.tables.device_reminders[0].status = status
+    assert.equal((await api.call('reminder.create', payload)).errorCode, 'VALIDATION_ERROR')
+    assert.equal(api.tables.device_reminders.length, 1)
+    assert.equal(api.tables.device_reminders[0].status, status)
+  }
 })
 
 test('a forged timer event from a client cannot trigger scheduled sends', async () => {
