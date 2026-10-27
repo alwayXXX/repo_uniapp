@@ -6,20 +6,20 @@
 
 ## 1. 状态总览
 
-| 阶段                | 状态   | 验收证据                                                                                                             |
-| ------------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
-| Phase 0 立项        | ✅     | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md）                                            |
-| Phase 1 初始化      | ✅     | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                                                                |
-| Phase 2 UI 基础     | ✅     | 用户视觉验收（Token/五态组件/四 Tab）                                                                                |
-| Phase 3 用户体系    | ✅     | scripts/verify-phase3.mjs 7/7 + 数据库核对                                                                           |
-| Phase 4 设备管理    | ✅     | 用户人工全流程验收（创建/编辑/软删除）                                                                               |
-| Phase 5 设备详情    | ✅     | scripts/verify-phase5.mjs 14/14 + 用户人工验收                                                                       |
-| Phase 6 生命周期    | ✅     | 设备触发器、时间线读取、RLS 隔离与用户验收                                                                           |
-| Phase 7 维护保修    | ✅     | 维护 CRUD、保修状态、成本联动与用户验收                                                                              |
-| Phase 8 数据统计    | ✅     | A 口径、统计/看板 RPC、权限回归与用户验收                                                                            |
-| Phase 9 测试质量    | 完成   | 单测、CI、冒烟脚本；本轮补页面、发布检查与隔离数据库回归                                                             |
-| Phase 10 自用体验版 | 已完成 | 2026-10-27 八项本地质量检查、6/6 真实只读冒烟通过；1.1.0 上传成功，用户确认已设为体验版                              |
-| Phase 11 自用功能   | 实施中 | 五项代码已实现，四项真实功能验证通过；1.2.0 已上传且用户确认设为体验版，订阅模板和手机验收待完成，见 docs/PHASE11.md |
+| 阶段                | 状态   | 验收证据                                                                                                                                     |
+| ------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 0 立项        | ✅     | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md）                                                                    |
+| Phase 1 初始化      | ✅     | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                                                                                        |
+| Phase 2 UI 基础     | ✅     | 用户视觉验收（Token/五态组件/四 Tab）                                                                                                        |
+| Phase 3 用户体系    | ✅     | scripts/verify-phase3.mjs 7/7 + 数据库核对                                                                                                   |
+| Phase 4 设备管理    | ✅     | 用户人工全流程验收（创建/编辑/软删除）                                                                                                       |
+| Phase 5 设备详情    | ✅     | scripts/verify-phase5.mjs 14/14 + 用户人工验收                                                                                               |
+| Phase 6 生命周期    | ✅     | 设备触发器、时间线读取、RLS 隔离与用户验收                                                                                                   |
+| Phase 7 维护保修    | ✅     | 维护 CRUD、保修状态、成本联动与用户验收                                                                                                      |
+| Phase 8 数据统计    | ✅     | A 口径、统计/看板 RPC、权限回归与用户验收                                                                                                    |
+| Phase 9 测试质量    | 完成   | 单测、CI、冒烟脚本；本轮补页面、发布检查与隔离数据库回归                                                                                     |
+| Phase 10 自用体验版 | 已完成 | 2026-10-27 八项本地质量检查、6/6 真实只读冒烟通过；1.1.0 上传成功，用户确认已设为体验版                                                      |
+| Phase 11 自用功能   | 实施中 | 五项代码已实现，四项真实功能验证通过；1.2.0 已上传且用户确认设为体验版，订阅已建立真实待发计划，送达与其他手机验收待完成，见 docs/PHASE11.md |
 
 里程碑：已完成 1.1.0 自用体验版交付。正式提审与上架清单保留在 `docs/LAUNCH.md`，当前不公开上架。用户随后明确授权「P11 按清单逐项做完」，具体状态见 `docs/PHASE11.md`；Phase 12 未授权。
 
@@ -62,7 +62,8 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - button 是独立标签，文本断言按 `button` 查，不在 `text` 里。
 - 生产构建下页面 `$vm.$.setupState` 驱动受限——业务动作自动化的深度就到这里，完整交互（原生弹窗、复杂 tap）交用户人工验收。
 - 2026-10-27 可使用本机 Nightly `wechatide -c Codex` 自动化、导航、截图和上传；须在非沙箱运行，先按其 skill 检查版本与登录。异步上传/云写返回 pending 时等待本人确认，再查询原 taskId，禁止重发。
-- P11 云调用权限需在 `cloudfunctions/gearflow-api/config.json` 声明。曾在普通部署后持续报 -604101，使用官方 `cli.bat cloud functions deploy --env <当前环境> --paths <gearflow-api绝对目录> --appid <当前appid> --remote-npm-install` 后恢复为正常模板查询；权限存在缓存，不能只凭部署成功宣称可用。当前返回 NO_TEMPLATE，需本人添加一次性保修模板，不要引入 AppSecret。
+- P11 云调用权限需在 `cloudfunctions/gearflow-api/config.json` 声明。曾在普通部署后持续报 -604101，使用官方 `cli.bat cloud functions deploy --env <当前环境> --paths <gearflow-api绝对目录> --appid <当前appid> --remote-npm-install` 后恢复；权限存在缓存，不能只凭部署成功宣称可用。当前“待办事项提醒”已适配并真实返回可用（thing2/time3/time16），本人 iPhone 已确认看到待发计划；送达待验收，不要引入 AppSecret。
+- 同一设备、日期、模板及保修结束日相同的 PENDING 提醒重试会返回原计划，不重复写入或取消；SENDING/SENT/UNKNOWN 不重新激活。手机曾报通用错误但计划已建立，修复后真实重试验证同一 ID、仅一条 PENDING，用户刷新后确认可见。不要为测试清理这条本人已授权的真实计划。
 - **编译缓存陈旧**是高频坑：构建后页面行为像旧代码（报奇怪错误如 `ensureSession is not a function`）。修法：往 dist 对应文件追加一行注释触发热重载（`printf '\n// cache-bust %s\n' "$(date +%s)" >> dist/build/mp-weixin/<file>`），或 quit 后重启 cli auto。
 - 现成参考脚本：`scripts/verify-phase3.mjs`、`verify-phase4.mjs`、`verify-phase5.mjs`（数据库预插数据在 bash 侧用 mcporter 做，不要在脚本里 execSync 拼 SQL——Windows cmd 引号会碎）。
 
