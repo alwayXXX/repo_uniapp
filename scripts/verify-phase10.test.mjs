@@ -11,12 +11,10 @@ const workspaces = []
 function fixture(project = {}, app = {}) {
   const root = mkdtempSync(join(temporaryRoot, 'gearflow-release-test-'))
   workspaces.push(root)
-  mkdirSync(join(root, 'cloudfunctions'))
   writeFileSync(
     join(root, 'project.config.json'),
     JSON.stringify({
       setting: { urlCheck: true },
-      cloudfunctionRoot: 'cloudfunctions/',
       ...project,
     }),
   )
@@ -57,10 +55,22 @@ test('does not count whitespace-only variables as configured secrets', () => {
   assert.match(formatVerification(result).join('\n'), /附加精确值扫描未执行/)
 })
 
-test('requires a release build with URL validation and a cloud-function root', () => {
-  const result = verifyRelease(fixture({ setting: { urlCheck: false }, cloudfunctionRoot: '' }))
+test('requires a release build with URL validation', () => {
+  const result = verifyRelease(fixture({ setting: { urlCheck: false } }))
   assert.ok(result.failures.some((failure) => failure.includes('urlCheck')))
-  assert.ok(result.failures.some((failure) => failure.includes('cloudfunctions/')))
+})
+
+test('rejects server-side code accidentally copied into the client release', () => {
+  const root = fixture()
+  const directory = join(root, 'cloudfunctions', 'gearflow-api')
+  mkdirSync(directory, { recursive: true })
+  writeFileSync(join(directory, 'index.js'), 'exports.main = async () => ({ value: null ?? 0 })')
+  assert.ok(verifyRelease(root).failures.some((failure) => failure.includes('cloudfunctions/')))
+})
+
+test('rejects a cloud-function declaration even when its directory is absent', () => {
+  const root = fixture({ cloudfunctionRoot: 'cloudfunctions/' })
+  assert.ok(verifyRelease(root).failures.some((failure) => failure.includes('cloudfunctionRoot')))
 })
 
 test('rejects missing or invalid build manifests', () => {

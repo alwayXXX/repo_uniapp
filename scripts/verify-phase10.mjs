@@ -98,12 +98,10 @@ export function verifyRelease(directory, environment = {}) {
   } else {
     const project = readJson('project.config.json')
     if (project?.setting?.urlCheck !== true) failures.push('生产构建必须开启 setting.urlCheck')
-    if (
-      project?.cloudfunctionRoot !== 'cloudfunctions/' ||
-      !existsSync(join(root, 'cloudfunctions'))
-    ) {
-      failures.push('构建产物未声明或缺少 cloudfunctions/ 根目录')
-    }
+    if (project && Object.hasOwn(project, 'cloudfunctionRoot'))
+      failures.push('发布构建不应声明 cloudfunctionRoot；云函数必须独立部署')
+    if (existsSync(join(root, 'cloudfunctions')))
+      failures.push('发布构建不应包含服务端 cloudfunctions/ 目录')
     const app = readJson('app.json')
     if (!Array.isArray(app?.pages) || app.pages.length === 0)
       failures.push('构建产物缺少有效页面列表')

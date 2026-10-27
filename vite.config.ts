@@ -1,11 +1,10 @@
-import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { resolve, sep } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import uni from '@dcloudio/vite-plugin-uni'
 
 /**
- * 将 cloudfunctions/ 同步到小程序构建产物目录，并在 project.config.json
- * 中声明 cloudfunctionRoot，使微信开发者工具可以直接上传部署云函数。
+ * 开发构建同步云函数供 DevTools 部署；发布构建只包含小程序客户端。
  */
 function cloudbaseSync(): Plugin {
   let outDir = ''
@@ -18,15 +17,25 @@ function cloudbaseSync(): Plugin {
     },
     closeBundle() {
       const sourceDir = resolve(__dirname, 'cloudfunctions')
-      if (!existsSync(sourceDir) || !outDir) return
-      cpSync(sourceDir, resolve(outDir, 'cloudfunctions'), { recursive: true })
+      if (!outDir) return
+      const cloudOutput = resolve(outDir, 'cloudfunctions')
+      if (isProductionBuild) {
+        // Delete only generated output under this repository's dist directory.
+        if (!cloudOutput.startsWith(`${resolve(__dirname, 'dist')}${sep}`))
+          throw new Error('Cloud function output must stay inside dist')
+        rmSync(cloudOutput, { recursive: true, force: true })
+      } else if (existsSync(sourceDir)) {
+        cpSync(sourceDir, cloudOutput, { recursive: true })
+      }
       const configPath = resolve(outDir, 'project.config.json')
       if (existsSync(configPath)) {
         const projectConfig = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<
           string,
           unknown
         >
-        if (!projectConfig.cloudfunctionRoot) {
+        if (isProductionBuild) {
+          delete projectConfig.cloudfunctionRoot
+        } else if (!projectConfig.cloudfunctionRoot) {
           projectConfig.cloudfunctionRoot = 'cloudfunctions/'
         }
         // 禁用 DevTools 上传时 sourcemap 处理，避免 -80407 错误（vite 构建已含压缩）

@@ -37,6 +37,7 @@
 - **AGENTS.md 是最高规范**：Phase 边界、TypeScript strict、禁 any、隐私约束、提交格式。
 - **每个 Phase 的固定节奏**：先改文档（如涉及）→ 数据库迁移 → 服务端验证 → 前端 → 单测/冒烟脚本 → 质量门全绿 → 提交推送 → 用户验收 → ROADMAP 标记完成。
 - **质量门**：`pnpm lint` / `pnpm type-check` / `pnpm test` / `pnpm test:api`；上传体验版还要 `pnpm test:release` / `pnpm test:database` / `pnpm build:mp-weixin:release` / `pnpm verify:phase10`。`test:api` 使用模拟 SDK 验证当前 MySQL 云函数；`test:database` 只验证历史 PG 迁移。CI 已接入；Husky 仍为 pre-commit=lint-staged+vue-tsc、pre-push=vitest+普通构建，不能代替完整交付检查。
+- **发布边界**：P11 首次上传发现旧构建插件把 cloudfunctions/ 复制进客户端，微信上传解析器拒绝服务端语法。发布构建改为客户端专用，禁止包含 cloudfunctions/ 或 cloudfunctionRoot；开发构建保留云函数同步。部署使用仓库源目录的独立 CLI，不能通过修改服务端语法绕过客户端打包错误。
 - **新 Phase 必须明确授权**；模型或业务契约变化仍先改文档，再编码。用户已授权 P11 全清单、新增两张表和处置备注列及云函数部署；不重置密钥、不清理真实账号。
 
 ## 4. 数据库（CloudBase MySQL）
