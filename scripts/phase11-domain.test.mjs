@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
-const { annualReport, decodeAttachment, validDate, reminderTemplate, reminderData } = createRequire(
-  import.meta.url,
-)('../cloudfunctions/gearflow-api/phase11-domain.js')
+import { timerVariables } from './configure-reminder-timer.mjs'
+const {
+  annualReport,
+  decodeAttachment,
+  validDate,
+  reminderTemplate,
+  reminderData,
+  isTimerInvocation,
+} = createRequire(import.meta.url)('../cloudfunctions/gearflow-api/phase11-domain.js')
 
 test('annual dates respect leap years and exclude future dates', () => {
   assert.equal(validDate('2024-02-29'), true)
@@ -156,4 +162,58 @@ test('rejects corrupt saved mappings instead of overwriting the protected name a
       ),
     )
   }
+})
+
+test('accepts a credentialed SCF timer without requiring a WeChat source marker', () => {
+  const token = 'a'.repeat(64)
+  const event = {
+    Type: 'Timer',
+    TriggerName: 'gearflow-warranty-reminders',
+    Message: JSON.stringify({ timerToken: token }),
+  }
+  assert.equal(isTimerInvocation(event, { SOURCE: '' }, token), true)
+  assert.equal(isTimerInvocation({ ...event, Message: '' }, { SOURCE: 'wx_trigger' }), true)
+})
+
+test('rejects forged timer sources, client identities, invalid credentials and trigger names', () => {
+  const token = 'a'.repeat(64)
+  const event = {
+    Type: 'Timer',
+    TriggerName: 'gearflow-warranty-reminders',
+    Message: JSON.stringify({ timerToken: token }),
+  }
+  assert.equal(
+    isTimerInvocation({ ...event, SOURCE: 'wx_trigger', Message: '' }, { SOURCE: '' }, token),
+    false,
+  )
+  assert.equal(
+    isTimerInvocation(event, { SOURCE: 'wx_client', OPENID: 'synthetic-owner' }, token),
+    false,
+  )
+  assert.equal(isTimerInvocation(event, { SOURCE: '' }, 'b'.repeat(64)), false)
+  assert.equal(isTimerInvocation(event, { SOURCE: '' }), false)
+  assert.equal(isTimerInvocation({ ...event, TriggerName: 'other' }, { SOURCE: '' }, token), false)
+  assert.equal(isTimerInvocation({ ...event, Message: '{broken' }, { SOURCE: '' }, token), false)
+  assert.equal(
+    isTimerInvocation({ ...event, Message: 'a'.repeat(513) }, { SOURCE: '' }, token),
+    false,
+  )
+})
+
+test('timer configuration preserves existing variables and reuses its existing credential', () => {
+  const original = [{ Key: 'EXISTING_SETTING', Value: 'synthetic-preserved' }]
+  const configured = timerVariables(original, 'a'.repeat(64))
+  assert.deepEqual(configured.variables[0], original[0])
+  assert.equal(original.length, 1)
+  assert.equal(configured.changed, true)
+  const repeated = timerVariables(configured.variables, 'b'.repeat(64))
+  assert.equal(repeated.changed, false)
+  assert.equal(repeated.token, 'a'.repeat(64))
+  assert.deepEqual(repeated.variables, configured.variables)
+  assert.throws(() =>
+    timerVariables(
+      [{ Key: 'GEARFLOW_TIMER_TOKEN', Value: 'unexpected-existing-value' }],
+      'a'.repeat(64),
+    ),
+  )
 })

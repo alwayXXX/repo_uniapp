@@ -8,6 +8,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.rdb()
 const createPhase11 = require('./phase11')
+const { isTimerInvocation } = require('./phase11-domain')
 
 const DEVICE_STATUSES = ['IN_USE', 'IDLE', 'SOLD', 'DISCARDED']
 const MAINTENANCE_TYPES = ['REPAIR', 'UPGRADE', 'CLEAN', 'REPLACE', 'INSPECT', 'OTHER']
@@ -1021,14 +1022,7 @@ exports.main = async (event) => {
   const payload = event && event.payload && typeof event.payload === 'object' ? event.payload : {}
   const wxContext = cloud.getWXContext()
   const openid = wxContext && typeof wxContext.OPENID === 'string' ? wxContext.OPENID : ''
-  if (
-    !openid &&
-    wxContext &&
-    wxContext.SOURCE === 'wx_trigger' &&
-    event &&
-    event.Type === 'Timer' &&
-    event.TriggerName === 'gearflow-warranty-reminders'
-  ) {
+  if (isTimerInvocation(event, wxContext, process.env.GEARFLOW_TIMER_TOKEN)) {
     try {
       return { ok: true, data: await phase11.sendDue() }
     } catch {

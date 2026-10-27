@@ -142,6 +142,8 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
     require(name) {
       if (name === './phase11')
         return createRequire(import.meta.url)('../cloudfunctions/gearflow-api/phase11.js')
+      if (name === './phase11-domain')
+        return createRequire(import.meta.url)('../cloudfunctions/gearflow-api/phase11-domain.js')
       if (name === 'node:crypto') return { randomUUID }
       if (name === '@cloudbase/node-sdk')
         return {
@@ -203,6 +205,7 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
       throw new Error(`Unexpected dependency: ${name}`)
     },
     console: { error() {} },
+    process: { env: { GEARFLOW_TIMER_TOKEN: 'a'.repeat(64) } },
     Date: class extends Date {
       constructor(...args) {
         if (args.length) super(...args)
@@ -787,4 +790,24 @@ test('existing reminder plans with array metadata remain sendable after the temp
   assert.equal(api.sentMessages.length, 1)
   assert.equal(api.sentMessages[0].data.thing4.value, '请及时查看设备保修状态')
   assert.equal(api.sentMessages[0].data.thing1.value, 'Device alpha')
+})
+
+test('a credentialed platform timer can deliver once without a wx_trigger marker', async () => {
+  const api = harness(phase11Fixture())
+  await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'test-template',
+  })
+  api.tables.device_reminders[0].remind_on = '2026-10-26'
+  api.as('')
+  api.source('')
+  const event = {
+    Type: 'Timer',
+    TriggerName: 'gearflow-warranty-reminders',
+    Message: JSON.stringify({ timerToken: 'a'.repeat(64) }),
+  }
+  assert.equal((await api.call('', {}, event)).data.sent, 1)
+  assert.equal((await api.call('', {}, event)).data.sent, 0)
+  assert.equal(api.sentMessages.length, 1)
 })
