@@ -66,6 +66,7 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
   let storageFailure = false
   let ambiguousUpload = false
   let templateAvailable = true
+  let customTemplates = null
 
   class Query {
     constructor(table) {
@@ -178,16 +179,18 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
             subscribeMessage: {
               async getTemplateList() {
                 return {
-                  data: templateAvailable
-                    ? [
-                        {
-                          priTmplId: 'test-template',
-                          type: 2,
-                          title: '保修到期提醒',
-                          content: '设备名称{{thing1.DATA}}\n到期日期{{date2.DATA}}',
-                        },
-                      ]
-                    : [],
+                  data:
+                    customTemplates ||
+                    (templateAvailable
+                      ? [
+                          {
+                            priTmplId: 'test-template',
+                            type: 2,
+                            title: '保修到期提醒',
+                            content: '设备名称{{thing1.DATA}}\n到期日期{{date2.DATA}}',
+                          },
+                        ]
+                      : []),
                 }
               },
               async send(message) {
@@ -223,6 +226,9 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
     },
     templatesAvailable(value) {
       templateAvailable = value
+    },
+    templates(value) {
+      customTemplates = value
     },
     source(value) {
       trustedSource = value
@@ -700,4 +706,63 @@ test('disposing a device cancels a pending subscription reminder', async () => {
     notes: '',
   })
   assert.equal(api.tables.device_reminders[0].status, 'CANCELLED')
+})
+
+test('todo reminder authorization stores the mapping and scheduled delivery fills both time fields', async () => {
+  const api = harness(phase11Fixture())
+  api.templates([
+    {
+      priTmplId: 'todo-template',
+      type: 2,
+      title: '待办事项提醒',
+      content: '提醒内容{{thing2.DATA}}\n到期日期{{time3.DATA}}\n提醒时间{{time16.DATA}}',
+    },
+  ])
+  assert.equal((await api.call('reminder.config')).data.templateId, 'todo-template')
+  const created = await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'todo-template',
+  })
+  assert.equal(created.ok, true)
+  assert.deepEqual(JSON.parse(api.tables.device_reminders[0].extra_fields), {
+    fields: ['time16'],
+    content: true,
+  })
+  api.tables.device_reminders[0].remind_on = '2026-10-26'
+  api.as('')
+  api.source('wx_trigger')
+  assert.equal(
+    (await api.call('', {}, { Type: 'Timer', TriggerName: 'gearflow-warranty-reminders' })).ok,
+    true,
+  )
+  assert.equal(api.sentMessages.length, 1)
+  assert.deepEqual(api.sentMessages[0].data, {
+    thing2: { value: 'Device alpha保修即将到期' },
+    time3: { value: '2026-12-31 23:59' },
+    time16: { value: '2026-10-27 09:00' },
+  })
+  assert.equal(api.tables.device_reminders[0].status, 'SENT')
+})
+
+test('existing reminder plans with array metadata remain sendable after the template update', async () => {
+  const api = harness(phase11Fixture())
+  await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'test-template',
+  })
+  Object.assign(api.tables.device_reminders[0], {
+    remind_on: '2026-10-26',
+    extra_fields: '["thing4"]',
+  })
+  api.as('')
+  api.source('wx_trigger')
+  assert.equal(
+    (await api.call('', {}, { Type: 'Timer', TriggerName: 'gearflow-warranty-reminders' })).ok,
+    true,
+  )
+  assert.equal(api.sentMessages.length, 1)
+  assert.equal(api.sentMessages[0].data.thing4.value, '请及时查看设备保修状态')
+  assert.equal(api.sentMessages[0].data.thing1.value, 'Device alpha')
 })

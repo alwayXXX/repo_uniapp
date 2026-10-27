@@ -12,7 +12,9 @@
 
 ## 架构、API 与数据
 
-沿用 `gearflow-api` Event Function、Nodejs18.15、可信 OPENID 与 CloudBase MySQL。新增 `device_attachments`、`device_reminders`；设备现有处置日期/金额字段复用，处置说明写入独立 `disposal_notes` 列。新增 API：`device.dispose`、`report.annual`、`export.json`、`attachment.list/upload/open/delete`、`reminder.config/list/create/cancel`。API 类型集中于 `src/types/api/phase11.ts`，所有业务参数由服务端再次校验。仅识别标题含保修/到期、类型为一次性、字段可映射的已有订阅模板，不自动添加模板。
+沿用 `gearflow-api` Event Function、Nodejs18.15、可信 OPENID 与 CloudBase MySQL。新增 `device_attachments`、`device_reminders`；设备现有处置日期/金额字段复用，处置说明写入独立 `disposal_notes` 列。新增 API：`device.dispose`、`report.annual`、`export.json`、`attachment.list/upload/open/delete`、`reminder.config/list/create/cancel`。API 类型集中于 `src/types/api/phase11.ts`，所有业务参数由服务端再次校验。识别标题含保修/到期或标题为“待办事项提醒”、类型为一次性且字段可映射的已有订阅模板，不自动添加模板。
+
+用户已添加“待办事项提醒”（记账类目，场景为台账）并提供截图：提醒内容 thing2、到期日期 time3、提醒时间 time16。本轮适配将提醒内容写为设备简称加“保修即将到期”（最多 20 个字符）；日期型到期字段仍用保修结束日，time 型用该日北京时间 23:59，与按日保修口径一致；提醒时间用实际发送时的北京时间。只接受提醒时间/日期语义的额外 time/date 字段，不填充含义未知的时间字段。extra_fields 复用 JSON 列，新任务存 fields/content 对象以区分提醒内容模式，发送时兼容旧字符串数组；无需数据库迁移，客户端接口和协议版本不变。
 
 所有用户查询按可信 OPENID 过滤，报表和导出完整分页读取。附件由云函数上传，本功能不使用客户端云存储直读写；云存储规则须保持私有（仅创建者和管理员可访问），元数据不得公开。定时入口校验运行环境注入的来源，不能相信客户端 event 自报定时来源。
 
@@ -64,5 +66,7 @@
 订阅恢复步骤：本人在微信公众平台「订阅消息」添加标题含保修/到期的一次性模板（设备名称 thing 字段、到期 date/time 字段；其余仅支持 thing/phrase），回到提醒页刷新。模板可读并不代表微信已授权发送，必须由本人点击授权；真实消息未验证前不能标记订阅已验收。公众平台受当前浏览器访问策略限制，需要本人配置。
 
 用户已明确确认「尚未添加模板」，因此订阅入口保持未配置态，不假报消息能力可用。平台隐私指引仍需本人核对：声明实际使用的 chooseMedia（本人选择的设备照片）和 chooseMessageFile（本人选择的凭证文件）所对应信息用途，以后台实际选项为准；用于私人设备凭证保存及查看，国内 CloudBase 存储，删除附件/设备或注销时清理。应用内 1.1.0 协议确认与公众平台声明分别记录，前者不能代替后者。
+
+用户随后反馈「没有合适模板」，经核对后已添加“待办事项提醒”并提供字段截图；云函数正适配该模板。模板选择和备用申请内容见 [模板配置说明](REMINDER-TEMPLATE.md)，当前不需要申请新模板。映射部署、真实授权与送达结果仍分别验收。
 
 官方参考：[MySQL 查询](https://docs.cloudbase.net/api-reference/server/node-sdk/mysql/modifiers)、[订阅消息](https://docs.cloudbase.net/en/recipes/add-subscribe-message-cloud-function)、[定时触发](https://docs.cloudbase.net/cloud-function/timer-trigger)。

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
-const { annualReport, decodeAttachment, validDate } = createRequire(import.meta.url)(
-  '../cloudfunctions/gearflow-api/phase11-domain.js',
-)
+const { annualReport, decodeAttachment, validDate, reminderTemplate, reminderData } = createRequire(
+  import.meta.url,
+)('../cloudfunctions/gearflow-api/phase11-domain.js')
 
 test('annual dates respect leap years and exclude future dates', () => {
   assert.equal(validDate('2024-02-29'), true)
@@ -60,4 +60,100 @@ test('large base64 validation is bounded and rejects mismatched file extensions'
   assert.equal(decodeAttachment(bytes.toString('base64'), 'receipt.pdf').bytes.length, bytes.length)
   assert.throws(() => decodeAttachment(bytes.toString('base64'), 'receipt.png'))
   assert.throws(() => decodeAttachment('AAAA===', 'receipt.pdf'))
+})
+
+const todoTemplate = {
+  priTmplId: 'synthetic-todo-template',
+  type: 2,
+  title: '待办事项提醒',
+  content: '提醒内容：{{thing2.DATA}}\n到期日期：{{time3.DATA}}\n提醒时间：{{time16.DATA}}',
+}
+
+test('maps the selected todo template by label and preserves its real field numbers', () => {
+  assert.deepEqual(reminderTemplate(todoTemplate), {
+    templateId: 'synthetic-todo-template',
+    device: 'thing2',
+    date: 'time3',
+    extras: ['time16'],
+    content: true,
+  })
+  const data = reminderData(
+    {
+      device_field: 'thing2',
+      date_field: 'time3',
+      warranty_end: '2026-12-31',
+      extra_fields: { fields: ['time16'], content: true },
+    },
+    '示例设备',
+    '2026-10-27 16:45:00.000',
+  )
+  assert.deepEqual(data, {
+    thing2: { value: '示例设备保修即将到期' },
+    time3: { value: '2026-12-31 23:59' },
+    time16: { value: '2026-10-28 00:45' },
+  })
+})
+
+test('preserves old reminder JSON arrays and date fields without adding content text', () => {
+  assert.deepEqual(
+    reminderData(
+      {
+        device_field: 'thing1',
+        date_field: 'date2',
+        warranty_end: '2026-12-31',
+        extra_fields: '["thing4","phrase5"]',
+      },
+      'Legacy device',
+      '2026-10-27 01:00:00.000',
+    ),
+    {
+      thing1: { value: 'Legacy device' },
+      date2: { value: '2026-12-31' },
+      thing4: { value: '请及时查看设备保修状态' },
+      phrase5: { value: '保修提醒' },
+    },
+  )
+  const data = reminderData(
+    {
+      device_field: 'thing2',
+      date_field: 'date3',
+      warranty_end: '2026-12-31',
+      extra_fields: JSON.stringify({ fields: [], content: true }),
+    },
+    '📱'.repeat(30),
+    '2026-10-27 01:00:00.000',
+  )
+  assert.equal([...data.thing2.value].length, 20)
+  assert.ok(data.thing2.value.endsWith('保修即将到期'))
+})
+
+test('rejects unrelated, long-term, duplicate or semantically unknown template fields', () => {
+  for (const change of [
+    { type: 3 },
+    { title: '商品发货通知' },
+    { content: `${todoTemplate.content}\n支付时间{{time8.DATA}}` },
+    { content: `${todoTemplate.content}\n备注{{thing2.DATA}}` },
+    { content: `${todoTemplate.content}\n截止时间{{time8.DATA}}` },
+    { content: todoTemplate.content.replace('thing2', 'amount2') },
+    { content: `${todoTemplate.content}\n未声明的内容` },
+  ])
+    assert.equal(reminderTemplate({ ...todoTemplate, ...change }), null)
+})
+
+test('rejects corrupt saved mappings instead of overwriting the protected name and expiry', () => {
+  for (const extra_fields of [
+    ['time3'],
+    ['thing2'],
+    ['time16', 'time16'],
+    ['amount4'],
+    { fields: 'time16' },
+  ]) {
+    assert.throws(() =>
+      reminderData(
+        { device_field: 'thing2', date_field: 'time3', warranty_end: '2026-12-31', extra_fields },
+        '示例设备',
+        '2026-10-27 01:00:00.000',
+      ),
+    )
+  }
 })

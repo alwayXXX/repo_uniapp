@@ -1,5 +1,11 @@
 const { randomUUID, createHash } = require('node:crypto')
-const { annualReport, decodeAttachment, validDate } = require('./phase11-domain')
+const {
+  annualReport,
+  decodeAttachment,
+  validDate,
+  reminderTemplate,
+  reminderData,
+} = require('./phase11-domain')
 
 module.exports = function createPhase11(deps) {
   const {
@@ -265,28 +271,8 @@ module.exports = function createPhase11(deps) {
     try {
       const result = await cloud.openapi.subscribeMessage.getTemplateList({})
       for (const template of result.data || []) {
-        if (Number(template.type) !== 2 || !/保修|到期/.test(template.title || '')) continue
-        const lines = String(template.content || '').split('\n')
-        const key = (pattern) => {
-          const line = lines.find((item) => pattern.test(item)) || ''
-          return (line.match(/\{\{([a-z]+\d+)\.DATA\}\}/) || [])[1]
-        }
-        const device = key(/设备|物品|商品/)
-        const date = key(/到期|保修|截止/)
-        const slots = lines
-          .map((line) => (line.match(/\{\{([a-z]+\d+)\.DATA\}\}/) || [])[1])
-          .filter(Boolean)
-        const extras = slots.filter((slot) => slot !== device && slot !== date)
-        if (
-          device &&
-          date &&
-          /^thing\d+$/.test(device) &&
-          /^(date|time)\d+$/.test(date) &&
-          extras.every((slot) => /^(thing|phrase)\d+$/.test(slot))
-        ) {
-          value = { templateId: template.priTmplId, device, date, extras }
-          break
-        }
+        value = reminderTemplate(template)
+        if (value) break
       }
     } catch (error) {
       const rawCode = error && (error.errCode || error.code)
@@ -343,7 +329,7 @@ module.exports = function createPhase11(deps) {
       template_id: config.templateId,
       device_field: config.device,
       date_field: config.date,
-      extra_fields: JSON.stringify(config.extras),
+      extra_fields: JSON.stringify({ fields: config.extras, content: config.content }),
       status: 'PENDING',
       created_at: nowValue(),
       updated_at: nowValue(),
@@ -389,25 +375,14 @@ module.exports = function createPhase11(deps) {
           warranty[0].end_date !== row.warranty_end
         )
           throw new Error('CANCEL')
+        const data = reminderData(row, device.name, nowValue())
         status = 'UNKNOWN'
         const response = await cloud.openapi.subscribeMessage.send({
           touser: row.openid,
           templateId: row.template_id,
           page: `pages/devices/detail?id=${encodeURIComponent(device.id)}`,
           miniprogramState: 'trial',
-          data: {
-            ...Object.fromEntries(
-              (typeof row.extra_fields === 'string'
-                ? JSON.parse(row.extra_fields)
-                : row.extra_fields || []
-              ).map((field) => [
-                field,
-                { value: /^phrase/.test(field) ? '保修提醒' : '请及时查看设备保修状态' },
-              ]),
-            ),
-            [row.device_field]: { value: [...device.name].slice(0, 20).join('') },
-            [row.date_field]: { value: row.warranty_end },
-          },
+          data,
         })
         status = Number(response.errCode) === 0 ? 'SENT' : 'FAILED'
         if (status === 'SENT') sent += 1
