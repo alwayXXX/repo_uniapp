@@ -4,7 +4,7 @@
 
 技术基线：uni-app + Vue 3 + TypeScript strict + Pinia + 腾讯云 CloudBase。
 
-截至 2026-10-07：Phase 0-9 已验收；原 CloudBase PG 环境注销后，项目已迁移到 CloudBase MySQL，当前运行链路见 [MySQL 迁移记录](docs/MYSQL-MIGRATION.md)。接手先读 [HANDOFF](docs/HANDOFF.md)。
+截至 2026-10-27：Phase 0-9 已验收，Phase 10 已按自用体验版范围完成，1.1.0 已上传且用户确认已设为体验版。当前运行链路为 CloudBase MySQL + 微信 OPENID，验证证据见 [体验版交付](docs/EXPERIENCE-DELIVERY.md)。正式上架清单保留供未来使用；迁移详情见 [MySQL 迁移记录](docs/MYSQL-MIGRATION.md)，接手先读 [HANDOFF](docs/HANDOFF.md)。
 
 规划文档见 [docs/](docs/)，工程规范见 [AGENTS.md](AGENTS.md)。
 
@@ -23,6 +23,7 @@ pnpm build:mp-weixin    # 普通构建；不作为正式提审产物
 pnpm build:mp-weixin:release # 正式构建，启用合法域名校验
 pnpm verify:phase10     # 构建结构、开发路由与通用凭据扫描
 pnpm test              # 单元与页面回归
+pnpm test:api          # 当前 MySQL 云函数隔离与注销回归（本地合成数据）
 pnpm test:release      # 发布检查器回归（仅合成凭据）
 pnpm test:database     # 旧 PostgreSQL 迁移历史回归（当前运行栈为 MySQL）
 pnpm type-check         # TypeScript 严格类型检查
@@ -36,7 +37,7 @@ pnpm format             # Prettier 格式化
 2. 执行 `pnpm dev:mp-weixin`（或 `pnpm build:mp-weixin`）。
 3. 用微信开发者工具导入 `dist/dev/mp-weixin`（或 `dist/build/mp-weixin`）目录。
 4. 当前业务统一通过 `cloudfunctions/gearflow-api/` 访问 CloudBase MySQL；客户端只调用云函数，OPENID 由运行环境自动注入。
-5. 需要上传时先运行 `pnpm build:mp-weixin:release`、`pnpm verify:phase10`；上传前另行核对 [上线清单](docs/LAUNCH.md)，本地检查通过不等于已具备全部发布证据。
+5. 自用体验版上传前运行 `pnpm build:mp-weixin:release`、`pnpm verify:phase10`，按 [体验版交付记录](docs/EXPERIENCE-DELIVERY.md) 留存结果；[上线清单](docs/LAUNCH.md) 用于未来公开发布。本地检查、平台上传和手机验收分别记录。
 
 ## Git 钩子（Husky）
 

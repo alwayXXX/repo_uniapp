@@ -150,7 +150,7 @@ export function formatVerification(result) {
       ? [`[${level}] 附加精确值扫描：${status}，已配置 ${result.exactSecretCount} 项。`]
       : []),
     ...(result.failures.length === 0 && result.scanStatus === 'complete'
-      ? ['[PASS] Phase 10 本地构建检查通过；不替代真机、密钥轮换或平台合规验收。']
+      ? ['[PASS] Phase 10 自用体验版本地构建检查通过；平台上传与手机验收需分别记录。']
       : []),
   ]
 }

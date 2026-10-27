@@ -1,26 +1,26 @@
 # GearFlow 交接文档（ZCode → Codex）
 
-> 更新于 2026-10-07。Phase 0-9 已完成并通过验收。原 CloudBase PG 环境因欠费注销，项目已迁移到 `myrepo-d7go4fyg918beac63` 的 **CloudBase MySQL + 微信 OPENID + 单一业务云函数** 架构；旧 PG/RLS/RPC 文档仅作历史记录。迁移详情见 `docs/MYSQL-MIGRATION.md`。
+> 更新于 2026-10-27。Phase 0-9 已完成并通过验收，Phase 10 已按用户裁定的自用体验版范围完成。原 CloudBase PG 环境因欠费注销，项目已迁移到 `myrepo-d7go4fyg918beac63` 的 **CloudBase MySQL + 微信 OPENID + 单一业务云函数** 架构；旧 PG/RLS/RPC 文档仅作历史记录。迁移详情见 `docs/MYSQL-MIGRATION.md`。
 > 本文档是环境事实与踩坑经验的唯一权威来源——很多内容不在任何代码或 Phase 0 文档里。
 > 阶段定义与完成标准以 `docs/ROADMAP.md` 为准；数据模型以 `docs/DATABASE.md` 为准；验收记录见 `docs/PHASE1-FINDINGS.md`。
 
 ## 1. 状态总览
 
-| 阶段             | 状态     | 验收证据                                                                            |
-| ---------------- | -------- | ----------------------------------------------------------------------------------- |
-| Phase 0 立项     | ✅       | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md）           |
-| Phase 1 初始化   | ✅       | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                               |
-| Phase 2 UI 基础  | ✅       | 用户视觉验收（Token/五态组件/四 Tab）                                               |
-| Phase 3 用户体系 | ✅       | scripts/verify-phase3.mjs 7/7 + 数据库核对                                          |
-| Phase 4 设备管理 | ✅       | 用户人工全流程验收（创建/编辑/软删除）                                              |
-| Phase 5 设备详情 | ✅       | scripts/verify-phase5.mjs 14/14 + 用户人工验收                                      |
-| Phase 6 生命周期 | ✅       | 设备触发器、时间线读取、RLS 隔离与用户验收                                          |
-| Phase 7 维护保修 | ✅       | 维护 CRUD、保修状态、成本联动与用户验收                                             |
-| Phase 8 数据统计 | ✅       | A 口径、统计/看板 RPC、权限回归与用户验收                                           |
-| Phase 9 测试质量 | 完成     | 单测、CI、冒烟脚本；本轮补页面、发布检查与隔离数据库回归                            |
-| Phase 10 发布    | 部分完成 | 2026-09-23 用户确认体验版分发及朋友实测正常；弱网、生产、合规和正式发布证据仍待补充 |
+| 阶段                | 状态   | 验收证据                                                                                |
+| ------------------- | ------ | --------------------------------------------------------------------------------------- |
+| Phase 0 立项        | ✅     | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md）               |
+| Phase 1 初始化      | ✅     | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                                   |
+| Phase 2 UI 基础     | ✅     | 用户视觉验收（Token/五态组件/四 Tab）                                                   |
+| Phase 3 用户体系    | ✅     | scripts/verify-phase3.mjs 7/7 + 数据库核对                                              |
+| Phase 4 设备管理    | ✅     | 用户人工全流程验收（创建/编辑/软删除）                                                  |
+| Phase 5 设备详情    | ✅     | scripts/verify-phase5.mjs 14/14 + 用户人工验收                                          |
+| Phase 6 生命周期    | ✅     | 设备触发器、时间线读取、RLS 隔离与用户验收                                              |
+| Phase 7 维护保修    | ✅     | 维护 CRUD、保修状态、成本联动与用户验收                                                 |
+| Phase 8 数据统计    | ✅     | A 口径、统计/看板 RPC、权限回归与用户验收                                               |
+| Phase 9 测试质量    | 完成   | 单测、CI、冒烟脚本；本轮补页面、发布检查与隔离数据库回归                                |
+| Phase 10 自用体验版 | 已完成 | 2026-10-27 八项本地质量检查、6/6 真实只读冒烟通过；1.1.0 上传成功，用户确认已设为体验版 |
 
-里程碑：已达成「可测试」并完成体验版分发；「可提审」仍需按 `docs/LAUNCH.md` 补齐证据。CSV 导出已于 2026-09-06 独立落地，仅维护该既有功能，不代表开放全部 Phase 11。
+里程碑：已完成自用体验版交付。正式提审与上架清单保留在 `docs/LAUNCH.md`，当前不公开上架。CSV 导出已于 2026-09-06 独立落地，仅维护该既有功能，不代表开放全部 Phase 11。
 
 ## 2. 环境事实
 
@@ -35,7 +35,7 @@
 
 - **AGENTS.md 是最高规范**：Phase 边界、TypeScript strict、禁 any、隐私约束、提交格式。
 - **每个 Phase 的固定节奏**：先改文档（如涉及）→ 数据库迁移 → 服务端验证 → 前端 → 单测/冒烟脚本 → 质量门全绿 → 提交推送 → 用户验收 → ROADMAP 标记完成。
-- **质量门**：`pnpm lint` / `pnpm type-check` / `pnpm test`；发布还要 `pnpm test:release` / `pnpm test:database` / `pnpm build:mp-weixin:release` / `pnpm verify:phase10`。CI 已配置完整检查；Husky 仍为 pre-commit=lint-staged+vue-tsc、pre-push=vitest+普通构建，不能代替发布门。
+- **质量门**：`pnpm lint` / `pnpm type-check` / `pnpm test` / `pnpm test:api`；上传体验版还要 `pnpm test:release` / `pnpm test:database` / `pnpm build:mp-weixin:release` / `pnpm verify:phase10`。`test:api` 使用模拟 SDK 验证当前 MySQL 云函数；`test:database` 只验证历史 PG 迁移。CI 已接入；Husky 仍为 pre-commit=lint-staged+vue-tsc、pre-push=vitest+普通构建，不能代替完整交付检查。
 - **新 Phase 必须明确授权**；模型或业务契约变化仍先改文档，再编码。本轮不新增线上迁移、不部署、不重置密钥。
 
 ## 4. 数据库（CloudBase MySQL）
@@ -94,5 +94,5 @@ UX 类条目（含 UX-1 表单校验框架升级）按 BACKLOG 建议时点执�
 ## 9. 当前接手边界
 
 - 当前接手边界是维护 CloudBase MySQL 架构和体验版；不要重新引入旧 AppSecret 登录，也不要对当前环境执行 PG 迁移。
-- Phase 10 正式发布证据仍需真实账号、平台配置和合规核对；本地验证不能替代。
+- Phase 10 当前仅交付自用体验版，证据见 `docs/EXPERIENCE-DELIVERY.md`；正式公开发布前再核对 `docs/LAUNCH.md`，本地验证不能替代真实平台验收。
 - `cloudbase/migrations/` 与外层历史文档保留供审计，不代表当前线上 schema。
