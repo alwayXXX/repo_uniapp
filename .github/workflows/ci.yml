@@ -33,6 +33,9 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: MySQL cloud function identity and deletion regression (mock SDK)
+        run: pnpm test:api
+
       - name: Release checker tests
         run: pnpm test:release
 
