@@ -52,12 +52,61 @@ async function main() {
     return data
   }
   const detail = call(['fn', 'detail', fn.name])
+  if (process.argv.includes('--probe')) {
+    const token = detail.Environment?.Variables?.find((item) => item.Key === key)?.Value
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token))
+      throw new Error('MISSING_TIMER_TOKEN')
+    const result = call([
+      'fn',
+      'invoke',
+      fn.name,
+      '--params',
+      JSON.stringify({
+        Type: 'Timer',
+        TriggerName: trigger.name,
+        Probe: 'subscription-api',
+        Message: JSON.stringify({ timerToken: token }),
+      }),
+    ])
+    let output = result.result || result.Result || result
+    if (typeof output === 'string') output = JSON.parse(output)
+    if (typeof output.RetMsg === 'string') output = JSON.parse(output.RetMsg)
+    if (output.ok !== true || typeof output.data?.available !== 'boolean')
+      throw new Error('UNEXPECTED_PROBE_RESPONSE')
+    console.log(
+      JSON.stringify({
+        source: 'plain-cloud-invocation',
+        available: output.data.available,
+        errorCode: output.data.errorCode,
+        missingWxCloudApiToken: output.data.missingWxCloudApiToken === true,
+      }),
+    )
+    return
+  }
   const namespace = detail.Namespace
   if (!namespace) throw new Error('MISSING_FUNCTION_NAMESPACE')
   const api = (action, body) =>
     call(['api', 'scf', action, '--api-version', '2018-04-16', '--body', JSON.stringify(body)])
   const base = { FunctionName: fn.name, Namespace: namespace }
   const listing = api('ListTriggers', { ...base, Limit: 100 })
+  // Default to inspection: a generic SCF update cannot establish WeChat cloud-call credentials.
+  if (!process.argv.includes('--legacy-configure')) {
+    if (verify) throw new Error('USE_WECHAT_IDE_FOR_TIMER_VERIFICATION')
+    console.log(
+      JSON.stringify({
+        inspectionOnly: true,
+        functionStatus: detail.Status,
+        triggers: (listing.Triggers || []).map((item) => ({
+          name: item.TriggerName,
+          type: item.Type,
+          enabled: item.Enable,
+          available: item.AvailableStatus,
+          cron: item.Type === 'timer' ? JSON.parse(item.TriggerDesc).cron : null,
+        })),
+      }),
+    )
+    return
+  }
   const current = listing.Triggers.find(
     (item) => item.TriggerName === trigger.name && item.Type === 'timer',
   )

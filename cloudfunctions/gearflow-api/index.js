@@ -1024,6 +1024,8 @@ exports.main = async (event) => {
   const openid = wxContext && typeof wxContext.OPENID === 'string' ? wxContext.OPENID : ''
   if (isTimerInvocation(event, wxContext, process.env.GEARFLOW_TIMER_TOKEN)) {
     try {
+      if (event.Probe === 'subscription-api')
+        return { ok: true, data: await phase11.checkSubscriptionApi() }
       return { ok: true, data: await phase11.sendDue() }
     } catch {
       console.error('gearflow-api scheduler: INTERNAL_ERROR')

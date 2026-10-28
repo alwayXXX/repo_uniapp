@@ -265,8 +265,18 @@ module.exports = function createPhase11(deps) {
   }
 
   let configCache = null
-  async function reminderConfig() {
-    if (configCache && configCache.until > Date.now()) return configCache.value
+  function subscriptionCode(error, fallback = 'OPENAPI_UNAVAILABLE') {
+    const raw = error && (error.errCode ?? error.errcode ?? error.code)
+    if (
+      (typeof raw === 'number' && Number.isSafeInteger(raw)) ||
+      (typeof raw === 'string' && /^-?\d{1,9}$/.test(raw))
+    )
+      return Number(raw)
+    return ['ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN'].includes(raw) ? raw : fallback
+  }
+
+  async function reminderConfig(useCache = true) {
+    if (useCache && configCache && configCache.until > Date.now()) return configCache.value
     let value = null
     try {
       const result = await cloud.openapi.subscribeMessage.getTemplateList({})
@@ -275,17 +285,28 @@ module.exports = function createPhase11(deps) {
         if (value) break
       }
     } catch (error) {
-      const rawCode = error && (error.errCode || error.code)
-      const code =
-        typeof rawCode === 'number' ||
-        (typeof rawCode === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(rawCode))
-          ? rawCode
-          : 'OPENAPI_UNAVAILABLE'
+      const code = subscriptionCode(error)
       console.error(`gearflow-api subscription: ${code}`)
-      return { errorCode: code }
+      // Inspect only for fixed known diagnostics; never persist raw SDK messages.
+      const messages = [error && error.errMsg, error && error.message].filter(
+        (value) => typeof value === 'string',
+      )
+      return {
+        errorCode: code,
+        missingWxCloudApiToken: messages.some((value) => /missing wxCloudApiToken/i.test(value)),
+      }
     }
     configCache = { until: Date.now() + 60000, value }
     return value
+  }
+
+  async function checkSubscriptionApi() {
+    const config = await reminderConfig(false)
+    return {
+      available: !!config && !config.errorCode,
+      errorCode: config && config.errorCode ? config.errorCode : config ? null : 'NO_TEMPLATE',
+      missingWxCloudApiToken: config?.missingWxCloudApiToken === true,
+    }
   }
 
   const reminderItem = (row) => ({
@@ -354,6 +375,10 @@ module.exports = function createPhase11(deps) {
     const rows = (await readAll('device_reminders', null, 'status', 'PENDING')).filter(
       (row) => row.remind_on <= todayString(),
     )
+    if (rows.length) {
+      const platform = await checkSubscriptionApi()
+      if (!platform.available) return { sent: 0, blocked: true, errorCode: platform.errorCode }
+    }
     let sent = 0
     for (const row of rows.slice(0, 20)) {
       const claimed = await selectRows(
@@ -366,6 +391,7 @@ module.exports = function createPhase11(deps) {
       )
       if (!claimed.length) continue
       let status = 'CANCELLED'
+      let errorCode = null
       try {
         await activeOwner(row.openid)
         const device = await getOwnedDevice(row.openid, row.device_id)
@@ -392,15 +418,30 @@ module.exports = function createPhase11(deps) {
           miniprogramState: 'trial',
           data,
         })
-        status = Number(response.errCode) === 0 ? 'SENT' : 'FAILED'
+        errorCode = subscriptionCode(response, 'UNCONFIRMED_RESPONSE')
+        status =
+          errorCode === 0
+            ? 'SENT'
+            : typeof errorCode === 'number' && errorCode !== -1
+              ? 'FAILED'
+              : 'UNKNOWN'
         if (status === 'SENT') sent += 1
-      } catch {
-        /* UNKNOWN is deliberately not retried after a possibly delivered send. */
+      } catch (error) {
+        if (status === 'UNKNOWN') {
+          errorCode = subscriptionCode(error)
+          // Only documented, definitive platform rejections establish non-delivery.
+          if ([-501007, -604101, 43101, 47003, 40037, 40003, 41030].includes(errorCode))
+            status = 'FAILED'
+        }
       }
+      const previous =
+        typeof row.extra_fields === 'string' ? JSON.parse(row.extra_fields) : row.extra_fields
+      const metadata = Array.isArray(previous) ? { fields: previous } : { ...previous }
+      metadata.deliveryAttempt = { status, errorCode }
       await updateRows(
         db
           .from('device_reminders')
-          .update({ status, updated_at: nowValue() })
+          .update({ status, extra_fields: JSON.stringify(metadata), updated_at: nowValue() })
           .eq('id', row.id)
           .eq('status', 'SENDING'),
       )
@@ -507,5 +548,5 @@ module.exports = function createPhase11(deps) {
         fail('VALIDATION_ERROR', 'Unknown action')
     }
   }
-  return { route, cleanupAttachments, cancelReminders, sendDue }
+  return { route, cleanupAttachments, cancelReminders, sendDue, checkSubscriptionApi }
 }

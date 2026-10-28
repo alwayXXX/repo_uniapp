@@ -67,6 +67,9 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
   let ambiguousUpload = false
   let templateAvailable = true
   let customTemplates = null
+  let sendOutcome = { errCode: 0 }
+  let sendFailure = null
+  let templateFailure = null
 
   class Query {
     constructor(table) {
@@ -180,6 +183,7 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
           openapi: {
             subscribeMessage: {
               async getTemplateList() {
+                if (templateFailure) throw templateFailure
                 return {
                   data:
                     customTemplates ||
@@ -197,7 +201,8 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
               },
               async send(message) {
                 sentMessages.push(message)
-                return { errCode: 0 }
+                if (sendFailure) throw sendFailure
+                return sendOutcome
               },
             },
           },
@@ -224,6 +229,15 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
       ambiguousUpload = value
     },
     sentMessages,
+    sendResult(value) {
+      sendOutcome = value
+    },
+    sendFails(value) {
+      sendFailure = value
+    },
+    templateFails(value) {
+      templateFailure = value
+    },
     storageFails(value) {
       storageFailure = value
     },
@@ -792,7 +806,7 @@ test('existing reminder plans with array metadata remain sendable after the temp
   assert.equal(api.sentMessages[0].data.thing1.value, 'Device alpha')
 })
 
-test('a credentialed platform timer can deliver once without a wx_trigger marker', async () => {
+test('a credentialed platform timer can scan once without a wx_trigger marker in the mock', async () => {
   const api = harness(phase11Fixture())
   await api.call('reminder.create', {
     deviceId: 'device-alpha',
@@ -811,3 +825,102 @@ test('a credentialed platform timer can deliver once without a wx_trigger marker
   assert.equal((await api.call('', {}, event)).data.sent, 0)
   assert.equal(api.sentMessages.length, 1)
 })
+
+test('timer probe checks the platform without claiming or sending reminders', async () => {
+  const api = harness(phase11Fixture())
+  await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'test-template',
+  })
+  api.tables.device_reminders[0].remind_on = '2026-10-26'
+  api.as('')
+  api.source('wx_trigger')
+  const event = {
+    Type: 'Timer',
+    TriggerName: 'gearflow-warranty-reminders',
+    Probe: 'subscription-api',
+  }
+  api.templateFails({ errCode: -501007, errMsg: 'missing wxCloudApiToken private diagnostic' })
+  const result = await api.call('', {}, event)
+  assert.deepEqual(result, {
+    ok: true,
+    data: { available: false, errorCode: -501007, missingWxCloudApiToken: true },
+  })
+  assert.equal(api.tables.device_reminders[0].status, 'PENDING')
+  assert.equal(api.sentMessages.length, 0)
+  const blocked = await api.call('', {}, { ...event, Probe: undefined })
+  assert.deepEqual(blocked, {
+    ok: true,
+    data: { sent: 0, blocked: true, errorCode: -501007 },
+  })
+  assert.equal(api.tables.device_reminders[0].status, 'PENDING')
+  assert.equal(api.sentMessages.length, 0)
+  api.as('alpha')
+  assert.equal((await api.call('', {}, event)).ok, false)
+})
+
+for (const outcome of [
+  {
+    label: 'explicit platform rejection',
+    response: { errCode: 43101 },
+    expected: 'FAILED',
+    code: 43101,
+  },
+  {
+    label: 'missing cloud token',
+    error: { errCode: -501007, errMsg: 'private details' },
+    expected: 'FAILED',
+    code: -501007,
+  },
+  {
+    label: 'lost network response',
+    error: { code: 'ETIMEDOUT', message: 'private details' },
+    expected: 'UNKNOWN',
+    code: 'ETIMEDOUT',
+  },
+  {
+    label: 'missing result',
+    response: undefined,
+    expected: 'UNKNOWN',
+    code: 'UNCONFIRMED_RESPONSE',
+  },
+  {
+    label: 'null result code',
+    response: { errCode: null },
+    expected: 'UNKNOWN',
+    code: 'UNCONFIRMED_RESPONSE',
+  },
+  { label: 'server busy', response: { errCode: -1 }, expected: 'UNKNOWN', code: -1 },
+  {
+    label: 'unsafe exception code',
+    error: { code: 'private-value', message: 'private details' },
+    expected: 'UNKNOWN',
+    code: 'OPENAPI_UNAVAILABLE',
+  },
+]) {
+  test(`scheduled ${outcome.label} persists a safe code without retrying`, async () => {
+    const api = harness(phase11Fixture())
+    await api.call('reminder.create', {
+      deviceId: 'device-alpha',
+      remindOn: '2026-11-01',
+      templateId: 'test-template',
+    })
+    api.tables.device_reminders[0].remind_on = '2026-10-26'
+    if (outcome.error) api.sendFails(outcome.error)
+    else api.sendResult(outcome.response)
+    api.as('')
+    api.source('wx_trigger')
+    const event = { Type: 'Timer', TriggerName: 'gearflow-warranty-reminders' }
+    assert.equal((await api.call('', {}, event)).ok, true)
+    const row = api.tables.device_reminders[0]
+    assert.equal(row.status, outcome.expected)
+    assert.deepEqual(JSON.parse(row.extra_fields).deliveryAttempt, {
+      status: outcome.expected,
+      errorCode: outcome.code,
+    })
+    assert.equal((await api.call('', {}, event)).data.sent, 0)
+    assert.equal(api.sentMessages.length, 1)
+    assert.ok(!row.extra_fields.includes('private'))
+  })
+}

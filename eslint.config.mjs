@@ -4,7 +4,7 @@ import prettierConfig from 'eslint-config-prettier'
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'cloudfunctions/**', 'src/uni_modules/**'],
+    ignores: ['dist/**', '.e2e/**', 'node_modules/**', 'cloudfunctions/**', 'src/uni_modules/**'],
   },
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
