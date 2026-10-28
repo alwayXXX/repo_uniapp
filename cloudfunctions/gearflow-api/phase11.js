@@ -377,6 +377,28 @@ module.exports = function createPhase11(deps) {
     return { item: reminderItem(row) }
   }
 
+  async function noteNativeTimer(flags) {
+    const rows = (await readAll('device_reminders', null, 'status', 'PENDING')).filter(
+      (row) => row.remind_on <= todayString(),
+    )
+    for (const row of rows.slice(0, 20)) {
+      const metadata = reminderMetadata(row)
+      metadata.nativeTimerEntry = {
+        checkedAt: nowValue(),
+        typeMatches: flags.typeMatches === true,
+        nameMatches: flags.nameMatches === true,
+        accepted: flags.accepted === true,
+      }
+      await updateRows(
+        db
+          .from('device_reminders')
+          .update({ extra_fields: JSON.stringify(metadata) })
+          .eq('id', row.id)
+          .eq('status', 'PENDING'),
+      )
+    }
+  }
+
   async function sendDue() {
     const rows = (await readAll('device_reminders', null, 'status', 'PENDING')).filter(
       (row) => row.remind_on <= todayString(),
@@ -565,5 +587,12 @@ module.exports = function createPhase11(deps) {
         fail('VALIDATION_ERROR', 'Unknown action')
     }
   }
-  return { route, cleanupAttachments, cancelReminders, sendDue, checkSubscriptionApi }
+  return {
+    route,
+    cleanupAttachments,
+    cancelReminders,
+    sendDue,
+    checkSubscriptionApi,
+    noteNativeTimer,
+  }
 }

@@ -1,28 +1,15 @@
-const { timingSafeEqual } = require('node:crypto')
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 
-function isTimerInvocation(event, context, expectedToken) {
-  if (
-    !context ||
-    context.OPENID ||
-    !event ||
-    event.Type !== 'Timer' ||
-    event.TriggerName !== 'gearflow-warranty-reminders'
+function isTimerInvocation(event, context) {
+  // Native WeChat timers provide a trusted runtime source. Their event type can
+  // differ from the generic SCF timer payload; never trust the event's source.
+  return Boolean(
+    context &&
+    !context.OPENID &&
+    context.SOURCE === 'wx_trigger' &&
+    event &&
+    event.TriggerName === 'gearflow-warranty-reminders',
   )
-    return false
-  if (context.SOURCE === 'wx_trigger') return true
-  if (typeof expectedToken !== 'string' || !/^[a-f0-9]{64}$/.test(expectedToken)) return false
-  if (typeof event.Message !== 'string' || event.Message.length > 512) return false
-  try {
-    const received = JSON.parse(event.Message).timerToken
-    return (
-      typeof received === 'string' &&
-      /^[a-f0-9]{64}$/.test(received) &&
-      timingSafeEqual(Buffer.from(received), Buffer.from(expectedToken))
-    )
-  } catch {
-    return false
-  }
 }
 
 function validDate(value) {

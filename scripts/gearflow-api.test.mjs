@@ -730,6 +730,28 @@ test('trusted scheduled invocations claim due reminders once and send to the exp
   assert.equal(api.tables.device_reminders[0].status, 'SENT')
 })
 
+test('a native WeChat timer without the generic SCF event type sends at most once', async () => {
+  const api = harness(phase11Fixture())
+  await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'test-template',
+  })
+  api.tables.device_reminders[0].remind_on = '2026-10-26'
+  api.as('')
+  api.source('wx_trigger')
+  const event = { TriggerName: 'gearflow-warranty-reminders' }
+  const [first, second] = await Promise.all([api.call('', {}, event), api.call('', {}, event)])
+  assert.equal(first.ok, true)
+  assert.equal(second.ok, true)
+  assert.equal(api.sentMessages.length, 1)
+  assert.equal(api.tables.device_reminders[0].status, 'SENT')
+  const entry = JSON.parse(api.tables.device_reminders[0].extra_fields).nativeTimerEntry
+  assert.equal(entry.typeMatches, false)
+  assert.equal(entry.nameMatches, true)
+  assert.equal(entry.accepted, true)
+})
+
 test('disposing a device cancels a pending subscription reminder', async () => {
   const api = harness(phase11Fixture())
   await api.call('reminder.create', {
@@ -806,7 +828,7 @@ test('existing reminder plans with array metadata remain sendable after the temp
   assert.equal(api.sentMessages[0].data.thing1.value, 'Device alpha')
 })
 
-test('a credentialed platform timer can scan once without a wx_trigger marker in the mock', async () => {
+test('a legacy platform timer credential no longer grants the right to scan or send', async () => {
   const api = harness(phase11Fixture())
   await api.call('reminder.create', {
     deviceId: 'device-alpha',
@@ -821,9 +843,9 @@ test('a credentialed platform timer can scan once without a wx_trigger marker in
     TriggerName: 'gearflow-warranty-reminders',
     Message: JSON.stringify({ timerToken: 'a'.repeat(64) }),
   }
-  assert.equal((await api.call('', {}, event)).data.sent, 1)
-  assert.equal((await api.call('', {}, event)).data.sent, 0)
-  assert.equal(api.sentMessages.length, 1)
+  assert.equal((await api.call('', {}, event)).errorCode, 'UNAUTHORIZED')
+  assert.equal(api.tables.device_reminders[0].status, 'PENDING')
+  assert.equal(api.sentMessages.length, 0)
 })
 
 test('timer probe checks the platform without claiming or sending reminders', async () => {
@@ -863,6 +885,71 @@ test('timer probe checks the platform without claiming or sending reminders', as
   assert.ok(!api.tables.device_reminders[0].extra_fields.includes('private'))
   api.as('alpha')
   assert.equal((await api.call('', {}, event)).ok, false)
+})
+
+test('a trusted native timer with an unmatched event records only safe entry flags', async () => {
+  const api = harness(phase11Fixture())
+  await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'test-template',
+  })
+  api.tables.device_reminders[0].remind_on = '2026-10-26'
+  api.as('')
+  api.source('wx_trigger')
+  const result = await api.call('', {}, { Type: 'unexpected-private-data', TriggerName: 'other' })
+  assert.equal(result.errorCode, 'UNAUTHORIZED')
+  const row = api.tables.device_reminders[0]
+  const entry = JSON.parse(row.extra_fields).nativeTimerEntry
+  assert.ok(entry.checkedAt)
+  assert.equal(entry.typeMatches, false)
+  assert.equal(entry.nameMatches, false)
+  assert.equal(entry.accepted, false)
+  assert.equal(row.status, 'PENDING')
+  assert.equal(api.sentMessages.length, 0)
+  assert.ok(!row.extra_fields.includes('unexpected-private-data'))
+})
+
+test('client-forged and ordinary cloud timer events cannot write native entry diagnostics', async () => {
+  const api = harness(phase11Fixture())
+  await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'test-template',
+  })
+  api.tables.device_reminders[0].remind_on = '2026-10-26'
+  const before = api.writes.length
+  for (const owner of ['alpha', '']) {
+    api.as(owner)
+    api.source(owner ? 'wx_client' : '')
+    await api.call(
+      '',
+      {},
+      { Type: 'Timer', TriggerName: 'gearflow-warranty-reminders', SOURCE: 'wx_trigger' },
+    )
+  }
+  assert.equal(api.writes.length, before)
+  assert.equal(JSON.parse(api.tables.device_reminders[0].extra_fields).nativeTimerEntry, undefined)
+  assert.equal(api.sentMessages.length, 0)
+})
+
+test('a diagnostic write failure does not prevent a valid native scheduled send', async () => {
+  const api = harness(phase11Fixture())
+  await api.call('reminder.create', {
+    deviceId: 'device-alpha',
+    remindOn: '2026-11-01',
+    templateId: 'test-template',
+  })
+  api.tables.device_reminders[0].remind_on = '2026-10-26'
+  api.as('')
+  api.source('wx_trigger')
+  api.failOnce('device_reminders', 'update')
+  assert.equal(
+    (await api.call('', {}, { Type: 'Timer', TriggerName: 'gearflow-warranty-reminders' })).ok,
+    true,
+  )
+  assert.equal(api.sentMessages.length, 1)
+  assert.equal(api.tables.device_reminders[0].status, 'SENT')
 })
 
 for (const outcome of [

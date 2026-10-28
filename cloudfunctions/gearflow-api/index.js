@@ -1022,7 +1022,24 @@ exports.main = async (event) => {
   const payload = event && event.payload && typeof event.payload === 'object' ? event.payload : {}
   const wxContext = cloud.getWXContext()
   const openid = wxContext && typeof wxContext.OPENID === 'string' ? wxContext.OPENID : ''
-  if (isTimerInvocation(event, wxContext, process.env.GEARFLOW_TIMER_TOKEN)) {
+  const timerAccepted = isTimerInvocation(event, wxContext)
+  if (
+    !openid &&
+    wxContext &&
+    wxContext.SOURCE === 'wx_trigger' &&
+    event?.Probe !== 'subscription-api'
+  ) {
+    try {
+      await phase11.noteNativeTimer({
+        typeMatches: event?.Type === 'Timer',
+        nameMatches: event?.TriggerName === 'gearflow-warranty-reminders',
+        accepted: timerAccepted,
+      })
+    } catch {
+      console.error('gearflow-api timer diagnostic: INTERNAL_ERROR')
+    }
+  }
+  if (timerAccepted) {
     try {
       if (event.Probe === 'subscription-api')
         return { ok: true, data: await phase11.checkSubscriptionApi() }
