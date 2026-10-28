@@ -316,6 +316,12 @@ module.exports = function createPhase11(deps) {
     status: row.status,
   })
 
+  function reminderMetadata(row) {
+    const previous =
+      typeof row.extra_fields === 'string' ? JSON.parse(row.extra_fields) : row.extra_fields
+    return Array.isArray(previous) ? { fields: previous } : { ...previous }
+  }
+
   async function createReminder(owner, payload) {
     const device = await getOwnedDevice(owner, payload.deviceId)
     if (
@@ -377,7 +383,20 @@ module.exports = function createPhase11(deps) {
     )
     if (rows.length) {
       const platform = await checkSubscriptionApi()
-      if (!platform.available) return { sent: 0, blocked: true, errorCode: platform.errorCode }
+      if (!platform.available) {
+        for (const row of rows.slice(0, 20)) {
+          const metadata = reminderMetadata(row)
+          metadata.platformCheck = { ...platform, checkedAt: nowValue() }
+          await updateRows(
+            db
+              .from('device_reminders')
+              .update({ extra_fields: JSON.stringify(metadata), updated_at: nowValue() })
+              .eq('id', row.id)
+              .eq('status', 'PENDING'),
+          )
+        }
+        return { sent: 0, blocked: true, errorCode: platform.errorCode }
+      }
     }
     let sent = 0
     for (const row of rows.slice(0, 20)) {
@@ -434,9 +453,7 @@ module.exports = function createPhase11(deps) {
             status = 'FAILED'
         }
       }
-      const previous =
-        typeof row.extra_fields === 'string' ? JSON.parse(row.extra_fields) : row.extra_fields
-      const metadata = Array.isArray(previous) ? { fields: previous } : { ...previous }
+      const metadata = reminderMetadata(row)
       metadata.deliveryAttempt = { status, errorCode }
       await updateRows(
         db

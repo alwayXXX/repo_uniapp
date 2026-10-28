@@ -30,6 +30,8 @@
 
 2026-10-28 本轮修复：仅显式成功码 0 可记 SENT；缺失/null 回执、超时及系统繁忙保留 UNKNOWN，明确拒绝记 FAILED，extra_fields.deliveryAttempt 仅保存状态和安全错误码，兼容原数组映射。领取到期任务前先实时检查模板接口，平台不可用时保留 PENDING，不消耗任务。仅可信定时入口可使用 Probe=subscription-api 做不领取、不发送的只读检查。普通云调用探针实测 available=false、errorCode=-501001、missingWxCloudApiToken=false，不能把该结果写成已证实缺票据；也不能据此认定微信原生定时器已修复。维护脚本默认只读检查，--probe 不发送；旧通用 SCF 改写仅保留显式 --legacy-configure 兼容入口，不用于微信触发器部署。等待微信 IDE「上传触发器」结果后继续验证，不能重置 UNKNOWN 来盲目试发。
 
+本人后续明确授权「允许，只试发一次」，已按唯一 ID 将 10 月 28 日的 UNKNOWN 重新安排为 PENDING，JSON 记录 USER_APPROVED_ONCE_2026_10_28，10 月 29 日计划不变。维护项目临时准备每分钟周期，本人报告从 config.json 右键上传触发器成功；观察窗口内该计划仍为 PENDING，没有 deliveryAttempt 或 platformCheck，不能宣称已经发送，也不能确定未执行的原因。平台预检失败会保留 PENDING 并记录 platformCheck 的安全错误码和时间，便于区分平台阻塞与未进入扫描；既不保存原始 SDK 错误，也不消耗单次授权任务。微信侧触发器环境/周期仍待核对，随后恢复每小时；真实收到服务通知后才可关闭送达验收。
+
 ## UI 设计
 
 用途：本人整理设备凭证、处置与年度支出。方向：延续已验收的实用型资产台账；颜色沿用 `#1a73e8`、`#f8f9fa`、`#202124`、`#b06000`、`#d93025`，字体继承现有微信原生字体和 SCSS Token，不新增字体或图标依赖。

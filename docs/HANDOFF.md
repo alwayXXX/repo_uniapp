@@ -63,6 +63,7 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - 生产构建下页面 `$vm.$.setupState` 驱动受限——业务动作自动化的深度就到这里，完整交互（原生弹窗、复杂 tap）交用户人工验收。
 - 2026-10-27 可使用本机 Nightly `wechatide -c Codex` 自动化、导航、截图和上传；须在非沙箱运行，先按其 skill 检查版本与登录。异步上传/云写返回 pending 时等待本人确认，再查询原 taskId，禁止重发。
 - P11 云调用权限需在 `cloudfunctions/gearflow-api/config.json` 声明。曾在普通部署后持续报 -604101，使用官方 `cli.bat cloud functions deploy --env <当前环境> --paths <gearflow-api绝对目录> --appid <当前appid> --remote-npm-install` 后恢复；权限存在缓存，不能只凭部署成功宣称可用。当前“待办事项提醒”已适配并真实返回可用（thing2/time3/time16），本人 iPhone 已确认看到待发计划；送达待验收，不要引入 AppSecret。
+- 当前工具中「上传触发器」位于 gearflow-api/config.json 的右键菜单，不能假定函数文件夹有该菜单。临时维护项目位于 .e2e/reminder-admin，和发布包分离。本人已报告上传成功；普通 SCF ListTriggers 返回空，仍未观察到提醒被扫描，微信侧环境、触发器列表与周期需核对，不能只凭点击或上传提示确认已生效。
 - 同一设备、日期、模板及保修结束日相同的 PENDING 提醒重试会返回原计划，不重复写入或取消；SENDING/SENT/UNKNOWN 不重新激活。手机曾报通用错误但计划已建立，修复后真实重试验证同一 ID、仅一条 PENDING，用户刷新后确认可见。不要为测试清理这条本人已授权的真实计划。
 - **编译缓存陈旧**是高频坑：构建后页面行为像旧代码（报奇怪错误如 `ensureSession is not a function`）。修法：往 dist 对应文件追加一行注释触发热重载（`printf '\n// cache-bust %s\n' "$(date +%s)" >> dist/build/mp-weixin/<file>`），或 quit 后重启 cli auto。
 - 现成参考脚本：`scripts/verify-phase3.mjs`、`verify-phase4.mjs`、`verify-phase5.mjs`（数据库预插数据在 bash 侧用 mcporter 做，不要在脚本里 execSync 拼 SQL——Windows cmd 引号会碎）。
