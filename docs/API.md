@@ -1,5 +1,13 @@
 # GearFlow 业务操作契约
 
+> **2026-11-10 Phase 12**：用户已授权自用备份与恢复及三项设备 AI 功能；当前为设计和前置检查阶段，待实现接口、隐私同意和验收边界见 `docs/PHASE12.md`，不得将规划接口当作已部署能力。
+
+`backup.snapshot`（开发中）按可信 OPENID 读取本人未删除设备、保修、维护、时间线、附件元数据和系统分类映射；不返回 OPENID、云路径或附件二进制，关联附件存在未完成操作时明确失败。客户端逐一使用既有 `attachment.open`，在前后两次快照一致时生成带 SHA-256 的版本化 JSON。备份文件未加密，主动分享与保存由用户决定；超过单文件上限、附件缺失或快照发生变化时不得报告备份成功。所有 `backup.*` 接口需要本人已确认隐私指引 1.2.0；既有 P11 接口兼容 1.1.0 或 1.2.0，避免新云函数部署后中断旧体验版。
+
+`backup.restore.preview({ devices: [{ id, categoryCode }] })` 只读预检至多 1000 台设备，逐项返回 `skip`（原设备仍在）、`create`（可新增）、`resume`（已有此前恢复的副本）、`conflict`（分类不可用或此前副本已删除）。它不接收用户身份，也不写入任何资料。客户端必须先校验文件并向用户展示结果。
+
+经用户确认后，`backup.restore.device({ device, categoryCode })` 新增或恢复进度，不更新现有设备；`backup.restore.warranty/maintenance/timeline({ sourceDeviceId, item })` 与 `backup.restore.attachment({ sourceDeviceId, item, content })` 分别补入关联记录或附件。服务端按当前 OPENID、备份中的原始标识和内容派生稳定的新标识，所有字段再次校验；原设备仍在时禁止补写，客户端也必须跳过该设备。重复请求只补缺失项目，不覆盖用户后来修改的数据；附件内容相同的超时重试使用同一存储路径，保留可重试元数据。恢复不是数据库事务，单项失败时中止并允许用户重新选择同一文件继续；绝不自动恢复微信订阅授权。上述接口均为开发中，未部署前不可宣称可用。
+
 > **2026-10-27 Phase 11**：用户已授权全清单。新增 `device.dispose`、`report.annual`、`export.json`、`attachment.list/upload/open/delete`、`reminder.config/list/create/cancel`；字段和范围以 `docs/PHASE11.md` 及 `src/types/api/phase11.ts` 为准。全部以可信 OPENID 鉴权，附件和消息必须用户主动触发；报表/导出无持久副作用。
 
 `attachment.open({ id })` 经归属校验后返回 `{ content: string /* base64，原文件至多 2 MiB */, mimeType: string }`。不返回云路径或下载 URL，客户端写入专用预览临时目录并按生命周期清理。`reminder.config` 区分 `NO_TEMPLATE` 和 `PLATFORM_UNAVAILABLE`，仅携带固定原因/脱敏平台错误码，不因平台不可用而隐藏取消已有提醒的入口。

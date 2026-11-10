@@ -1,5 +1,7 @@
 # GearFlow 交接文档（ZCode → Codex）
 
+> **2026-11-10 新授权**：用户要求开始制作，先保障自用备份与恢复，再逐项完成 Phase 12 三项 AI 功能；状态和前置条件见 `docs/PHASE12.md`。本文旧的“Phase 12 未授权”表述为历史记录。公开发布仍未授权。
+
 > 更新于 2026-10-28。Phase 0-9 已完成并通过验收，Phase 10 已按用户裁定的自用体验版范围完成。原 CloudBase PG 环境因欠费注销，项目已迁移到 `myrepo-d7go4fyg918beac63` 的 **CloudBase MySQL + 微信 OPENID + 单一业务云函数** 架构；旧 PG/RLS/RPC 文档仅作历史记录。迁移详情见 `docs/MYSQL-MIGRATION.md`。
 > 本文档是环境事实与踩坑经验的唯一权威来源——很多内容不在任何代码或 Phase 0 文档里。
 > 阶段定义与完成标准以 `docs/ROADMAP.md` 为准；数据模型以 `docs/DATABASE.md` 为准；验收记录见 `docs/PHASE1-FINDINGS.md`。

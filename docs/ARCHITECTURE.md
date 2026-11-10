@@ -1,5 +1,7 @@
 # GearFlow 技术架构文档
 
+> **2026-11-10 迭代说明**：用户授权自用备份与恢复及 Phase 12 AI。保留现有 MySQL、可信 OPENID 与云函数边界；备份和模型的设计与前置条件见 `docs/PHASE12.md`，准备阶段不代表能力已上线。
+
 > **2026-10-07 当前架构**：原 PG 环境注销后，运行环境为 CloudBase MySQL。小程序使用 `wx.cloud.callFunction('gearflow-api')`，云函数从微信运行环境读取 OPENID，再通过 `@cloudbase/node-sdk app.rdb()` 访问 MySQL。下文 PG/RLS/RPC/AppSecret 描述是 Phase 0-10 历史架构，当前实现以 `docs/MYSQL-MIGRATION.md` 为准。
 
 ## 1. 总体结论
