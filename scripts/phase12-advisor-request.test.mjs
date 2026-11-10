@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { test } from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { requestAdvisor } = require('../cloudfunctions/gearflow-ai/advisor-request.js')
+const { requestServerAi } = require('../cloudfunctions/gearflow-ai/request.js')
 const { issueGrant } = require('../cloudfunctions/gearflow-ai/grant.js')
 const { canonicalJson } = require('../cloudfunctions/gearflow-ai/canonical.js')
 const facts = {
@@ -47,13 +47,13 @@ test('valid request consumes a grant once before invoking the model', async () =
       return { text: '{"suggestions":["检查保修"],"missing":[]}' }
     },
   }
-  const input = { openid, facts, token, now }
-  assert.deepEqual(await requestAdvisor(input, deps), { suggestions: ['检查保修'], missing: [] })
-  await assert.rejects(requestAdvisor(input, deps), /AI_GRANT_REJECTED/)
+  const input = { kind: 'advisor', data: facts, token, now }
+  assert.deepEqual(await requestServerAi(input, deps), { suggestions: ['检查保修'], missing: [] })
+  await assert.rejects(requestServerAi(input, deps), /AI_GRANT_REJECTED/)
   assert.equal(calls, 1)
 })
 
-test('altered inputs, wrong identity, and unavailable reservation never call the model', async () => {
+test('altered inputs, invalid tokens, and unavailable reservation never call the model', async () => {
   let calls = 0
   const deps = {
     key,
@@ -65,9 +65,9 @@ test('altered inputs, wrong identity, and unavailable reservation never call the
       return { text: '{}' }
     },
   }
-  for (const override of [{ openid: 'other' }, { facts: { ...facts, brand: 'Changed' } }, {}])
+  for (const override of [{ token: `${token}!` }, { data: { ...facts, brand: 'Changed' } }, {}])
     await assert.rejects(
-      requestAdvisor({ openid, facts, token, now, ...override }, deps),
+      requestServerAi({ kind: 'advisor', data: facts, token, now, ...override }, deps),
       /AI_GRANT_REJECTED/,
     )
   assert.equal(calls, 0)

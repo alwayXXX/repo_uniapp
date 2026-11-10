@@ -3,7 +3,11 @@ import { createRequire } from 'node:module'
 import { test } from 'node:test'
 
 const require = createRequire(import.meta.url)
-const { issueGrant, verifyGrant, consumeGrant } = require('../cloudfunctions/gearflow-ai/grant.js')
+const {
+  issueGrant,
+  verifyGrant,
+  consumeSignedGrant,
+} = require('../cloudfunctions/gearflow-ai/grant.js')
 const base = {
   key: 'ab'.repeat(32),
   openid: 'synthetic-owner',
@@ -38,17 +42,17 @@ test('one-time reservation blocks replay and fails closed on unavailable storage
     return true
   }
   const results = await Promise.all([
-    consumeGrant({ ...base, token }, reserve),
-    consumeGrant({ ...base, token }, reserve),
+    consumeSignedGrant({ ...base, token }, reserve),
+    consumeSignedGrant({ ...base, token }, reserve),
   ])
   assert.deepEqual(results.sort(), [false, true])
   assert.equal(
-    await consumeGrant({ ...base, token }, async () => {
+    await consumeSignedGrant({ ...base, token }, async () => {
       throw new Error('offline')
     }),
     false,
   )
-  assert.equal(await consumeGrant({ ...base, token }, undefined), false)
+  assert.equal(await consumeSignedGrant({ ...base, token }, undefined), false)
 })
 
 test('unsafe secrets, timestamps, and request types cannot be issued', () => {

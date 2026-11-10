@@ -1,5 +1,5 @@
 const { createHash } = require('node:crypto')
-const { consumeGrant, consumeSignedGrant } = require('./grant')
+const { consumeSignedGrant } = require('./grant')
 const { canonicalJson } = require('./canonical')
 const { validateAdvisorFacts, generateAdvisor } = require('./advisor')
 const { validateAnnualFacts, generateAnnual } = require('./annual')
@@ -19,25 +19,12 @@ function normalizeAiRequest(kind, data) {
   return { route, normalized, digest }
 }
 
-async function requestWithGrant(
-  { openid, kind, data, token, now },
-  { key, reserve, invoke },
-  consume,
-) {
+/** The grant is issued server-to-server and never returned to the client. */
+async function requestServerAi({ kind, data, token, now }, { key, reserve, invoke }) {
   const { route, normalized, digest } = normalizeAiRequest(kind, data)
-  if (!(await consume({ key, openid, kind, digest, token, now }, reserve)))
+  if (!(await consumeSignedGrant({ key, kind, digest, token, now }, reserve)))
     throw new Error('AI_GRANT_REJECTED')
   return route.generate(normalized, invoke)
 }
 
-/** openid must come from a trusted runtime, never directly from client input. */
-async function requestAi(input, deps) {
-  return requestWithGrant(input, deps, consumeGrant)
-}
-
-/** Use only when the grant is issued server-to-server and never returned to the client. */
-async function requestServerAi(input, deps) {
-  return requestWithGrant(input, deps, consumeSignedGrant)
-}
-
-module.exports = { requestAi, requestServerAi, normalizeAiRequest }
+module.exports = { requestServerAi, normalizeAiRequest }

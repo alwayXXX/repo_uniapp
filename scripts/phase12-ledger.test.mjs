@@ -4,7 +4,11 @@ import { test } from 'node:test'
 
 const require = createRequire(import.meta.url)
 const createLedger = require('../cloudfunctions/gearflow-ai/ledger.js')
-const { issueGrant, verifyGrant, consumeGrant } = require('../cloudfunctions/gearflow-ai/grant.js')
+const {
+  issueGrant,
+  verifyGrant,
+  consumeSignedGrant,
+} = require('../cloudfunctions/gearflow-ai/grant.js')
 
 function harness() {
   const tables = { ai_daily_quota: [], ai_grants: [] }
@@ -116,8 +120,8 @@ test('a stored grant can be consumed only once, and cleanup affects only its own
   const claims = verifyGrant({ ...input, token })
   await ledger.recordGrant(input.openid, claims)
   const responses = await Promise.all([
-    consumeGrant({ ...input, token }, (item) => ledger.consume(item, input.now)),
-    consumeGrant({ ...input, token }, (item) => ledger.consume(item, input.now)),
+    consumeSignedGrant({ ...input, token }, (item) => ledger.consume(item, input.now)),
+    consumeSignedGrant({ ...input, token }, (item) => ledger.consume(item, input.now)),
   ])
   assert.deepEqual(responses.sort(), [false, true])
   await ledger.reserveQuota('owner-a', input.now)

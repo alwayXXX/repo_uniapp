@@ -91,7 +91,7 @@ function verifySignedGrant({ key, kind, digest, token, now = Date.now() }) {
   return { owner: claims.owner, kind, digest, nonce: claims.nonce, expiresAt: claims.expiresAt }
 }
 
-/** For a client-originated invocation, identity must come from the runtime. */
+/** Verify the issued grant belongs to the owner at the business gateway. */
 function verifyGrant(input) {
   const claims = verifySignedGrant(input)
   if (
@@ -104,17 +104,6 @@ function verifyGrant(input) {
   return claims
 }
 
-/** A durable, atomic reserve operation must enforce replay and per-user limits. */
-async function consumeGrant(input, reserve) {
-  const claims = verifyGrant(input)
-  if (!claims || typeof reserve !== 'function') return false
-  try {
-    return (await reserve(claims)) === true
-  } catch {
-    return false
-  }
-}
-
 async function consumeSignedGrant(input, reserve) {
   const claims = verifySignedGrant(input)
   if (!claims || typeof reserve !== 'function') return false
@@ -125,4 +114,4 @@ async function consumeSignedGrant(input, reserve) {
   }
 }
 
-module.exports = { issueGrant, verifyGrant, verifySignedGrant, consumeGrant, consumeSignedGrant }
+module.exports = { issueGrant, verifyGrant, verifySignedGrant, consumeSignedGrant }
