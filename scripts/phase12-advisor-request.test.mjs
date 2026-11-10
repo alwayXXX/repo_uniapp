@@ -6,6 +6,7 @@ import { test } from 'node:test'
 const require = createRequire(import.meta.url)
 const { requestAdvisor } = require('../cloudfunctions/gearflow-ai/advisor-request.js')
 const { issueGrant } = require('../cloudfunctions/gearflow-ai/grant.js')
+const { canonicalJson } = require('../cloudfunctions/gearflow-ai/canonical.js')
 const facts = {
   asOf: '2026-11-10',
   category: '电脑',
@@ -21,7 +22,7 @@ const facts = {
 const key = 'ab'.repeat(32)
 const openid = 'synthetic-owner'
 const now = 1_700_000_000_000
-const digest = createHash('sha256').update(JSON.stringify(facts)).digest('hex')
+const digest = createHash('sha256').update(canonicalJson(facts)).digest('hex')
 const token = issueGrant({
   key,
   openid,
