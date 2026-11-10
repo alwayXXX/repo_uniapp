@@ -45,12 +45,25 @@ export async function createAccountBackup(): Promise<{
   return { content: createBackup(initial, files, new Date().toISOString()), snapshot: initial }
 }
 
-/** The WeChat share result is not evidence that a copy has been safely stored. */
-export async function shareAccountBackup(): Promise<'shared' | 'cancelled'> {
+export interface PreparedAccountBackup {
+  content: string
+  revision: number
+}
+
+/** Network and file collection finish before the user taps the share button. */
+export async function prepareAccountBackup(): Promise<PreparedAccountBackup> {
   const revision = clientRevision()
   const backup = await createAccountBackup()
   assertClientRevision(revision)
-  return saveAndShareFile(`gearflow_backup_${Date.now()}.json`, backup.content, revision)
+  return { content: backup.content, revision }
+}
+
+/** Call directly from the user's tap; a share result does not prove safe storage. */
+export function sharePreparedAccountBackup(
+  backup: PreparedAccountBackup,
+): Promise<'shared' | 'cancelled'> {
+  assertClientRevision(backup.revision)
+  return saveAndShareFile(`gearflow_backup_${Date.now()}.json`, backup.content, backup.revision)
 }
 
 interface WxBackupFileApi {

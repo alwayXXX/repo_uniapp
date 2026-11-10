@@ -3,26 +3,30 @@ import { flushPromises, mount } from '@vue/test-utils'
 import BackupPage from './profile/backup.vue'
 import {
   chooseAccountBackup,
+  prepareAccountBackup,
   previewAccountRestore,
   restoreAccountBackup,
-  shareAccountBackup,
+  sharePreparedAccountBackup,
 } from '@/services/backup'
 import type { BackupBundle } from '@/types/api/backup'
 
 const hooks = vi.hoisted(() => ({
   shows: [] as Array<() => void>,
+  hides: [] as Array<() => void>,
   unloads: [] as Array<() => void>,
 }))
 vi.mock('@dcloudio/uni-app', () => ({
   onShow: (callback: () => void) => hooks.shows.push(callback),
+  onHide: (callback: () => void) => hooks.hides.push(callback),
   onUnload: (callback: () => void) => hooks.unloads.push(callback),
 }))
 vi.mock('@/services/consent', () => ({ requireCurrentConsent: () => true }))
 vi.mock('@/services/backup', () => ({
   chooseAccountBackup: vi.fn(),
+  prepareAccountBackup: vi.fn(),
   previewAccountRestore: vi.fn(),
   restoreAccountBackup: vi.fn(),
-  shareAccountBackup: vi.fn(),
+  sharePreparedAccountBackup: vi.fn(),
 }))
 
 const sample = {
@@ -44,6 +48,7 @@ const sample = {
 beforeEach(() => {
   vi.clearAllMocks()
   hooks.shows.length = 0
+  hooks.hides.length = 0
   hooks.unloads.length = 0
   vi.stubGlobal('uni', { showModal: vi.fn() })
 })
@@ -82,12 +87,74 @@ describe('backup page safeguards', () => {
     const page = mount(BackupPage)
     await page
       .findAll('button')
-      .find((button) => button.text().includes('生成并分享'))
+      .find((button) => button.text().includes('生成备份'))
       ?.trigger('click')
     const modal = vi.mocked(uni.showModal).mock.calls[0]?.[0]
     modal?.success?.({ confirm: false, cancel: true })
     await flushPromises()
-    expect(shareAccountBackup).not.toHaveBeenCalled()
+    expect(prepareAccountBackup).not.toHaveBeenCalled()
+    expect(sharePreparedAccountBackup).not.toHaveBeenCalled()
+    page.unmount()
+  })
+
+  it('prepares first and invokes sharing immediately on a separate tap', async () => {
+    const backup = { content: 'synthetic-only', revision: 1 }
+    vi.mocked(prepareAccountBackup).mockResolvedValue(backup)
+    vi.mocked(sharePreparedAccountBackup).mockResolvedValue('shared')
+    const page = mount(BackupPage)
+    await page
+      .findAll('button')
+      .find((button) => button.text().includes('生成备份'))
+      ?.trigger('click')
+    const modal = vi.mocked(uni.showModal).mock.calls[0]?.[0]
+    modal?.success?.({ confirm: true, cancel: false })
+    await flushPromises()
+    expect(prepareAccountBackup).toHaveBeenCalledOnce()
+    expect(sharePreparedAccountBackup).not.toHaveBeenCalled()
+    const shareButton = page.findAll('button').find((button) => button.text() === '分享备份')
+    expect(shareButton).toBeDefined()
+    const click = shareButton?.trigger('click')
+    expect(sharePreparedAccountBackup).toHaveBeenCalledWith(backup)
+    await click
+    await flushPromises()
+    expect(page.text()).toContain('请确认接收')
+    page.unmount()
+  })
+
+  it('discards a prepared backup when the page is hidden', async () => {
+    vi.mocked(prepareAccountBackup).mockResolvedValue({ content: 'synthetic-only', revision: 1 })
+    const page = mount(BackupPage)
+    await page
+      .findAll('button')
+      .find((button) => button.text().includes('生成备份'))
+      ?.trigger('click')
+    vi.mocked(uni.showModal).mock.calls[0]?.[0]?.success?.({ confirm: true, cancel: false })
+    await flushPromises()
+    expect(page.text()).toContain('分享备份')
+    hooks.hides.at(-1)?.()
+    await page.vm.$nextTick()
+    expect(page.text()).not.toContain('分享备份')
+    page.unmount()
+  })
+
+  it('does not expose a backup that finished after leaving the page', async () => {
+    let resolveBackup: (value: { content: string; revision: number }) => void = () => {}
+    vi.mocked(prepareAccountBackup).mockReturnValue(
+      new Promise((resolve) => {
+        resolveBackup = resolve
+      }),
+    )
+    const page = mount(BackupPage)
+    await page
+      .findAll('button')
+      .find((button) => button.text().includes('生成备份'))
+      ?.trigger('click')
+    vi.mocked(uni.showModal).mock.calls[0]?.[0]?.success?.({ confirm: true, cancel: false })
+    hooks.hides.at(-1)?.()
+    resolveBackup({ content: 'synthetic-only', revision: 1 })
+    await flushPromises()
+    expect(page.text()).not.toContain('分享备份')
+    expect(sharePreparedAccountBackup).not.toHaveBeenCalled()
     page.unmount()
   })
 })

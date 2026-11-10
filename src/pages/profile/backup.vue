@@ -9,7 +9,13 @@
       <text class="section-title">导出备份</text>
       <text class="hint">单份文件最多 20 MiB、1000 台设备。导出时请暂时不要修改设备或附件。</text>
       <button class="primary" :disabled="busy" @click="confirmExport">
-        {{ busy && mode === 'export' ? '正在准备备份…' : '生成并分享备份' }}
+        {{ busy && mode === 'export' ? '正在准备备份…' : '生成备份' }}
+      </button>
+      <text v-if="prepared" class="hint"
+        >备份已生成，请点击下方按钮分享；离开页面后需重新生成。</text
+      >
+      <button v-if="prepared" class="primary" :disabled="busy" @click="sharePrepared">
+        分享备份
       </button>
     </view>
     <view class="card">
@@ -57,24 +63,28 @@
 
 <script setup lang="ts">
 import { computed, ref, shallowRef } from 'vue'
-import { onShow, onUnload } from '@dcloudio/uni-app'
+import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
 import { requireCurrentConsent } from '@/services/consent'
 import {
   chooseAccountBackup,
+  prepareAccountBackup,
   previewAccountRestore,
   restoreAccountBackup,
-  shareAccountBackup,
+  sharePreparedAccountBackup,
+  type PreparedAccountBackup,
 } from '@/services/backup'
 import { toAppError } from '@/utils/error'
 import type { BackupBundle, RestorePreviewItem, RestorePreviewState } from '@/types/api/backup'
 
 const bundle = shallowRef<BackupBundle | null>(null)
+const prepared = shallowRef<PreparedAccountBackup | null>(null)
 const preview = ref<RestorePreviewItem[]>([])
 const busy = ref(false)
-const mode = ref<'export' | 'preview' | 'restore' | ''>('')
+const mode = ref<'export' | 'share' | 'preview' | 'restore' | ''>('')
 const message = ref('')
 const error = ref('')
 let active = true
+let visibilityRevision = 0
 
 function count(state: RestorePreviewState): number {
   return preview.value.filter((item) => item.state === state).length
@@ -94,7 +104,7 @@ const problemItems = computed(() =>
 
 async function run(
   task: () => Promise<void>,
-  nextMode: 'export' | 'preview' | 'restore',
+  nextMode: 'export' | 'share' | 'preview' | 'restore',
 ): Promise<void> {
   if (busy.value || !requireCurrentConsent()) return
   busy.value = true
@@ -125,15 +135,27 @@ function confirmExport(): void {
     success: (result) => {
       if (!result.confirm) return
       void run(async () => {
-        const outcome = await shareAccountBackup()
-        if (active)
-          message.value =
-            outcome === 'cancelled'
-              ? '已取消分享，未生成已保存的备份。'
-              : '微信已完成分享，请确认接收并妥善保管备份文件。'
+        prepared.value = null
+        const revision = visibilityRevision
+        const backup = await prepareAccountBackup()
+        if (active && revision === visibilityRevision) prepared.value = backup
       }, 'export')
     },
   })
+}
+
+function sharePrepared(): void {
+  const selected = prepared.value
+  if (!selected) return
+  void run(async () => {
+    prepared.value = null
+    const outcome = await sharePreparedAccountBackup(selected)
+    if (active)
+      message.value =
+        outcome === 'cancelled'
+          ? '已取消分享，未生成已保存的备份。'
+          : '微信已完成分享，请确认接收并妥善保管备份文件。'
+  }, 'share')
 }
 
 function pickBackup(): void {
@@ -180,8 +202,14 @@ function confirmRestore(): void {
 onShow(() => {
   requireCurrentConsent()
 })
+onHide(() => {
+  visibilityRevision++
+  prepared.value = null
+})
 onUnload(() => {
   active = false
+  visibilityRevision++
+  prepared.value = null
   bundle.value = null
   preview.value = []
 })
