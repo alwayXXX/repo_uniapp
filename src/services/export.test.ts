@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearGeneratedExports, csvFileName, saveAndShareCsv } from './export'
+import { clearGeneratedExports, csvFileName, saveAndShareCsv, saveAndShareFile } from './export'
 import { clientRevision, invalidateClientRequests } from './client-state'
 
 interface ShareOptions {
@@ -43,6 +43,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('private export lifecycle', () => {
+  it('reports a cancelled backup share without retaining the temporary file', async () => {
+    share.mockImplementationOnce((options) => options.fail({ errMsg: 'share:fail cancel' }))
+    await expect(saveAndShareFile('gearflow_backup.json', 'synthetic')).resolves.toBe('cancelled')
+    expect(files.size).toBe(0)
+  })
   it('cleans JSON exports through the same sharing and logout lifecycle', async () => {
     await saveAndShareCsv('gearflow_data.json', '{"version":1}')
     expect(files.size).toBe(0)

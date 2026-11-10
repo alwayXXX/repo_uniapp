@@ -6,6 +6,7 @@ const {
   reminderTemplate,
   reminderData,
 } = require('./phase11-domain')
+const createBackupRestore = require('./backup-restore')
 
 module.exports = function createPhase11(deps) {
   const {
@@ -26,6 +27,7 @@ module.exports = function createPhase11(deps) {
     mapDevice,
     mapWarranty,
     mapMaintenance,
+    mapTimeline,
   } = deps
 
   async function readAll(table, owner, field, value) {
@@ -48,19 +50,22 @@ module.exports = function createPhase11(deps) {
     }
   }
 
-  async function activeOwner(owner) {
+  async function activeOwner(owner, requiredVersions = ['1.2.0', '1.1.0']) {
     const user = await findUser(owner)
     if (!user || user.status !== 'ACTIVE') fail('UNAUTHORIZED')
-    const consent = await selectRows(
-      db
-        .from('consent_records')
-        .select('id')
-        .eq('openid', owner)
-        .eq('policy_type', 'PRIVACY')
-        .eq('policy_version', '1.1.0')
-        .limit(1),
-    )
-    if (!consent.length) fail('FORBIDDEN', 'Current privacy consent required')
+    for (const version of requiredVersions) {
+      const consent = await selectRows(
+        db
+          .from('consent_records')
+          .select('id')
+          .eq('openid', owner)
+          .eq('policy_type', 'PRIVACY')
+          .eq('policy_version', version)
+          .limit(1),
+      )
+      if (consent.length) return
+    }
+    fail('FORBIDDEN', 'Current privacy consent required')
   }
 
   async function cancelReminders(owner, deviceId) {
@@ -179,6 +184,53 @@ module.exports = function createPhase11(deps) {
       warranties: warranties.filter((row) => ids.has(row.device_id)),
     }
   }
+
+  async function backupSnapshot(owner) {
+    const [records, timelines, attachments, categories] = await Promise.all([
+      ownerRecords(owner),
+      readAll('device_timelines', owner),
+      readAll('device_attachments', owner),
+      readAll('device_categories', null),
+    ])
+    const ids = new Set(records.devices.map((row) => row.id))
+    const ownedAttachments = attachments.filter((row) => ids.has(row.device_id))
+    if (ownedAttachments.some((row) => row.status !== 'READY'))
+      fail('RATE_LIMITED', 'Attachment operation incomplete; retry backup')
+    const stripOwner = (row) => {
+      const { userId, ...rest } = row
+      return rest
+    }
+    const categoryIds = new Set(records.devices.map((row) => row.category_id).filter(Boolean))
+    const mappedCategories = categories
+      .filter((row) => row.scope === 'SYSTEM' && categoryIds.has(row.id))
+      .map((row) => ({ id: row.id, code: row.code, name: row.name }))
+    if (mappedCategories.length !== categoryIds.size)
+      fail('INTERNAL_ERROR', 'Cannot resolve a device category')
+    return {
+      devices: records.devices.map((row) => stripOwner(mapDevice(row))),
+      warranties: records.warranties.map((row) => stripOwner(mapWarranty(row))),
+      maintenances: records.maintenance.map((row) => stripOwner(mapMaintenance(row))),
+      timelines: timelines.filter((row) => ids.has(row.device_id)).map(mapTimeline),
+      attachments: ownedAttachments.map((row) => ({
+        ...attachmentItem(row),
+        deviceId: row.device_id,
+      })),
+      categories: mappedCategories,
+    }
+  }
+
+  const backupRestore = createBackupRestore({
+    db,
+    storage,
+    fail,
+    selectRows,
+    insertRow,
+    updateRows,
+    getOwnedDevice,
+    readAll,
+    text,
+    nowValue,
+  })
 
   function attachmentItem(row) {
     return {
@@ -489,7 +541,7 @@ module.exports = function createPhase11(deps) {
   }
 
   async function route(owner, action, payload) {
-    await activeOwner(owner)
+    await activeOwner(owner, action.startsWith('backup.') ? ['1.2.0'] : undefined)
     switch (action) {
       case 'device.dispose':
         return dispose(owner, payload)
@@ -517,6 +569,8 @@ module.exports = function createPhase11(deps) {
           maintenances: records.maintenance.map((row) => stripOwner(mapMaintenance(row))),
         }
       }
+      case 'backup.snapshot':
+        return backupSnapshot(owner)
       case 'attachment.list': {
         await getOwnedDevice(owner, payload.deviceId)
         return {
@@ -584,6 +638,7 @@ module.exports = function createPhase11(deps) {
         return { ok: true }
       }
       default:
+        if (action.startsWith('backup.restore.')) return backupRestore.route(owner, action, payload)
         fail('VALIDATION_ERROR', 'Unknown action')
     }
   }

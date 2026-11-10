@@ -168,11 +168,11 @@ export function clearGeneratedExports(): void {
  * 保存 CSV 到本机并唤起微信分享（发送给朋友 / 文件传输助手）。
  * 仅微信小程序端可用。
  */
-export async function saveAndShareCsv(
+export async function saveAndShareFile(
   fileName: string,
   content: string,
   revision = clientRevision(),
-): Promise<void> {
+): Promise<'shared' | 'cancelled'> {
   // #ifdef MP-WEIXIN
   const wxApi = getWxShareApi()
   assertClientRevision(revision)
@@ -187,14 +187,14 @@ export async function saveAndShareCsv(
     } catch {
       throw new AppError('INTERNAL_ERROR', '导出文件生成失败，请检查存储空间')
     }
-    await new Promise<void>((resolve, reject) => {
+    return await new Promise<'shared' | 'cancelled'>((resolve, reject) => {
       wxApi.shareFileMessage({
         filePath,
-        success: () => resolve(),
+        success: () => resolve('shared'),
         fail: (err) => {
           // Cancellation still runs the same temporary-file cleanup.
           if (err.errMsg && err.errMsg.includes('cancel')) {
-            resolve()
+            resolve('cancelled')
             return
           }
           reject(new AppError('INTERNAL_ERROR', '分享失败，请重试'))
@@ -204,12 +204,20 @@ export async function saveAndShareCsv(
   } finally {
     removeExport(fs, filePath)
   }
-  return
   // #endif
 
   // #ifndef MP-WEIXIN
   throw new Error('当前平台暂不支持文件导出，请在微信小程序内使用')
   // #endif
+}
+
+/** Keep the previous CSV/JSON callers' cancellation behavior. */
+export async function saveAndShareCsv(
+  fileName: string,
+  content: string,
+  revision = clientRevision(),
+): Promise<void> {
+  await saveAndShareFile(fileName, content, revision)
 }
 
 /** 组装导出文件名：前缀_时间戳.csv */

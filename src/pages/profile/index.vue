@@ -35,6 +35,7 @@
       <view class="card">
         <button class="action-button" open-type="feedback">意见反馈</button>
         <button class="action-button" @click="openAnnualReport">年度设备报告</button>
+        <button class="action-button" @click="openBackup">备份与恢复</button>
         <button class="action-button" :disabled="exportingJson" @click="exportJson">
           {{ exportingJson ? '导出中…' : '导出 JSON 数据' }}
         </button>
@@ -68,6 +69,9 @@ function exportJson(): void {
 }
 function openAnnualReport(): void {
   uni.navigateTo({ url: '/pages/stats/annual' })
+}
+function openBackup(): void {
+  uni.navigateTo({ url: '/pages/profile/backup' })
 }
 
 const CONFIRM_TEXT = '注销我的账号'

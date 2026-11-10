@@ -51,6 +51,10 @@
       }
     },
     {
+      "path": "pages/profile/backup",
+      "style": { "navigationBarTitleText": "备份与恢复" }
+    },
+    {
       "path": "pages/onboarding/index",
       "style": {
         "navigationBarTitleText": "欢迎使用 GearFlow",

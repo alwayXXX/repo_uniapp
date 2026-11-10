@@ -442,7 +442,7 @@ test('a database deletion failure is reported and can be retried without losing 
     )
 })
 
-function phase11Fixture() {
+function phase11Fixture({ currentPrivacy = false } = {}) {
   const data = fixture()
   data.device_attachments = []
   data.device_reminders = []
@@ -453,6 +453,14 @@ function phase11Fixture() {
       policy_type: 'PRIVACY',
       policy_version: '1.1.0',
     })
+  if (currentPrivacy)
+    for (const owner of ['alpha', 'beta'])
+      data.consent_records.push({
+        id: `privacy-current-${owner}`,
+        openid: owner,
+        policy_type: 'PRIVACY',
+        policy_version: '1.2.0',
+      })
   return data
 }
 
@@ -483,6 +491,19 @@ test('P11 requires the current explicit privacy consent', async () => {
   const api = harness()
   assert.equal((await api.call('export.json')).errorCode, 'FORBIDDEN')
   assert.equal(api.writes.length, 0)
+})
+
+test('backup needs new consent while existing P11 works for old and new policy versions', async () => {
+  const old = harness(phase11Fixture())
+  assert.equal((await old.call('export.json')).ok, true)
+  assert.equal((await old.call('backup.snapshot')).errorCode, 'FORBIDDEN')
+  assert.equal(old.writes.length, 0)
+
+  const data = phase11Fixture({ currentPrivacy: true })
+  data.consent_records = data.consent_records.filter((row) => row.policy_version !== '1.1.0')
+  const current = harness(data)
+  assert.equal((await current.call('export.json')).ok, true)
+  assert.equal((await current.call('backup.snapshot')).ok, true)
 })
 
 test('annual report aggregates year and month boundaries and isolates another owner', async () => {
@@ -533,6 +554,219 @@ test('JSON export reads beyond the old 1000-row limit and strips identity and fi
     assert.equal(Object.hasOwn(row, 'userId'), false)
     assert.equal(Object.hasOwn(row, 'fileID'), false)
   }
+})
+
+test('backup snapshot includes only owned live records and never reveals cloud paths or identities', async () => {
+  const data = phase11Fixture({ currentPrivacy: true })
+  data.devices[0].category_id = 'system-category'
+  data.device_categories[0].code = 'computer'
+  data.device_categories[0].name = '电脑'
+  data.devices.push({ ...data.devices[0], id: 'deleted-device', deleted_at: '2026-10-20' })
+  const api = harness(data)
+  const upload = await api.call('attachment.upload', uploadPayload)
+  assert.equal(upload.ok, true)
+  const writesBefore = api.writes.length
+  const result = await api.call('backup.snapshot')
+  assert.equal(result.ok, true)
+  assert.equal(result.data.devices.length, 1)
+  assert.equal(result.data.devices[0].id, 'device-alpha')
+  assert.equal(result.data.attachments.length, 1)
+  assert.equal(result.data.attachments[0].deviceId, 'device-alpha')
+  assert.equal(result.data.timelines.length, 1)
+  assert.equal(result.data.categories[0].code, 'computer')
+  const serialized = JSON.stringify(result.data)
+  assert.equal(serialized.includes('openid'), false)
+  assert.equal(serialized.includes('userId'), false)
+  assert.equal(serialized.includes('cloud://'), false)
+  assert.equal(serialized.includes('device-beta'), false)
+  assert.equal(api.writes.length, writesBefore)
+})
+
+test('backup snapshot fails instead of omitting unfinished attachment operations', async () => {
+  const data = phase11Fixture({ currentPrivacy: true })
+  data.device_attachments.push({
+    id: 'pending-file',
+    device_id: 'device-alpha',
+    openid: 'alpha',
+    status: 'UPLOADING',
+  })
+  const api = harness(data)
+  const result = await api.call('backup.snapshot')
+  assert.equal(result.ok, false)
+  assert.equal(result.errorCode, 'RATE_LIMITED')
+  assert.equal(api.writes.length, 0)
+})
+
+function restoreFixture() {
+  const createdAt = '2026-01-01T00:00:00.000Z'
+  const device = {
+    id: 'old-device',
+    categoryId: 'old-category',
+    name: 'Synthetic device',
+    status: 'IN_USE',
+    brand: 'Example',
+    model: 'Model 1',
+    serialNumber: null,
+    purchaseDate: '2026-01-01',
+    purchaseChannel: null,
+    purchasePriceCents: 12000,
+    currency: 'CNY',
+    notes: null,
+    disposalDate: null,
+    disposalPriceCents: null,
+    disposalNotes: null,
+    deletedAt: null,
+    createdAt,
+    updatedAt: createdAt,
+  }
+  const warranty = {
+    id: 'old-warranty',
+    deviceId: device.id,
+    startDate: '2026-01-01',
+    endDate: '2027-01-01',
+    provider: null,
+    scope: null,
+    notes: null,
+    createdAt,
+    updatedAt: createdAt,
+  }
+  const maintenance = {
+    id: 'old-maintenance',
+    deviceId: device.id,
+    title: 'Clean',
+    type: 'CLEAN',
+    occurredAt: '2026-02-01',
+    costCents: 120,
+    vendor: null,
+    notes: null,
+    createdAt,
+    updatedAt: createdAt,
+  }
+  const timeline = {
+    id: 'old-timeline',
+    deviceId: device.id,
+    eventType: 'MAINTENANCE',
+    eventDate: '2026-02-01',
+    title: 'Clean',
+    description: null,
+    payload: { changedFields: ['cost'] },
+    createdAt,
+  }
+  const attachment = {
+    id: 'old-attachment',
+    deviceId: device.id,
+    name: 'receipt.png',
+    mimeType: 'image/png',
+    size: 12,
+    createdAt,
+  }
+  return { device, warranty, maintenance, timeline, attachment }
+}
+
+test('restore preview skips current devices and refuses unknown categories without writes', async () => {
+  const data = phase11Fixture({ currentPrivacy: true })
+  data.device_categories[0].code = 'computer'
+  const api = harness(data)
+  const result = await api.call('backup.restore.preview', {
+    devices: [
+      { id: 'device-alpha', categoryCode: 'computer' },
+      { id: 'old-device', categoryCode: 'computer' },
+      { id: 'unknown-category', categoryCode: 'missing' },
+    ],
+  })
+  assert.equal(result.ok, true)
+  assert.deepEqual(
+    result.data.items.map((item) => item.state),
+    ['skip', 'create', 'conflict'],
+  )
+  assert.equal(api.writes.length, 0)
+  assert.equal(
+    (await api.call('backup.restore.device', { device: { id: 'device-alpha' } })).data.state,
+    'skip',
+  )
+  assert.equal(api.writes.length, 0)
+})
+
+test('restore is idempotent and preserves later edits while rebuilding owned records', async () => {
+  const data = phase11Fixture({ currentPrivacy: true })
+  data.device_categories[0].code = 'computer'
+  const api = harness(data)
+  const f = restoreFixture()
+  const input = { device: f.device, categoryCode: 'computer' }
+  assert.equal((await api.call('backup.restore.device', input)).data.state, 'created')
+  const restored = api.tables.devices.find((row) => row.name === 'Synthetic device')
+  assert.ok(restored)
+  assert.notEqual(restored.id, f.device.id)
+  restored.name = 'Later edit'
+  assert.equal((await api.call('backup.restore.device', input)).data.state, 'resume')
+  assert.equal(restored.name, 'Later edit')
+  for (const [action, item] of [
+    ['backup.restore.warranty', f.warranty],
+    ['backup.restore.maintenance', f.maintenance],
+    ['backup.restore.timeline', f.timeline],
+  ]) {
+    const payload = { sourceDeviceId: f.device.id, item }
+    assert.equal((await api.call(action, payload)).data.state, 'created')
+    assert.equal((await api.call(action, payload)).data.state, 'exists')
+  }
+  const file = { sourceDeviceId: f.device.id, item: f.attachment, content: pngContent }
+  assert.equal((await api.call('backup.restore.attachment', file)).data.state, 'created')
+  assert.equal((await api.call('backup.restore.attachment', file)).data.state, 'exists')
+  assert.equal(
+    api.tables.maintenance_records.filter((row) => row.device_id === restored.id).length,
+    1,
+  )
+  assert.equal(api.tables.device_costs.filter((row) => row.device_id === restored.id).length, 1)
+  assert.equal(
+    api.tables.device_attachments.filter((row) => row.device_id === restored.id).length,
+    1,
+  )
+  assert.equal(api.cloudFiles.size, 1)
+  const writesBefore = api.writes.length
+  api.as('beta')
+  assert.equal((await api.call('backup.restore.attachment', file)).errorCode, 'DEVICE_NOT_FOUND')
+  assert.equal(api.writes.length, writesBefore)
+})
+
+test('restore resumes after cost insertion failure and ambiguous attachment upload', async () => {
+  const data = phase11Fixture({ currentPrivacy: true })
+  data.device_categories[0].code = 'computer'
+  const api = harness(data)
+  const f = restoreFixture()
+  await api.call('backup.restore.device', { device: f.device, categoryCode: 'computer' })
+  const maintenance = { sourceDeviceId: f.device.id, item: f.maintenance }
+  api.failOnce('device_costs', 'insert')
+  assert.equal((await api.call('backup.restore.maintenance', maintenance)).ok, false)
+  assert.equal((await api.call('backup.restore.maintenance', maintenance)).ok, true)
+  assert.equal(
+    api.tables.maintenance_records.filter(
+      (row) => row.id !== 'maintenance_records-alpha' && row.id !== 'maintenance_records-beta',
+    ).length,
+    1,
+  )
+  const file = { sourceDeviceId: f.device.id, item: f.attachment, content: pngContent }
+  api.uploadResponseLost(true)
+  assert.equal((await api.call('backup.restore.attachment', file)).ok, false)
+  assert.equal(api.tables.device_attachments[0].status, 'UPLOADING')
+  api.uploadResponseLost(false)
+  assert.equal((await api.call('backup.restore.attachment', file)).ok, true)
+  assert.equal(api.tables.device_attachments.length, 1)
+  assert.equal(api.tables.device_attachments[0].status, 'READY')
+  assert.equal(api.cloudFiles.size, 1)
+})
+
+test('restore reports a changed maintenance cost as a conflict without overwriting it', async () => {
+  const data = phase11Fixture({ currentPrivacy: true })
+  data.device_categories[0].code = 'computer'
+  const api = harness(data)
+  const f = restoreFixture()
+  await api.call('backup.restore.device', { device: f.device, categoryCode: 'computer' })
+  const input = { sourceDeviceId: f.device.id, item: f.maintenance }
+  assert.equal((await api.call('backup.restore.maintenance', input)).data.state, 'created')
+  const cost = api.tables.device_costs.find((row) => row.amount_cents === f.maintenance.costCents)
+  cost.amount_cents = 999
+  assert.equal((await api.call('backup.restore.maintenance', input)).data.state, 'conflict')
+  assert.equal(cost.amount_cents, 999)
 })
 
 test('device disposal validates dates, amount bounds and ownership before writing', async () => {
