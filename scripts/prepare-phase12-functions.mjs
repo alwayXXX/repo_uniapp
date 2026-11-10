@@ -6,6 +6,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const apiFiles = [
   'phase11.js',
   'phase11-domain.js',
+  'backup-restore.js',
   'request-identity.js',
   'package.json',
   'config.json',
@@ -28,8 +29,10 @@ export async function prepareFunctions(parent = join(root, '.e2e')) {
   const output = await mkdtemp(join(parent, 'phase12-functions-'))
   const api = join(output, 'gearflow-api')
   const ai = join(output, 'gearflow-ai')
+  const maintenance = join(output, 'maintenance', 'gearflow-api')
   await mkdir(join(api, 'ai'), { recursive: true })
   await mkdir(ai, { recursive: true })
+  await mkdir(maintenance, { recursive: true })
   const original = await readFile(join(root, 'cloudfunctions/gearflow-api/index.js'), 'utf8')
   for (const reference of ["require('../gearflow-ai/gateway')", "require('../gearflow-ai/ledger')"])
     if (!original.includes(reference))
@@ -45,6 +48,12 @@ export async function prepareFunctions(parent = join(root, '.e2e')) {
   }
   for (const name of ['index.js', 'package.json'])
     await copyFile(join(root, 'cloudfunctions/gearflow-ai', name), join(ai, name))
+  await copyFile(
+    join(root, 'cloudfunctions/gearflow-maintenance/index.js'),
+    join(maintenance, 'index.js'),
+  )
+  for (const name of ['package.json', 'config.json'])
+    await copyFile(join(root, 'cloudfunctions/gearflow-api', name), join(maintenance, name))
   return output
 }
 

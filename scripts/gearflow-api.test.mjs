@@ -135,7 +135,11 @@ function harness(initial = fixture(), initialOwner = 'alpha', options = {}) {
       }
       const matches = (row) =>
         this.filters.every(([field, value, operation]) =>
-          operation === 'gt' ? Number(row[field]) > value : row[field] === value,
+          operation === 'gt'
+            ? Number(row[field]) > value
+            : field === 'openid' && typeof row[field] === 'string' && typeof value === 'string'
+              ? row[field].toLowerCase() === value.toLowerCase()
+              : row[field] === value,
         )
       const selected = tables[this.table]
         .filter(matches)
@@ -378,6 +382,14 @@ test('business calls reject a stale SDK identity when the current context has no
   const api = harness(fixture(), 'alpha')
   const result = await api.call('device.list', {}, { OPENID: 'alpha' }, { environment: '{}' })
   assert.equal(result.errorCode, 'UNAUTHORIZED')
+  assert.equal(api.writes.length, 0)
+})
+
+test('case-insensitive database lookup cannot authenticate a differently cased account', async () => {
+  const api = harness(fixture(), 'ALPHA')
+  assert.equal((await api.call('auth.current')).data.user, null)
+  assert.equal((await api.call('device.list')).errorCode, 'UNAUTHORIZED')
+  assert.equal((await api.call('auth.deleteAccount')).data.status, 'NOT_FOUND')
   assert.equal(api.writes.length, 0)
 })
 

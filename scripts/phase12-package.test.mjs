@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert'
 import { execFileSync } from 'node:child_process'
-import { readFile, readdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { access, readFile, readdir, rm } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import { test } from 'node:test'
 import { prepareFunctions } from './prepare-phase12-functions.mjs'
 
@@ -10,6 +10,7 @@ test('each staged function contains its own dependencies and preserves reminder 
   try {
     const api = join(output, 'gearflow-api')
     const ai = join(output, 'gearflow-ai')
+    const maintenance = join(output, 'maintenance', 'gearflow-api')
     const entry = await readFile(join(api, 'index.js'), 'utf8')
     assert.match(entry, /require\('\.\/ai\/gateway'\)/)
     assert.match(entry, /require\('\.\/ai\/ledger'\)/)
@@ -20,9 +21,19 @@ test('each staged function contains its own dependencies and preserves reminder 
       'subscribeMessage.getTemplateList',
       'subscribeMessage.send',
     ])
-    for (const folder of [api, join(api, 'ai'), ai])
-      for (const file of await readdir(folder))
-        if (file.endsWith('.js')) execFileSync(process.execPath, ['--check', join(folder, file)])
+    assert.equal(
+      await readFile(join(maintenance, 'config.json'), 'utf8'),
+      await readFile(join(api, 'config.json'), 'utf8'),
+    )
+    for (const folder of [api, join(api, 'ai'), ai, maintenance])
+      for (const file of await readdir(folder)) {
+        if (!file.endsWith('.js')) continue
+        const path = join(folder, file)
+        execFileSync(process.execPath, ['--check', path])
+        const source = await readFile(path, 'utf8')
+        for (const match of source.matchAll(/require\(['"](\.[^'"]+)['"]\)/g))
+          await access(resolve(folder, `${match[1]}.js`))
+      }
   } finally {
     await rm(output, { recursive: true, force: true })
   }

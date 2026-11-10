@@ -121,7 +121,8 @@ async function findUser(openid) {
     db.from('users').select('*').eq('openid', openid).limit(1),
     'Failed to read user',
   )
-  return rows[0] || null
+  // MySQL's existing collation is case-insensitive: never accept a differently cased owner.
+  return rows[0] && rows[0].openid === openid ? rows[0] : null
 }
 
 function mapUser(row) {
@@ -1144,7 +1145,8 @@ exports.main = async (event, context) => {
   try {
     if (!['health', 'auth.current', 'auth.deleteAccount', 'auth.bootstrap'].includes(action)) {
       const user = await findUser(openid)
-      if (user?.status === 'DELETING') fail('FORBIDDEN', 'Account deletion in progress')
+      if (!user) fail('UNAUTHORIZED')
+      if (user.status !== 'ACTIVE') fail('FORBIDDEN', 'Account deletion in progress')
     }
     return { ok: true, data: await route(openid, action, payload) }
   } catch (error) {

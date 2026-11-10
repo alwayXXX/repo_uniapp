@@ -15,7 +15,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:release": "node --test scripts/verify-phase10.test.mjs",
-    "test:api": "node --test scripts/gearflow-api.test.mjs scripts/phase11-domain.test.mjs scripts/phase12-grant.test.mjs scripts/phase12-ledger.test.mjs scripts/phase12-advisor.test.mjs scripts/phase12-advisor-request.test.mjs scripts/phase12-annual.test.mjs scripts/phase12-image.test.mjs scripts/phase12-request.test.mjs scripts/phase12-gateway.test.mjs scripts/phase12-function.test.mjs scripts/phase12-package.test.mjs",
+    "test:api": "node --test scripts/gearflow-api.test.mjs scripts/phase11-domain.test.mjs scripts/phase12-grant.test.mjs scripts/phase12-ledger.test.mjs scripts/phase12-advisor.test.mjs scripts/phase12-advisor-request.test.mjs scripts/phase12-annual.test.mjs scripts/phase12-image.test.mjs scripts/phase12-request.test.mjs scripts/phase12-gateway.test.mjs scripts/phase12-function.test.mjs scripts/phase12-package.test.mjs scripts/phase12-maintenance.test.mjs",
     "prepare:phase12-functions": "node scripts/prepare-phase12-functions.mjs",
     "test:database": "node --test scripts/database.test.mjs scripts/phase12-sql.test.mjs"
   },
