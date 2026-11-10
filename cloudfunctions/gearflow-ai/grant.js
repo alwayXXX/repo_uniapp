@@ -90,7 +90,7 @@ function verifyGrant({ key, openid, kind, digest, token, now = Date.now() }) {
     now >= claims.expiresAt
   )
     return null
-  return { owner: claims.owner, kind, nonce: claims.nonce, expiresAt: claims.expiresAt }
+  return { owner: claims.owner, kind, digest, nonce: claims.nonce, expiresAt: claims.expiresAt }
 }
 
 /** A durable, atomic reserve operation must enforce replay and per-user limits. */
