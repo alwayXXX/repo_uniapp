@@ -1,1 +1,0 @@
-ALTER TABLE consent_records ENABLE ROW LEVEL SECURITY;

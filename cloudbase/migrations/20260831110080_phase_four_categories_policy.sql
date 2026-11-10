@@ -1,1 +1,0 @@
-CREATE POLICY categories_select_system ON device_categories FOR SELECT TO authenticated USING (scope = 'SYSTEM' AND is_active = true);

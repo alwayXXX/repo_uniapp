@@ -4,9 +4,9 @@
 
 技术基线：uni-app + Vue 3 + TypeScript strict + Pinia + 腾讯云 CloudBase。
 
-截至 2026-10-27：Phase 0-9 已验收，Phase 10 已按自用体验版范围完成，1.1.0 已上传且用户确认已设为体验版。当前运行链路为 CloudBase MySQL + 微信 OPENID，验证证据见 [体验版交付](docs/EXPERIENCE-DELIVERY.md)。正式上架清单保留供未来使用；迁移详情见 [MySQL 迁移记录](docs/MYSQL-MIGRATION.md)，接手先读 [HANDOFF](docs/HANDOFF.md)。
+当前为自用微信体验版，运行链路为 CloudBase MySQL + 微信 OPENID。Phase 0–11 按自用范围完成，1.2.2 体验版已交付；备份、设备恢复和测试图片恢复已在 iPhone 验证。迁移详情见 [MySQL 迁移记录](docs/MYSQL-MIGRATION.md)，接手先读 [HANDOFF](docs/HANDOFF.md)。
 
-P11 五项功能已实现，1.2.0 已设为体验版，附件上传、查看、删除获本人 iPhone 确认。2026-10-28 本人澄清未收到微信服务通知，订阅实际送达重新列为待验收，撤回此前完成结论。证据与验收边界见 [P11 记录](docs/PHASE11.md)；当前仍仅自用，不提审或公开上架，P12 未开启。
+P11 的附件与一次保修提醒已获本人真机确认；每小时配置上传成功后的自然整点执行尚未单独验证，见 [P11 记录](docs/PHASE11.md)。P12 AI 仍在开发，云端部署和真机验收未完成，见 [P12 记录](docs/PHASE12.md)。
 
 规划文档见 [docs/](docs/)，工程规范见 [AGENTS.md](AGENTS.md)。
 
@@ -27,7 +27,7 @@ pnpm verify:phase10     # 构建结构、开发路由与通用凭据扫描
 pnpm test              # 单元与页面回归
 pnpm test:api          # 当前 MySQL 云函数隔离与注销回归（本地合成数据）
 pnpm test:release      # 发布检查器回归（仅合成凭据）
-pnpm test:database     # 旧 PostgreSQL 迁移历史回归（当前运行栈为 MySQL）
+pnpm test:database     # PGlite 中验证授权记录的外键冻结行为，不连接线上数据库
 pnpm type-check         # TypeScript 严格类型检查
 pnpm lint               # ESLint 检查
 pnpm format             # Prettier 格式化
@@ -75,7 +75,5 @@ src/
 ├── utils/         # 工具（错误转换等）
 └── validators/    # 表单校验
 cloudfunctions/    # gearflow-api 业务入口及进行中的 P12 AI、维护代码
-scripts/           # 发布检查、隔离数据库回归及历史 DevTools 冒烟脚本
+scripts/           # 发布检查、云函数与隔离数据库回归
 ```
-
-# hooks verification

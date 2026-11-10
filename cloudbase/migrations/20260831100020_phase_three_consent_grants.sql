@@ -1,1 +1,0 @@
-GRANT SELECT, INSERT ON consent_records TO authenticated;

@@ -1,1 +1,0 @@
-ALTER TABLE device_timelines ENABLE ROW LEVEL SECURITY;

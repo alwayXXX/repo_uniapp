@@ -1,1 +1,0 @@
-CREATE TABLE device_costs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), device_id uuid NOT NULL, user_id varchar(64) NOT NULL DEFAULT auth.uid(), cost_type varchar(16) NOT NULL, amount_cents integer NOT NULL CHECK (amount_cents >= 0), occurred_at date NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE (device_id, cost_type, occurred_at, amount_cents));

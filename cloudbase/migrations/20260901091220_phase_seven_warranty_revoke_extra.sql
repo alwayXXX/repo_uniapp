@@ -1,1 +1,0 @@
-REVOKE REFERENCES, TRIGGER, TRUNCATE ON warranties FROM authenticated;

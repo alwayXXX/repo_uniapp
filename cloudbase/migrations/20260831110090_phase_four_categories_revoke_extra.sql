@@ -1,1 +1,0 @@
-REVOKE INSERT, UPDATE, DELETE, REFERENCES, TRIGGER, TRUNCATE ON device_categories FROM authenticated;

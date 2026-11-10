@@ -1,1 +1,0 @@
-CREATE INDEX idx_devices_user_category ON devices (user_id, category_id, deleted_at);

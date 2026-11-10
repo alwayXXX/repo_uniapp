@@ -2,6 +2,8 @@
 
 > **2026-10-07 迁移说明**：原 CloudBase PG 环境注销后，Phase 0-10 中的 PostgreSQL、RLS、RPC 和自定义登录实现已由 CloudBase MySQL + `gearflow-api` + 微信 OPENID 取代。下文阶段记录保留历史；当前运行架构见 `docs/MYSQL-MIGRATION.md`。
 
+> 2026-11-11 仓库整理：下文提及的旧 PostgreSQL 迁移和早期机器专用验收脚本已从当前 GitHub 版本移除；它们的历史记录可通过 Git 查看，当前测试命令见 `README.md`。
+
 ## 总原则
 
 1. 每个 Phase 都要有可验证产物。

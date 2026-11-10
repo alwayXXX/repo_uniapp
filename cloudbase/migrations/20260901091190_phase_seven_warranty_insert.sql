@@ -1,1 +1,0 @@
-CREATE POLICY warranty_insert_own ON warranties FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());

@@ -1,1 +1,0 @@
-ALTER TABLE maintenance_records ENABLE ROW LEVEL SECURITY;

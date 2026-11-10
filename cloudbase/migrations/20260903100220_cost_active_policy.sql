@@ -1,1 +1,0 @@
-ALTER POLICY costs_select_own ON device_costs USING (user_id = auth.uid() AND EXISTS (SELECT 1 FROM devices d WHERE d.id = device_costs.device_id AND d.user_id = auth.uid() AND d.deleted_at IS NULL));

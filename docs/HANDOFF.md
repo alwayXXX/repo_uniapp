@@ -13,9 +13,9 @@
 | Phase 0 立项        | ✅     | Phase 0 文档；存储引擎受控修订为 CloudBase PostgreSQL（docs/DATABASE.md）                             |
 | Phase 1 初始化      | ✅     | docs/PHASE1-FINDINGS.md §7-8：真实链路与 RLS 隔离实证                                                 |
 | Phase 2 UI 基础     | ✅     | 用户视觉验收（Token/五态组件/四 Tab）                                                                 |
-| Phase 3 用户体系    | ✅     | scripts/verify-phase3.mjs 7/7 + 数据库核对                                                            |
+| Phase 3 用户体系    | ✅     | 历史自动化验收 7/7 + 数据库核对                                                                       |
 | Phase 4 设备管理    | ✅     | 用户人工全流程验收（创建/编辑/软删除）                                                                |
-| Phase 5 设备详情    | ✅     | scripts/verify-phase5.mjs 14/14 + 用户人工验收                                                        |
+| Phase 5 设备详情    | ✅     | 历史自动化验收 14/14 + 用户人工验收                                                                   |
 | Phase 6 生命周期    | ✅     | 设备触发器、时间线读取、RLS 隔离与用户验收                                                            |
 | Phase 7 维护保修    | ✅     | 维护 CRUD、保修状态、成本联动与用户验收                                                               |
 | Phase 8 数据统计    | ✅     | A 口径、统计/看板 RPC、权限回归与用户验收                                                             |
@@ -38,7 +38,7 @@
 
 - **AGENTS.md 是最高规范**：Phase 边界、TypeScript strict、禁 any、隐私约束、提交格式。
 - **每个 Phase 的固定节奏**：先改文档（如涉及）→ 数据库迁移 → 服务端验证 → 前端 → 单测/冒烟脚本 → 质量门全绿 → 提交推送 → 用户验收 → ROADMAP 标记完成。
-- **质量门**：`pnpm lint` / `pnpm type-check` / `pnpm test` / `pnpm test:api`；上传体验版还要 `pnpm test:release` / `pnpm test:database` / `pnpm build:mp-weixin:release` / `pnpm verify:phase10`。`test:api` 使用模拟 SDK 验证当前 MySQL 云函数；`test:database` 只验证历史 PG 迁移。CI 已接入；Husky 仍为 pre-commit=lint-staged+vue-tsc、pre-push=vitest+普通构建，不能代替完整交付检查。
+- **质量门**：`pnpm lint` / `pnpm type-check` / `pnpm test` / `pnpm test:api`；上传体验版还要 `pnpm test:release` / `pnpm test:database` / `pnpm build:mp-weixin:release` / `pnpm verify:phase10`。`test:api` 使用模拟 SDK 验证当前 MySQL 云函数；`test:database` 用 PGlite 模拟 P12 外键冻结行为，不能代替 MySQL 验收。CI 已接入；Husky 仍为 pre-commit=lint-staged+vue-tsc、pre-push=vitest+普通构建，不能代替完整交付检查。
 - **发布边界**：P11 首次上传发现旧构建插件把 cloudfunctions/ 复制进客户端，微信上传解析器拒绝服务端语法。发布构建改为客户端专用，禁止包含 cloudfunctions/ 或 cloudfunctionRoot；开发构建保留云函数同步。部署使用仓库源目录的独立 CLI，不能通过修改服务端语法绕过客户端打包错误。
 - **新 Phase 必须明确授权**；模型或业务契约变化仍先改文档，再编码。用户已授权 P11 全清单、新增两张表和处置备注列及云函数部署；不重置密钥、不清理真实账号。
 
@@ -47,7 +47,7 @@
 - 当前 schema：`database/mysql/schema.sql`；分类种子：`database/mysql/seed.sql`。
 - 业务表：`users`、`device_categories`、`devices`、`warranties`、`maintenance_records`、`device_costs`、`device_timelines`、`consent_records`、`device_attachments`、`device_reminders`。P11 增量迁移 `database/mysql/phase11.sql` 已应用，切勿再次执行其 ADD COLUMN。
 - 客户端不直接访问数据库。`gearflow-api` 从 `cloud.getWXContext().OPENID` 取得可信身份，所有读写都按 `openid` 过滤。
-- `cloudbase/migrations/` 是已退役的 PostgreSQL 迁移历史，不再对当前环境执行；`pnpm test:database` 只验证历史迁移回归。
+- `cloudbase/migrations/` 是已退役的 PostgreSQL 迁移，已从 GitHub 当前版本移除；历史可通过 Git 查看，不可对当前 MySQL 环境执行。
 - MySQL 管理命令：`npx --package @cloudbase/cli tcb db execute -e myrepo-d7go4fyg918beac63 --sql "..." --read-only --json`。
 - 写入前先在本地 schema 文件更新，再逐条执行 SQL；不要依赖多语句一次提交。
 
@@ -68,7 +68,7 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 - 当前工具中「上传触发器」位于 gearflow-api/config.json 的右键菜单，不能假定函数文件夹有该菜单。临时维护项目位于 .e2e/reminder-admin，和发布包分离。原生触发器已实际扫描并送达；普通 SCF ListTriggers 返回空，不能据此否认微信原生定时器运行。单次试发后本人确认每小时配置上传成功，下一自然整点运行尚未单独观察。
 - 同一设备、日期、模板及保修结束日相同的 PENDING 提醒重试会返回原计划，不重复写入或取消；SENDING/SENT/UNKNOWN 不重新激活。手机曾报通用错误但计划已建立，修复后真实重试验证同一 ID、仅一条 PENDING，用户刷新后确认可见。不要为测试清理这条本人已授权的真实计划。
 - **编译缓存陈旧**是高频坑：构建后页面行为像旧代码（报奇怪错误如 `ensureSession is not a function`）。修法：往 dist 对应文件追加一行注释触发热重载（`printf '\n// cache-bust %s\n' "$(date +%s)" >> dist/build/mp-weixin/<file>`），或 quit 后重启 cli auto。
-- 现成参考脚本：`scripts/verify-phase3.mjs`、`verify-phase4.mjs`、`verify-phase5.mjs`（数据库预插数据在 bash 侧用 mcporter 做，不要在脚本里 execSync 拼 SQL——Windows cmd 引号会碎）。
+- 早期机器专用验收脚本已从 GitHub 当前版本移除；历史验收结果保留在阶段记录中。
 
 ## 6. 前端架构事实
 
@@ -109,4 +109,4 @@ UX 类条目（含 UX-1 表单校验框架升级）按 BACKLOG 建议时点执�
 
 - 当前接手边界是维护 CloudBase MySQL 架构和体验版；不要重新引入旧 AppSecret 登录，也不要对当前环境执行 PG 迁移。
 - Phase 10 当前仅交付自用体验版，证据见 `docs/EXPERIENCE-DELIVERY.md`；正式公开发布前再核对 `docs/LAUNCH.md`，本地验证不能替代真实平台验收。
-- `cloudbase/migrations/` 与外层历史文档保留供审计，不代表当前线上 schema。
+- 已退役 PostgreSQL 迁移保留在 Git 历史中，历史文档不代表当前线上 schema。

@@ -1,1 +1,0 @@
-CREATE POLICY maint_update_own ON maintenance_records FOR UPDATE TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());

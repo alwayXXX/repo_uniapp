@@ -1,1 +1,0 @@
-CREATE INDEX idx_devices_user_purchase ON devices (user_id, purchase_date);

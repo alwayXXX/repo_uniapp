@@ -27,7 +27,7 @@ uni-app 微信小程序
 - AppSecret / 自定义登录私钥
 - PostgreSQL `app.rdb()`、RLS、PL/pgSQL RPC 与 `cloudbase/migrations/`
 
-这些内容仍保留在仓库中作为 Phase 0-10 历史记录，但不是当前运行路径。
+旧 PostgreSQL 迁移已从仓库当前版本移除，可在 Git 历史中追溯；历史设计文档不代表当前运行路径。
 
 ## 数据库结构
 

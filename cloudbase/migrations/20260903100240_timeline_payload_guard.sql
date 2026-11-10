@@ -1,1 +1,0 @@
-ALTER TABLE device_timelines ADD CONSTRAINT timeline_payload_sensitive_keys_check CHECK (payload IS NULL OR NOT (payload ?| ARRAY['costCents','serialNumber','purchasePriceCents','disposalPriceCents','notes','photoUrl','invoiceUrl']));

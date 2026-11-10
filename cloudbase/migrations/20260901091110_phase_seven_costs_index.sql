@@ -1,1 +1,0 @@
-CREATE INDEX idx_costs_user_type_date ON device_costs (user_id, cost_type, occurred_at);

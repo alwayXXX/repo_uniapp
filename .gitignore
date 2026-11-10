@@ -1,38 +1,44 @@
-# dependencies
+# Dependencies and generated output
 node_modules/
-
-# build output
 dist/
 unpackage/
+coverage/
+.vite/
+.turbo/
+*.tsbuildinfo
 
-# 环境变量：仓库只提交 .env.example（AGENTS.md 环境变量规范）
-.env
-.env.local
-.env.*.local
-
-# misc
-.DS_Store
-*.log
-
-# husky 自动生成的包装脚本
-.husky/_/
-
-# 编辑器
+# Local credentials and developer-specific settings
+.env*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+gearflow_backup_*.json
+gearflow_data_*.json
+gearflow_*.csv
 .idea/
 .vscode/
-
-# CloudBase MCP 本地缓存（迁移镜像等，工具自动管理）
 config/cloudbase/
-
-# 微信开发者工具误导入根目录时生成的配置（正确项目目录是 dist/build/mp-weixin）
+/config/mcporter.json
 /project.config.json
 /project.private.config.json
 
-# 自动化验收产物
+# Logs, OS files, and local test artifacts
+.DS_Store
+Thumbs.db
+*.log
+*.log.*
 .e2e/
-
-# 本机专用清理脚本（含机器特定路径，不入库）
+.husky/_/
 scripts/clean-local.mjs
-
-# 个人垃圾清理清单（含本机路径，不入库）
 CLEANUP.md
+
+# Retired PostgreSQL migrations and machine-specific historical scripts.
+# Current CloudBase MySQL schema and P12 drafts remain in database/mysql/.
+/cloudbase/migrations/
+/scripts/database.test.mjs
+/scripts/check-login-channel.mjs
+/scripts/verify-phase[3-9].mjs
+/GearFlow 项目立项指令.md

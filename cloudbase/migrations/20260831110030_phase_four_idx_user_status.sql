@@ -1,1 +1,0 @@
-CREATE INDEX idx_devices_user_status ON devices (user_id, deleted_at, status);

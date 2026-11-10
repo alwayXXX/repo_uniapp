@@ -1,1 +1,0 @@
-CREATE TABLE consent_records (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id varchar(64) NOT NULL DEFAULT auth.uid(), policy_type varchar(16) NOT NULL, policy_version varchar(16) NOT NULL, consented_at timestamptz NOT NULL DEFAULT now(), UNIQUE (user_id, policy_type, policy_version));

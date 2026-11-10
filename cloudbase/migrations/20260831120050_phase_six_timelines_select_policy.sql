@@ -1,1 +1,0 @@
-CREATE POLICY device_timelines_select_own_active ON device_timelines FOR SELECT TO authenticated USING (user_id = auth.uid() AND EXISTS (SELECT 1 FROM devices d WHERE d.id = device_timelines.device_id AND d.user_id = auth.uid() AND d.deleted_at IS NULL));

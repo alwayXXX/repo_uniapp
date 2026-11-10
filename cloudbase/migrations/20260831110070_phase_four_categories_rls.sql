@@ -1,1 +1,0 @@
-ALTER TABLE device_categories ENABLE ROW LEVEL SECURITY;
