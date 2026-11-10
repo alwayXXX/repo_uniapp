@@ -1,6 +1,8 @@
 # OPS-7 登录凭据自包含化方案（自定义登录）
 
-> 状态：登录链路已于 2026-09-06 落地并有真机验收记录；2026-09-23 同步实际 HTTP 路由和密钥依赖。此处不是小程序正式发布证明。历史实施记录为 9280489..fbcf0b0；当前行为以源码及本文更新为准。
+> 历史记录：本方案及 `wx-login` 已于 MySQL 迁移后退役，旧源码已从工作树清理；当前登录使用微信可信身份和 `gearflow-api`，详见 `docs/MYSQL-MIGRATION.md`。以下内容仅供追溯，不能作为当前配置或部署指引。
+
+> 状态：登录链路曾于 2026-09-06 落地并有真机验收记录；2026-09-23 同步当时的 HTTP 路由和密钥依赖。历史实施记录为 9280489..fbcf0b0，2026-10-07 迁移后已退役。此处不是当前部署或正式发布证明。
 
 ## 1. 背景与问题
 
@@ -28,7 +30,7 @@
   → loginState.user.uid = users.identity_id                    # 既有 bootstrap/RPC/RLS 全部不变
 ```
 
-- 云函数：`cloudfunctions/wx-login/`（Nodejs18.15，仅 `@cloudbase/node-sdk` 一个依赖，Node 18 原生 fetch）。
+- 当时的云函数：`cloudfunctions/wx-login/`（源码已从当前工作树清理，可在 Git 历史中查阅）。
 - 日志红线：函数日志不输出 code/openid/errcode/errmsg，仅记成功布尔与静态文案。
 - 失败语义：统一返回 `{ ok:false, errorCode }`，前端映射为既有 `UNAUTHORIZED`。
 

@@ -75,15 +75,6 @@ export async function getDevice(id: string): Promise<DeviceDoc | null> {
   return parseDeviceOrNull(data.item)
 }
 
-export async function createDevice(values: DeviceFormValues): Promise<string> {
-  const result = await saveDeviceWithWarranty(null, values, { mode: 'CLEAR' })
-  return result.id
-}
-
-export async function updateDevice(id: string, values: DeviceFormValues): Promise<void> {
-  await saveDeviceWithWarranty(id, values, { mode: 'KEEP' })
-}
-
 export async function softDeleteDevice(id: string): Promise<string> {
   await ensureSession()
   const data = await callGearFlowApi<{ deletedAt: string }>('device.softDelete', { id })

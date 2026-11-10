@@ -74,7 +74,7 @@ src/
 ├── types/         # API 与业务类型（API 契约类型在 types/api/）
 ├── utils/         # 工具（错误转换等）
 └── validators/    # 表单校验
-cloudfunctions/    # gearflow-api MySQL 业务入口；wx-login 为历史文件
+cloudfunctions/    # gearflow-api 业务入口及进行中的 P12 AI、维护代码
 scripts/           # 发布检查、隔离数据库回归及历史 DevTools 冒烟脚本
 ```
 

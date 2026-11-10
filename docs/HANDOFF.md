@@ -74,7 +74,7 @@ automator.connect({ wsEndpoint: 'ws://127.0.0.1:9420' })
 
 - 技术栈：uni-app + Vue 3 + TS strict + Pinia；客户端数据层只保留 `wx.cloud.callFunction`。
 - 状态层：`ensureSession()` 现在只检查协议确认和 `wx.cloud` 初始化，不再维护 2 小时 token。
-- 主题 Token：`src/styles/variables.scss`（scss）+ `src/styles/tokens.ts`（TS）双轨，改色必须两处同步；uni.scss 用 `@import "@/styles/..."` 别名（相对路径会被注入到各组件目录解析而报错）。
+- 主题 Token：`src/styles/variables.scss` 是样式唯一来源；未使用的 TS 重复常量已清理。uni.scss 用 `@import "@/styles/..."` 别名（相对路径会被注入到各组件目录解析而报错）。
 - vitest 已配（`pnpm test`）；小程序端与 Node 端共用 `@/` 别名。
 - 详情页数据加载用 `onShow`（返回栈恢复也要刷新），这是 Phase 5 用户抓过的 bug，新页面照此模式。
 - 协议版本由 `services/consent.ts` 管理；只有引导页显式确认调用 `acceptPolicies()`。普通 `bootstrap()` 只恢复用户，旧 `gf_onboarded` 不代表同意新版。

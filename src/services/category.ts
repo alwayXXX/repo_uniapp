@@ -6,10 +6,6 @@ import { ensureSession } from './auth'
 /** 系统分类服务：只读数据，进程内缓存（分类极少变化） */
 let cache: DeviceCategory[] | null = null
 
-export function getCachedCategories(): DeviceCategory[] {
-  return cache ?? []
-}
-
 export function getCategoryName(categoryId: string): string {
   return cache?.find((c) => c.id === categoryId)?.name ?? ''
 }

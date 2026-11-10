@@ -86,13 +86,6 @@ export async function getMaintenance(deviceId: string, id: string): Promise<Main
   return parseMaintenanceOrNull(data.item)
 }
 
-/** 首页「最近维护」：本人全部维护记录按日期倒序取前 N 条。 */
-export async function listRecent(limit = 5): Promise<MaintenanceDoc[]> {
-  await ensureSession()
-  const data = await callGearFlowApi<{ items: unknown[] }>('maintenance.recent', { limit })
-  return data.items.map(expectMaintenance)
-}
-
 function maintenancePayload(values: MaintenanceFormValues): Record<string, unknown> {
   return {
     title: values.title,

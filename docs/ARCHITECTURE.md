@@ -112,10 +112,11 @@ P0 只需要：
 ```text
 cloudfunctions/
 ├── gearflow-api/
-└── wx-login/               # 历史自定义登录函数，不再部署
+├── gearflow-ai/             # P12 AI 云函数草案，尚未部署
+└── gearflow-maintenance/    # P12 维护入口草案，尚未部署
 ```
 
-当前云函数 `gearflow-api` 是唯一业务数据入口；客户端不再持有数据库查询链或自定义登录票据。附件和异步业务仍是未来独立授权范围。
+当前云函数 `gearflow-api` 是唯一已部署的业务数据入口；客户端不再持有数据库查询链或自定义登录票据。附件和订阅提醒已按 P11 自用范围交付，P12 状态见 `docs/PHASE12.md`。
 
 ### 调用分层
 
