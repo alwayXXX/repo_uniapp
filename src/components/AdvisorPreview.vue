@@ -1,5 +1,5 @@
 <template>
-  <view class="preview">
+  <view class="ai-preview">
     <text class="heading">确认发送内容</text>
     <text class="hint"
       >以下摘要将发送给腾讯云 CloudBase 及第三方 DeepSeek
@@ -54,42 +54,5 @@ const emit = defineEmits<{ confirm: [] }>()
 </script>
 
 <style scoped lang="scss">
-@import '@/styles/phase11.scss';
-.heading {
-  display: block;
-  font-size: $gf-font-lg;
-  font-weight: 600;
-  margin-bottom: $gf-space-sm;
-}
-.preview {
-  padding: $gf-space-md;
-  background: $gf-bg-card;
-  border-radius: $gf-radius-lg;
-}
-.hint {
-  display: block;
-  color: $gf-text-2;
-  font-size: $gf-font-sm;
-  line-height: 1.6;
-  margin: $gf-space-sm 0;
-}
-.row {
-  display: flex;
-  justify-content: space-between;
-  gap: $gf-space-sm;
-  padding: $gf-space-sm 0;
-  border-bottom: 1rpx solid $gf-line;
-}
-.row text {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.primary {
-  background: $gf-color-primary;
-  color: #fff;
-  margin-top: $gf-space-md;
-}
-.primary[disabled] {
-  opacity: 0.5;
-}
+@import '@/styles/ai-preview.scss';
 </style>

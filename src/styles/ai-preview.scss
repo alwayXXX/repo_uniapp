@@ -1,0 +1,38 @@
+.ai-preview {
+  padding: $gf-space-md;
+  background: $gf-bg-card;
+  border-radius: $gf-radius-lg;
+
+  .heading {
+    display: block;
+    font-size: $gf-font-lg;
+    font-weight: 600;
+    margin-bottom: $gf-space-sm;
+  }
+  .hint {
+    display: block;
+    color: $gf-text-2;
+    font-size: $gf-font-sm;
+    line-height: 1.6;
+    margin: $gf-space-sm 0;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: $gf-space-sm;
+    padding: $gf-space-sm 0;
+    border-bottom: 1rpx solid $gf-line;
+  }
+  .row text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .primary {
+    background: $gf-color-primary;
+    color: #fff;
+    margin-top: $gf-space-md;
+  }
+  .primary[disabled] {
+    opacity: 0.5;
+  }
+}
