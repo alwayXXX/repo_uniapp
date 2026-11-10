@@ -17,7 +17,13 @@ module.exports = function createLedger({ db, selectRows, insertRow, deleteRows }
 
   async function findQuota(id, openid) {
     const rows = await selectRows(
-      db.from('ai_daily_quota').select('*').eq('id', id).eq('openid', openid).limit(1),
+      db
+        .from('ai_daily_quota')
+        .select('*')
+        .eq('id', id)
+        .eq('openid', openid)
+        .eq('account_status', 'ACTIVE')
+        .limit(1),
     )
     return rows[0] || null
   }
@@ -30,7 +36,13 @@ module.exports = function createLedger({ db, selectRows, insertRow, deleteRows }
     let row = await findQuota(id, openid)
     if (!row) {
       try {
-        await insertRow('ai_daily_quota', { id, openid, quota_day: day, used_count: 0 })
+        await insertRow('ai_daily_quota', {
+          id,
+          openid,
+          account_status: 'ACTIVE',
+          quota_day: day,
+          used_count: 0,
+        })
       } catch (error) {
         row = await findQuota(id, openid)
         if (!row) throw error
@@ -48,6 +60,7 @@ module.exports = function createLedger({ db, selectRows, insertRow, deleteRows }
           .update({ used_count: count + 1 })
           .eq('id', id)
           .eq('openid', openid)
+          .eq('account_status', 'ACTIVE')
           .eq('used_count', count)
           .select('id'),
       )
@@ -72,6 +85,7 @@ module.exports = function createLedger({ db, selectRows, insertRow, deleteRows }
     await insertRow('ai_grants', {
       id: claims.nonce,
       openid,
+      account_status: 'ACTIVE',
       kind: claims.kind,
       input_digest: claims.digest,
       expires_at_ms: claims.expiresAt,
@@ -88,6 +102,7 @@ module.exports = function createLedger({ db, selectRows, insertRow, deleteRows }
         .eq('id', claims.nonce)
         .eq('kind', claims.kind)
         .eq('input_digest', claims.digest)
+        .eq('account_status', 'ACTIVE')
         .eq('status', 'ISSUED')
         .gt('expires_at_ms', now)
         .select('id'),
