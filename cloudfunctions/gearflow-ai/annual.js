@@ -68,7 +68,15 @@ function validateAnnualFacts(input) {
 }
 
 function parseAnnualResult(text) {
-  return parseTextLists(text, ['observations', 'suggestions'])
+  const result = parseTextLists(text, ['observations', 'suggestions'])
+  // Report figures come from deterministic aggregation; never display model-generated figures.
+  if (
+    [...result.observations, ...result.suggestions].some((item) =>
+      /[0-9０-９]|[零〇一二两三四五六七八九十百千万亿]+(?:台|个|元|次|笔|月|年|%|％)/.test(item),
+    )
+  )
+    throw new Error('INVALID_AI_RESULT')
+  return result
 }
 
 async function generateAnnual(facts, invoke) {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
@@ -18,6 +18,8 @@ const privateTables = [
   'device_costs',
   'device_timelines',
   'consent_records',
+  'ai_daily_quota',
+  'ai_grants',
 ]
 
 function fixture() {
@@ -55,7 +57,7 @@ function fixture() {
 
 // Exercise the deployed entry point against an in-memory query adapter. Neither
 // SDK is loaded, so these tests cannot connect to or delete real CloudBase data.
-function harness(initial = fixture(), initialOwner = 'alpha') {
+function harness(initial = fixture(), initialOwner = 'alpha', options = {}) {
   const tables = structuredClone(initial)
   const writes = []
   const failures = []
@@ -63,6 +65,7 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
   let trustedSource = 'wx_devtools'
   const cloudFiles = new Map()
   const sentMessages = []
+  const aiCalls = []
   let storageFailure = false
   let ambiguousUpload = false
   let templateAvailable = true
@@ -70,6 +73,7 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
   let sendOutcome = { errCode: 0 }
   let sendFailure = null
   let templateFailure = null
+  let skipUserFreeze = false
 
   class Query {
     constructor(table) {
@@ -92,6 +96,10 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
     }
     eq(field, value) {
       this.filters.push([field, value])
+      return this
+    }
+    gt(field, value) {
+      this.filters.push([field, value, 'gt'])
       return this
     }
     limit(maximum) {
@@ -125,11 +133,21 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
         failures.splice(failureIndex, 1)
         return { error: { code: 'SIMULATED_FAILURE' } }
       }
-      const matches = (row) => this.filters.every(([field, value]) => row[field] === value)
+      const matches = (row) =>
+        this.filters.every(([field, value, operation]) =>
+          operation === 'gt' ? Number(row[field]) > value : row[field] === value,
+        )
       const selected = tables[this.table]
         .filter(matches)
         .slice(this.offset || 0, (this.offset || 0) + this.maximum)
       if (this.operation === 'select') return { data: structuredClone(selected) }
+      if (
+        skipUserFreeze &&
+        this.table === 'users' &&
+        this.operation === 'update' &&
+        this.row.status === 'DELETING'
+      )
+        return { data: [] }
       writes.push({ table: this.table, operation: this.operation })
       if (this.operation === 'insert') tables[this.table].push(this.row)
       if (this.operation === 'update') selected.forEach((row) => Object.assign(row, this.row))
@@ -147,6 +165,12 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
         return createRequire(import.meta.url)('../cloudfunctions/gearflow-api/phase11.js')
       if (name === './phase11-domain')
         return createRequire(import.meta.url)('../cloudfunctions/gearflow-api/phase11-domain.js')
+      if (name === './request-identity')
+        return createRequire(import.meta.url)('../cloudfunctions/gearflow-api/request-identity.js')
+      if (name === '../gearflow-ai/gateway')
+        return createRequire(import.meta.url)('../cloudfunctions/gearflow-ai/gateway.js')
+      if (name === '../gearflow-ai/ledger')
+        return createRequire(import.meta.url)('../cloudfunctions/gearflow-ai/ledger.js')
       if (name === 'node:crypto') return { randomUUID }
       if (name === '@cloudbase/node-sdk')
         return {
@@ -180,6 +204,15 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
         return {
           init() {},
           getWXContext: () => ({ OPENID: owner, SOURCE: trustedSource }),
+          async callFunction(input) {
+            aiCalls.push(input)
+            return {
+              result: {
+                ok: true,
+                data: { suggestions: ['检查保修'], missing: [], token: 'must-not-return' },
+              },
+            }
+          },
           openapi: {
             subscribeMessage: {
               async getTemplateList() {
@@ -210,7 +243,9 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
       throw new Error(`Unexpected dependency: ${name}`)
     },
     console: { error() {} },
-    process: { env: { GEARFLOW_TIMER_TOKEN: 'a'.repeat(64) } },
+    process: {
+      env: { GEARFLOW_TIMER_TOKEN: 'a'.repeat(64), GEARFLOW_AI_KEY: options.aiKey || '' },
+    },
     Date: class extends Date {
       constructor(...args) {
         if (args.length) super(...args)
@@ -229,6 +264,10 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
       ambiguousUpload = value
     },
     sentMessages,
+    aiCalls,
+    skipUserFreeze(value) {
+      skipUserFreeze = value
+    },
     sendResult(value) {
       sendOutcome = value
     },
@@ -256,8 +295,19 @@ function harness(initial = fixture(), initialOwner = 'alpha') {
     failOnce(table, operation) {
       failures.push({ table, operation })
     },
-    async call(action, payload = {}, event = {}) {
-      return structuredClone(await module.exports.main({ ...event, action, payload }))
+    async call(
+      action,
+      payload = {},
+      event = {},
+      context = {
+        environment: JSON.stringify({
+          TCB_SOURCE: trustedSource,
+          WX_OPENID: owner,
+          WX_APPID: 'wx8f26567f4d54b3f7',
+        }),
+      },
+    ) {
+      return structuredClone(await module.exports.main({ ...event, action, payload }, context))
     },
   }
 }
@@ -280,6 +330,54 @@ test('rejects missing trusted identity even when event or payload forges an owne
     )
     assert.deepEqual(result, { ok: false, errorCode: 'UNAUTHORIZED' })
   }
+  assert.equal(api.writes.length, 0)
+})
+
+test('AI identity is read only from the current invocation context', () => {
+  const { requestIdentity } = createRequire(import.meta.url)(
+    '../cloudfunctions/gearflow-api/request-identity.js',
+  )
+  const entry = 'TCB_SOURCE=wx_client;WX_APPID=wx8f26567f4d54b3f7;WX_OPENID=synthetic-user'
+  assert.equal(requestIdentity({ environ: entry }), 'synthetic-user')
+  assert.equal(
+    requestIdentity({
+      environment: JSON.stringify({
+        TCB_SOURCE: 'wx_client',
+        WX_APPID: 'wx8f26567f4d54b3f7',
+        WX_OPENID: 'synthetic-user',
+      }),
+    }),
+    'synthetic-user',
+  )
+  assert.equal(requestIdentity({ environ: `${entry};WX_OPENID=other` }), null)
+  assert.equal(requestIdentity({ environment: '{invalid' }), null)
+  assert.equal(
+    requestIdentity({
+      environment: JSON.stringify({
+        TCB_SOURCE: 'wx_client',
+        WX_APPID: 'wrong-app',
+        WX_OPENID: 'synthetic-user',
+      }),
+    }),
+    null,
+  )
+  assert.equal(
+    requestIdentity({
+      environment: JSON.stringify({
+        TCB_SOURCE: 'wx_trigger',
+        WX_APPID: 'wx8f26567f4d54b3f7',
+        WX_OPENID: 'synthetic-user',
+      }),
+    }),
+    null,
+  )
+  assert.equal(requestIdentity({}), null)
+})
+
+test('business calls reject a stale SDK identity when the current context has no caller', async () => {
+  const api = harness(fixture(), 'alpha')
+  const result = await api.call('device.list', {}, { OPENID: 'alpha' }, { environment: '{}' })
+  assert.equal(result.errorCode, 'UNAUTHORIZED')
   assert.equal(api.writes.length, 0)
 })
 
@@ -433,7 +531,13 @@ test('a database deletion failure is reported and can be retried without losing 
   assert.equal(failed.ok, false)
   assert.equal(failed.errorCode, 'INTERNAL_ERROR')
   assert.equal(api.tables.users[0].openid, 'alpha')
-  assert.equal(api.tables.users[0].status, 'ACTIVE')
+  assert.equal(api.tables.users[0].status, 'DELETING')
+  assert.equal((await api.call('device.list', {})).errorCode, 'FORBIDDEN')
+  assert.equal(
+    (await api.call('auth.bootstrap', { privacyVersion: '1.3.0', termsVersion: '1.1.0' }))
+      .errorCode,
+    'FORBIDDEN',
+  )
   assert.equal((await api.call('auth.deleteAccount')).data.status, 'DELETED')
   for (const table of privateTables)
     assert.ok(
@@ -493,6 +597,15 @@ test('P11 requires the current explicit privacy consent', async () => {
   assert.equal(api.writes.length, 0)
 })
 
+test('failed account freeze does not delete data', async () => {
+  const api = harness()
+  api.skipUserFreeze(true)
+  const before = structuredClone(api.tables)
+  assert.equal((await api.call('auth.deleteAccount')).errorCode, 'FORBIDDEN')
+  assert.deepEqual(api.tables, before)
+  assert.equal(api.writes.length, 0)
+})
+
 test('backup needs new consent while existing P11 works for old and new policy versions', async () => {
   const old = harness(phase11Fixture())
   assert.equal((await old.call('export.json')).ok, true)
@@ -504,6 +617,115 @@ test('backup needs new consent while existing P11 works for old and new policy v
   const current = harness(data)
   assert.equal((await current.call('export.json')).ok, true)
   assert.equal((await current.call('backup.snapshot')).ok, true)
+})
+
+test('new privacy consent keeps P11 and backup available for a new user', async () => {
+  const data = phase11Fixture()
+  data.consent_records = data.consent_records.filter((row) => row.policy_version !== '1.1.0')
+  data.consent_records.push({
+    id: 'privacy-new-alpha',
+    openid: 'alpha',
+    policy_type: 'PRIVACY',
+    policy_version: '1.3.0',
+  })
+  const api = harness(data)
+  assert.equal((await api.call('export.json')).ok, true)
+  assert.equal((await api.call('backup.snapshot')).ok, true)
+})
+
+test('AI gateway requires explicit consent and never exposes its token or trusted identity', async () => {
+  const data = phase11Fixture({ currentPrivacy: true })
+  const api = harness(data, 'alpha', { aiKey: 'ab'.repeat(32) })
+  const facts = {
+    asOf: '2026-10-27',
+    category: '电脑',
+    brand: 'Example',
+    model: null,
+    status: 'IN_USE',
+    purchaseDate: null,
+    warrantyEndDate: null,
+    maintenanceCount: 0,
+    knownMaintenanceCents: 0,
+    maintenanceCostUnknownCount: 0,
+  }
+  assert.equal(
+    (await api.call('ai.request', { kind: 'advisor', data: facts, confirmed: true })).ok,
+    false,
+  )
+  assert.equal(api.aiCalls.length, 0)
+  api.tables.consent_records.push({
+    id: 'privacy-new-alpha',
+    openid: 'alpha',
+    policy_type: 'PRIVACY',
+    policy_version: '1.3.0',
+  })
+  assert.equal(
+    (
+      await api.call(
+        'ai.request',
+        { kind: 'advisor', data: facts, confirmed: true },
+        {},
+        { environment: '{}' },
+      )
+    ).errorCode,
+    'UNAUTHORIZED',
+  )
+  assert.equal(
+    (
+      await api.call(
+        'ai.request',
+        { kind: 'advisor', data: facts, confirmed: true, OPENID: 'alpha' },
+        {},
+        {
+          environment: JSON.stringify({
+            TCB_SOURCE: 'wx_trigger',
+            WX_APPID: 'wx8f26567f4d54b3f7',
+            WX_OPENID: 'alpha',
+          }),
+        },
+      )
+    ).errorCode,
+    'UNAUTHORIZED',
+  )
+  assert.equal(api.aiCalls.length, 0)
+  assert.equal(
+    (await api.call('ai.request', { kind: 'advisor', data: facts, confirmed: false })).ok,
+    false,
+  )
+  const result = await api.call('ai.request', {
+    kind: 'advisor',
+    data: facts,
+    confirmed: true,
+    openid: 'beta',
+  })
+  assert.equal(result.ok, true)
+  assert.deepEqual(result.data, { suggestions: ['检查保修'], missing: [] })
+  assert.equal(JSON.stringify(result).includes('token'), false)
+  assert.equal(JSON.stringify(api.aiCalls[0].data).includes('alpha'), false)
+  assert.equal(api.tables.ai_grants.filter((row) => row.kind === 'advisor')[0].openid, 'alpha')
+  assert.equal(
+    api.tables.ai_grants.some((row) => row.openid === 'beta' && row.kind === 'advisor'),
+    false,
+  )
+  const { canonicalJson } = createRequire(import.meta.url)(
+    '../cloudfunctions/gearflow-ai/canonical.js',
+  )
+  const digest = createHash('sha256').update(canonicalJson(facts)).digest('hex')
+  const token = api.aiCalls[0].data.token
+  api.as('')
+  assert.equal(
+    (await api.call('ai.consume', { kind: 'advisor', digest: '0'.repeat(64), token })).data
+      .consumed,
+    false,
+  )
+  assert.equal(
+    (await api.call('ai.consume', { kind: 'advisor', digest, token })).data.consumed,
+    true,
+  )
+  assert.equal(
+    (await api.call('ai.consume', { kind: 'advisor', digest, token })).data.consumed,
+    false,
+  )
 })
 
 test('annual report aggregates year and month boundaries and isolates another owner', async () => {

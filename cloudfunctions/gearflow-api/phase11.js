@@ -50,7 +50,7 @@ module.exports = function createPhase11(deps) {
     }
   }
 
-  async function activeOwner(owner, requiredVersions = ['1.2.0', '1.1.0']) {
+  async function activeOwner(owner, requiredVersions = ['1.3.0', '1.2.0', '1.1.0']) {
     const user = await findUser(owner)
     if (!user || user.status !== 'ACTIVE') fail('UNAUTHORIZED')
     for (const version of requiredVersions) {
@@ -541,7 +541,7 @@ module.exports = function createPhase11(deps) {
   }
 
   async function route(owner, action, payload) {
-    await activeOwner(owner, action.startsWith('backup.') ? ['1.2.0'] : undefined)
+    await activeOwner(owner, action.startsWith('backup.') ? ['1.3.0', '1.2.0'] : undefined)
     switch (action) {
       case 'device.dispose':
         return dispose(owner, payload)

@@ -9,6 +9,9 @@ const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV })
 const db = app.rdb()
 const createPhase11 = require('./phase11')
 const { isTimerInvocation } = require('./phase11-domain')
+const { createGateway } = require('../gearflow-ai/gateway')
+const createAiLedger = require('../gearflow-ai/ledger')
+const { requestContext, requestIdentity } = require('./request-identity')
 
 const DEVICE_STATUSES = ['IN_USE', 'IDLE', 'SOLD', 'DISCARDED']
 const MAINTENANCE_TYPES = ['REPAIR', 'UPGRADE', 'CLEAN', 'REPLACE', 'INSPECT', 'OTHER']
@@ -231,6 +234,8 @@ async function bootstrapUser(openid, payload) {
   let row = await findUser(openid)
   let isNewUser = false
 
+  if (row && row.status !== 'ACTIVE') fail('FORBIDDEN', 'Account deletion in progress')
+
   if (!row) {
     isNewUser = true
     row = {
@@ -313,8 +318,26 @@ async function updateProfile(openid, payload) {
 }
 
 async function deleteAccount(openid) {
-  const user = await findUser(openid)
+  let user = await findUser(openid)
   if (!user) return { status: 'NOT_FOUND', deletedAt: null }
+
+  if (user.status === 'ACTIVE') {
+    const changed = await selectRows(
+      db
+        .from('users')
+        .update({ status: 'DELETING', updated_at: nowValue() })
+        .eq('id', user.id)
+        .eq('openid', openid)
+        .eq('status', 'ACTIVE')
+        .select('id'),
+      'Failed to begin account deletion',
+    )
+    if (changed.length) user = { ...user, status: 'DELETING' }
+    else user = await findUser(openid)
+  }
+  if (!user || user.status !== 'DELETING') fail('FORBIDDEN')
+
+  await aiLedger.clearOwner(openid)
 
   await phase11.cancelReminders(openid)
   await phase11.cleanupAttachments(openid)
@@ -960,6 +983,23 @@ async function route(openid, action, payload) {
       return updateProfile(openid, payload)
     case 'auth.deleteAccount':
       return deleteAccount(openid)
+    case 'ai.request':
+      try {
+        return await aiGateway.request({
+          openid,
+          kind: payload.kind,
+          data: payload.data,
+          confirmed: payload.confirmed,
+        })
+      } catch (error) {
+        const codes = {
+          AI_CONSENT_REQUIRED: 'FORBIDDEN',
+          AI_RATE_LIMITED: 'RATE_LIMITED',
+          INVALID_AI_INPUT: 'VALIDATION_ERROR',
+        }
+        if (Object.hasOwn(codes, error?.message)) fail(codes[error.message])
+        throw error
+      }
     case 'category.list':
       return { items: await listCategories() }
     case 'device.save':
@@ -1018,11 +1058,60 @@ const phase11 = createPhase11({
   mapTimeline,
 })
 
-exports.main = async (event) => {
+const aiLedger = createAiLedger({ db, selectRows, insertRow, deleteRows })
+const aiGateway = createGateway({
+  key: process.env.GEARFLOW_AI_KEY,
+  ledger: aiLedger,
+  authorize: async (openid) => {
+    const user = await findUser(openid)
+    if (!user || user.status !== 'ACTIVE') return false
+    const consent = await selectRows(
+      db
+        .from('consent_records')
+        .select('id')
+        .eq('openid', openid)
+        .eq('policy_type', 'PRIVACY')
+        .eq('policy_version', '1.3.0')
+        .limit(1),
+    )
+    return consent.length > 0
+  },
+  callModelEnv: async (request) => {
+    const response = await cloud.callFunction({
+      name: 'gearflow-ai',
+      config: { env: 'myrepo-d7go4fyg918beac-da173b08c' },
+      data: request,
+    })
+    if (!response?.result?.ok) throw new Error('AI_UNAVAILABLE')
+    return response.result.data
+  },
+})
+
+exports.main = async (event, context) => {
   const action = event && typeof event.action === 'string' ? event.action : ''
   const payload = event && event.payload && typeof event.payload === 'object' ? event.payload : {}
-  const wxContext = cloud.getWXContext()
-  const openid = wxContext && typeof wxContext.OPENID === 'string' ? wxContext.OPENID : ''
+  if (action === 'ai.consume') {
+    try {
+      return { ok: true, data: { consumed: await aiGateway.consume(payload) } }
+    } catch {
+      return { ok: false, errorCode: 'INTERNAL_ERROR' }
+    }
+  }
+  if (action === 'ai.request') {
+    const owner = requestIdentity(context)
+    if (!owner) return { ok: false, errorCode: 'UNAUTHORIZED' }
+    try {
+      return { ok: true, data: await route(owner, action, payload) }
+    } catch (error) {
+      if (error instanceof ApiFailure)
+        return { ok: false, errorCode: error.code, message: error.message }
+      console.error('gearflow-api AI: INTERNAL_ERROR')
+      return { ok: false, errorCode: 'INTERNAL_ERROR' }
+    }
+  }
+  const invocation = requestContext(context)
+  const wxContext = { OPENID: invocation?.WX_OPENID || '', SOURCE: invocation?.TCB_SOURCE || '' }
+  const openid = requestIdentity(context) || ''
   const timerAccepted = isTimerInvocation(event, wxContext)
   if (
     !openid &&
@@ -1053,6 +1142,10 @@ exports.main = async (event) => {
   if (!openid && action !== 'health') return { ok: false, errorCode: 'UNAUTHORIZED' }
 
   try {
+    if (!['health', 'auth.current', 'auth.deleteAccount', 'auth.bootstrap'].includes(action)) {
+      const user = await findUser(openid)
+      if (user?.status === 'DELETING') fail('FORBIDDEN', 'Account deletion in progress')
+    }
     return { ok: true, data: await route(openid, action, payload) }
   } catch (error) {
     if (error instanceof ApiFailure) {

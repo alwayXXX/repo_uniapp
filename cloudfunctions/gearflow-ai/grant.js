@@ -48,12 +48,10 @@ function issueGrant({ key, openid, kind, digest, now = Date.now(), nonce = rando
   return `${body}.${mac(key, 'gearflow-ai-grant-v1:', body)}`
 }
 
-/** No caller-provided identity is trusted: openid must come from the runtime. */
-function verifyGrant({ key, openid, kind, digest, token, now = Date.now() }) {
+/** Verify a server-to-server token; the token must never be sent to a client. */
+function verifySignedGrant({ key, kind, digest, token, now = Date.now() }) {
   if (
     !validKey(key) ||
-    typeof openid !== 'string' ||
-    !openid ||
     !KINDS.has(kind) ||
     !/^[a-f0-9]{64}$/.test(digest) ||
     typeof token !== 'string' ||
@@ -78,7 +76,7 @@ function verifyGrant({ key, openid, kind, digest, token, now = Date.now() }) {
     !claims ||
     claims.v !== 1 ||
     typeof claims.owner !== 'string' ||
-    !equalHex(claims.owner, identity(key, openid)) ||
+    !/^[a-f0-9]{64}$/.test(claims.owner) ||
     claims.kind !== kind ||
     claims.digest !== digest ||
     typeof claims.nonce !== 'string' ||
@@ -93,6 +91,19 @@ function verifyGrant({ key, openid, kind, digest, token, now = Date.now() }) {
   return { owner: claims.owner, kind, digest, nonce: claims.nonce, expiresAt: claims.expiresAt }
 }
 
+/** For a client-originated invocation, identity must come from the runtime. */
+function verifyGrant(input) {
+  const claims = verifySignedGrant(input)
+  if (
+    !claims ||
+    typeof input.openid !== 'string' ||
+    !input.openid ||
+    !equalHex(claims.owner, identity(input.key, input.openid))
+  )
+    return null
+  return claims
+}
+
 /** A durable, atomic reserve operation must enforce replay and per-user limits. */
 async function consumeGrant(input, reserve) {
   const claims = verifyGrant(input)
@@ -104,4 +115,14 @@ async function consumeGrant(input, reserve) {
   }
 }
 
-module.exports = { issueGrant, verifyGrant, consumeGrant }
+async function consumeSignedGrant(input, reserve) {
+  const claims = verifySignedGrant(input)
+  if (!claims || typeof reserve !== 'function') return false
+  try {
+    return (await reserve(claims)) === true
+  } catch {
+    return false
+  }
+}
+
+module.exports = { issueGrant, verifyGrant, verifySignedGrant, consumeGrant, consumeSignedGrant }

@@ -60,4 +60,16 @@ test('inconsistent totals, duplicate months, extra private fields and malformed 
     generateAnnual(input, async () => ({ text: '{"observations":[],"suggestions":[""]}' })),
     /INVALID_AI_RESULT/,
   )
+  await assert.rejects(
+    generateAnnual(input, async () => ({
+      text: '{"observations":["共购买999台"],"suggestions":[]}',
+    })),
+    /INVALID_AI_RESULT/,
+  )
+  await assert.rejects(
+    generateAnnual(input, async () => ({
+      text: '{"observations":["共购买三台"],"suggestions":[]}',
+    })),
+    /INVALID_AI_RESULT/,
+  )
 })
