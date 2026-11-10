@@ -7,6 +7,7 @@ import Attachments from './devices/attachments.vue'
 import Reminders from './devices/reminders.vue'
 import { getDevice } from '@/services/device'
 import { getWarranty } from '@/services/warranty'
+import { requestAnnual } from '@/services/ai'
 import {
   getAnnualReport,
   getReminderConfig,
@@ -20,12 +21,14 @@ const hooks = vi.hoisted(() => ({
   loads: [] as Array<(query: Record<string, string>) => void>,
 }))
 vi.mock('@dcloudio/uni-app', () => ({
+  onHide: () => {},
   onShow: (callback: () => void) => hooks.shows.push(callback),
   onLoad: (callback: (query: Record<string, string>) => void) => hooks.loads.push(callback),
 }))
 vi.mock('@/services/consent', () => ({ requireCurrentConsent: () => true }))
 vi.mock('@/services/device', () => ({ getDevice: vi.fn() }))
 vi.mock('@/services/warranty', () => ({ getWarranty: vi.fn() }))
+vi.mock('@/services/ai', () => ({ requestAnnual: vi.fn() }))
 vi.mock('@/services/phase11', () => ({
   getAnnualReport: vi.fn(),
   disposeDevice: vi.fn(),
@@ -103,6 +106,19 @@ describe('P11 page flows', () => {
     })
     const page = await render(Annual)
     expect(page.text()).toContain('这一年暂无')
+    expect(page.findAll('.month-row')).toHaveLength(12)
+    vi.mocked(requestAnnual).mockResolvedValue({ observations: ['本年暂无记录'], suggestions: [] })
+    const preview = page.findAll('button').find((button) => button.text().includes('查看发送内容'))
+    await preview?.trigger('click')
+    expect(requestAnnual).not.toHaveBeenCalled()
+    expect(page.text()).toContain('确认发送年度统计')
+    const confirm = page
+      .findAll('button')
+      .find((button) => button.text().includes('同意并生成解读'))
+    await confirm?.trigger('click')
+    await flushPromises()
+    expect(requestAnnual).toHaveBeenCalledTimes(1)
+    expect(page.text()).toContain('本年暂无记录')
     expect(page.findAll('.month-row')).toHaveLength(12)
     page.unmount()
   })

@@ -23,12 +23,17 @@ const mocks = vi.hoisted(() => ({
   share: vi.fn(),
   consent: vi.fn(),
   navigateTo: vi.fn(),
+  chooseAiImage: vi.fn(),
+  readAiImage: vi.fn(),
+  requestImage: vi.fn(),
+  requestAdvisor: vi.fn(),
 }))
 const lifecycle = vi.hoisted(() => ({
   load: (_query: Record<string, string>) => {},
   show: () => {},
 }))
 vi.mock('@dcloudio/uni-app', () => ({
+  onHide: () => {},
   onLoad: (hook: typeof lifecycle.load) => {
     lifecycle.load = hook
   },
@@ -38,6 +43,12 @@ vi.mock('@dcloudio/uni-app', () => ({
 }))
 vi.mock('@/services/auth', () => ({ ensureSession: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('@/services/consent', () => ({ requireCurrentConsent: mocks.consent }))
+vi.mock('@/services/ai', () => ({
+  chooseAiImage: mocks.chooseAiImage,
+  readAiImage: mocks.readAiImage,
+  requestImage: mocks.requestImage,
+  requestAdvisor: mocks.requestAdvisor,
+}))
 vi.mock('@/stores/device', () => ({
   useDeviceStore: () => ({ ensureCategories: mocks.ensureCategories, loadFirst: mocks.loadFirst }),
 }))
@@ -100,6 +111,32 @@ afterEach(() => {
 })
 
 describe('device editor warranty safety', () => {
+  it('previews the selected picture before sending and only fills blank fields after a separate action', async () => {
+    mocks.chooseAiImage.mockResolvedValue({ path: 'synthetic.jpg', size: 100 })
+    mocks.readAiImage.mockReturnValue({ mimeType: 'image/jpeg', content: '/9j/AA==' })
+    mocks.requestImage.mockResolvedValue({ category: 'test', brand: 'Candidate', model: 'Model' })
+    const page = mount(DeviceEdit)
+    lifecycle.load({})
+    await flushPromises()
+    const choose = page.findAll('button').find((button) => button.text().includes('选择图片识别'))
+    await choose?.trigger('click')
+    await flushPromises()
+    expect(page.text()).toContain('确认发送图片')
+    expect(mocks.requestImage).not.toHaveBeenCalled()
+    await page
+      .findAll('button')
+      .find((button) => button.text().includes('同意并识别'))
+      ?.trigger('click')
+    await flushPromises()
+    expect(mocks.requestImage).toHaveBeenCalledOnce()
+    expect(mocks.saveDevice).not.toHaveBeenCalled()
+    await page
+      .findAll('button')
+      .find((button) => button.text().includes('将候选填入空白项'))
+      ?.trigger('click')
+    expect((page.findAll('input')[1]?.element as HTMLInputElement).value).toBe('Candidate')
+    expect(mocks.saveDevice).not.toHaveBeenCalled()
+  })
   it('keeps the form unavailable until warranty loading finishes', async () => {
     const pending = deferred<WarrantyDoc>()
     mocks.getWarranty.mockReturnValueOnce(pending.promise)

@@ -30,3 +30,19 @@ export interface AnnualFacts {
   netSpendCents: number
   months: AnnualMonth[]
 }
+
+export interface AdvisorResult {
+  suggestions: string[]
+  missing: string[]
+}
+
+export interface AnnualResult {
+  observations: string[]
+  suggestions: string[]
+}
+
+export interface ImageResult {
+  category: string | null
+  brand: string | null
+  model: string | null
+}

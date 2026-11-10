@@ -56,23 +56,87 @@
           {{ report.deviceCount }}
           台设备，已删除设备不计入。此报告按现有记录生成，不是历史年末资产快照。</text
         >
+        <view class="card">
+          <text class="section-title">AI 年度解读</text>
+          <button v-if="!annualFacts" :disabled="aiBusy" @click="previewAnnual">
+            查看发送内容
+          </button>
+          <AnnualAiPreview
+            v-if="annualFacts"
+            :facts="annualFacts"
+            :busy="aiBusy"
+            @confirm="generateAnnual"
+          />
+          <text v-if="aiError" class="hint">{{ aiError }}</text>
+          <view v-if="aiResult">
+            <text class="hint">AI 内容仅供参考，数字以报告为准。</text>
+            <view v-for="(item, index) in aiResult.observations" :key="`observation-${index}`">{{
+              item
+            }}</view>
+            <view v-for="(item, index) in aiResult.suggestions" :key="`suggestion-${index}`">{{
+              item
+            }}</view>
+          </view>
+        </view>
       </template>
     </StatusView>
   </view>
 </template>
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onHide, onShow } from '@dcloudio/uni-app'
 import StatusView from '@/components/StatusView.vue'
+import AnnualAiPreview from '@/components/AnnualAiPreview.vue'
 import { useFeaturePage } from '@/composables/useFeaturePage'
 import { getAnnualReport } from '@/services/phase11'
+import { requestAnnual } from '@/services/ai'
+import { requireCurrentConsent } from '@/services/consent'
+import { buildAnnualFacts } from '@/utils/ai-input'
+import { toAppError } from '@/utils/error'
 import { formatMoney } from '@/utils/money'
 import { percentage } from '@/utils/statistics'
 import type { AnnualMonth, AnnualReport } from '@/types/api/phase11'
+import type { AnnualFacts, AnnualResult } from '@/types/api/ai'
 
 const currentYear = new Date().getFullYear()
 const year = ref(currentYear)
 const report = ref<AnnualReport | null>(null)
+const annualFacts = ref<AnnualFacts | null>(null)
+const aiResult = ref<AnnualResult | null>(null)
+const aiError = ref('')
+const aiBusy = ref(false)
+let aiVersion = 0
+function clearAi(): void {
+  aiVersion++
+  annualFacts.value = null
+  aiResult.value = null
+  aiError.value = ''
+  aiBusy.value = false
+}
+function previewAnnual(): void {
+  if (!report.value || !requireCurrentConsent()) return
+  try {
+    annualFacts.value = buildAnnualFacts(report.value)
+    aiError.value = ''
+  } catch (error) {
+    aiError.value = toAppError(error).message
+  }
+}
+async function generateAnnual(): Promise<void> {
+  if (!annualFacts.value || aiBusy.value || !requireCurrentConsent()) return
+  const version = aiVersion
+  aiBusy.value = true
+  aiError.value = ''
+  aiResult.value = null
+  try {
+    const result = await requestAnnual(annualFacts.value)
+    if (version === aiVersion) aiResult.value = result
+  } catch (error) {
+    if (version === aiVersion) aiError.value = toAppError(error).message
+  } finally {
+    if (version === aiVersion) aiBusy.value = false
+  }
+}
 const { state, error, load } = useFeaturePage()
 const maximum = computed(() =>
   Math.max(
@@ -92,9 +156,11 @@ function refresh(): Promise<void> {
   )
 }
 function changeYear(event: { detail: { value: string } }): void {
+  clearAi()
   year.value = Number(event.detail.value.slice(0, 4))
   void refresh()
 }
+onHide(clearAi)
 onShow(() => {
   void refresh()
 })

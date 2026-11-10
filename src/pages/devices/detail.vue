@@ -183,6 +183,25 @@
         </view>
         <view class="card actions">
           <text class="card-title">设备工具</text>
+          <button class="edit-button" :disabled="aiBusy" @click="previewAdvisor">
+            AI 设备顾问
+          </button>
+          <AdvisorPreview
+            v-if="advisorFacts"
+            :facts="advisorFacts"
+            :busy="aiBusy"
+            @confirm="generateAdvisor"
+          />
+          <text v-if="aiError" class="danger-hint">{{ aiError }}</text>
+          <view v-if="advisorResult">
+            <text class="danger-hint">AI 内容仅供参考，请自行核对。</text>
+            <view v-for="(item, index) in advisorResult.suggestions" :key="`suggestion-${index}`">{{
+              item
+            }}</view>
+            <view v-for="(item, index) in advisorResult.missing" :key="`missing-${index}`">{{
+              item
+            }}</view>
+          </view>
           <button class="edit-button" @click="openFeature('attachments')">照片与发票</button>
           <button class="edit-button" @click="openFeature('reminders')">保修到期提醒</button>
           <button class="edit-button" @click="openFeature('dispose')">出售 / 报废记录</button>
@@ -214,7 +233,12 @@
 
 <script setup lang="ts">
 import { computed, onScopeDispose, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
+import AdvisorPreview from '@/components/AdvisorPreview.vue'
+import { requestAdvisor } from '@/services/ai'
+import { buildAdvisorFacts } from '@/utils/ai-input'
+import { todayString } from '@/utils/date'
+import type { AdvisorFacts, AdvisorResult } from '@/types/api/ai'
 import { getCategoryName } from '@/services/category'
 import { getDevice, softDeleteDevice } from '@/services/device'
 import { listDeviceTimeline } from '@/services/timeline'
@@ -238,6 +262,56 @@ import type { MaintenanceDoc } from '@/types/maintenance'
 import type { WarrantyDoc } from '@/types/maintenance'
 
 const device = ref<DeviceDoc | null>(null)
+const advisorFacts = ref<AdvisorFacts | null>(null)
+const advisorResult = ref<AdvisorResult | null>(null)
+const aiBusy = ref(false)
+const aiError = ref('')
+let aiVersion = 0
+function clearAi(): void {
+  aiVersion++
+  advisorFacts.value = null
+  advisorResult.value = null
+  aiError.value = ''
+  aiBusy.value = false
+}
+function previewAdvisor(): void {
+  if (!device.value || !requireCurrentConsent()) return
+  if (
+    !['success', 'empty'].includes(warrantyLoadState.value) ||
+    !['success', 'empty'].includes(maintenanceState.value)
+  ) {
+    aiError.value = '请先等待保修和维护记录加载完成。'
+    return
+  }
+  try {
+    advisorFacts.value = buildAdvisorFacts(
+      device.value,
+      warranty.value,
+      maintenances.value,
+      categoryLabel.value,
+      todayString(),
+    )
+    aiError.value = ''
+  } catch (error) {
+    aiError.value = toAppError(error).message
+  }
+}
+async function generateAdvisor(): Promise<void> {
+  if (!advisorFacts.value || aiBusy.value || !requireCurrentConsent()) return
+  const version = aiVersion
+  aiBusy.value = true
+  aiError.value = ''
+  advisorResult.value = null
+  try {
+    const result = await requestAdvisor(advisorFacts.value)
+    if (version === aiVersion) advisorResult.value = result
+  } catch (error) {
+    if (version === aiVersion) aiError.value = toAppError(error).message
+  } finally {
+    if (version === aiVersion) aiBusy.value = false
+  }
+}
+onHide(clearAi)
 function openFeature(page: 'attachments' | 'reminders' | 'dispose'): void {
   if (!device.value || !requireCurrentConsent()) return
   uni.navigateTo({ url: `/pages/devices/${page}?deviceId=${encodeURIComponent(device.value.id)}` })

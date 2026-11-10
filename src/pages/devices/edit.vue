@@ -16,6 +16,25 @@
           <text class="section-index">01</text>
         </view>
 
+        <button :disabled="imageBusy || loadState !== 'success'" @click="selectAiImage">
+          选择图片识别设备
+        </button>
+        <ImageAiPreview
+          v-if="imagePath"
+          :image-path="imagePath"
+          :busy="imageBusy"
+          @confirm="recognize"
+        />
+        <text v-if="imageError" class="section-caption">{{ imageError }}</text>
+        <view v-if="imageResult">
+          <text class="section-caption"
+            >识别候选：{{ imageResult.category || '分类未知' }} /
+            {{ imageResult.brand || '品牌未知' }} /
+            {{ imageResult.model || '型号未知' }}。请核对后再填写。</text
+          >
+          <button @click="applyRecognition">将候选填入空白项</button>
+        </view>
+
         <FormField label="分类" required :error="errors.categoryId">
           <view class="select-field" @click="showCategorySheet = true">
             <text :class="categoryName ? 'select-value' : 'select-placeholder'">
@@ -167,7 +186,10 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onHide, onLoad } from '@dcloudio/uni-app'
+import ImageAiPreview from '@/components/ImageAiPreview.vue'
+import { chooseAiImage, readAiImage, requestImage } from '@/services/ai'
+import type { ImageResult } from '@/types/api/ai'
 import { useDeviceStore } from '@/stores/device'
 import { getDevice, saveDeviceWithWarranty } from '@/services/device'
 import { getWarranty } from '@/services/warranty'
@@ -213,6 +235,54 @@ const emptyForm = (): DeviceFormInput => ({
 })
 
 const form = ref<DeviceFormInput>(emptyForm())
+const imagePath = ref('')
+const imageBusy = ref(false)
+const imageError = ref('')
+const imageResult = ref<ImageResult | null>(null)
+let imageVersion = 0
+function clearImage(): void {
+  imageVersion++
+  imagePath.value = ''
+  imageBusy.value = false
+  imageError.value = ''
+  imageResult.value = null
+}
+async function selectAiImage(): Promise<void> {
+  if (imageBusy.value || !requireCurrentConsent()) return
+  clearImage()
+  const version = imageVersion
+  try {
+    const selected = await chooseAiImage()
+    if (version === imageVersion && selected) imagePath.value = selected.path
+  } catch (error) {
+    if (version === imageVersion) imageError.value = toAppError(error).message
+  }
+}
+async function recognize(): Promise<void> {
+  if (!imagePath.value || imageBusy.value || !requireCurrentConsent()) return
+  const version = imageVersion
+  imageBusy.value = true
+  imageError.value = ''
+  imageResult.value = null
+  try {
+    const result = await requestImage(readAiImage(imagePath.value))
+    if (version === imageVersion) imageResult.value = result
+  } catch (error) {
+    if (version === imageVersion) imageError.value = toAppError(error).message
+  } finally {
+    if (version === imageVersion) imageBusy.value = false
+  }
+}
+function applyRecognition(): void {
+  const value = imageResult.value
+  if (!value) return
+  const category = categories.value.find((item) => item.code === value.category)
+  if (!form.value.categoryId && category) selectCategory(category.id)
+  if (!form.value.brand && value.brand) form.value.brand = value.brand
+  if (!form.value.model && value.model) form.value.model = value.model
+  clearImage()
+}
+onHide(clearImage)
 
 const categoryName = computed(() => {
   const found = categories.value.find((c) => c.id === form.value.categoryId)
