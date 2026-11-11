@@ -2,8 +2,8 @@
   "name": "GearFlow",
   "appid": "",
   "description": "个人数码设备资产管理",
-  "versionName": "1.3.0",
-  "versionCode": "130",
+  "versionName": "1.3.1",
+  "versionCode": "131",
   "transformPx": false,
   "mp-weixin": {
     "appid": "wx8f26567f4d54b3f7",
