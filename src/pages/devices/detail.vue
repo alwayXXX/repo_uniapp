@@ -196,15 +196,13 @@
         </view>
         <view class="card actions">
           <text class="card-title">设备工具</text>
-          <wd-button
-            type="primary"
-            variant="soft"
-            class="edit-button"
+          <ToolAction
+            title="AI 设备顾问"
+            subtitle="查看设备信息并生成建议"
+            icon="star"
             :disabled="aiBusy"
             @click="previewAdvisor"
-          >
-            AI 设备顾问
-          </wd-button>
+          />
           <AdvisorPreview
             v-if="advisorFacts"
             :facts="advisorFacts"
@@ -221,39 +219,41 @@
               item
             }}</view>
           </view>
-          <wd-button
-            type="primary"
-            variant="soft"
-            class="edit-button"
+          <ToolAction
+            title="照片与发票"
+            subtitle="查看或管理设备附件"
+            icon="image"
             @click="openFeature('attachments')"
-            >照片与发票</wd-button
-          >
-          <wd-button
-            type="primary"
-            variant="soft"
-            class="edit-button"
+          />
+          <ToolAction
+            title="保修到期提醒"
+            subtitle="设置一次微信提醒"
+            icon="calendar-line"
             @click="openFeature('reminders')"
-            >保修到期提醒</wd-button
-          >
-          <wd-button
-            type="primary"
-            variant="soft"
-            class="edit-button"
+          />
+          <ToolAction
+            title="出售 / 报废记录"
+            subtitle="记录设备的处置情况"
+            icon="file"
             @click="openFeature('dispose')"
-            >出售 / 报废记录</wd-button
-          >
-          <wd-button type="primary" variant="soft" class="edit-button" @click="gotoEdit"
-            >编辑</wd-button
-          >
-          <wd-button
-            type="danger"
-            variant="soft"
-            class="danger-button"
+          />
+        </view>
+        <view class="card actions">
+          <text class="card-title">管理设备</text>
+          <ToolAction
+            title="编辑设备"
+            subtitle="修改设备资料与保修信息"
+            icon="edit"
+            @click="gotoEdit"
+          />
+          <ToolAction
+            :title="deleting ? '删除中…' : '删除设备'"
+            subtitle="删除后不再显示在列表和统计中"
+            icon="delete"
+            danger
             :disabled="deleting"
             @click="askDelete"
-          >
-            {{ deleting ? '删除中…' : '删除设备' }}
-          </wd-button>
+          />
           <text class="danger-hint">删除为软删除，数据可追溯且不可被他人访问</text>
         </view>
       </view>
@@ -292,6 +292,7 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { onHide, onLoad, onShow } from '@dcloudio/uni-app'
 import AdvisorPreview from '@/components/AdvisorPreview.vue'
+import ToolAction from '@/components/ToolAction.vue'
 import { requestAdvisor } from '@/services/ai'
 import { buildAdvisorFacts } from '@/utils/ai-input'
 import { todayString } from '@/utils/date'
@@ -918,22 +919,6 @@ async function confirmDelete(): Promise<void> {
 .timeline-more-button[disabled] {
   color: $gf-text-3;
   background-color: $gf-bg-subtle;
-}
-
-.actions button {
-  width: 100%;
-  height: 84rpx;
-  min-height: 84rpx;
-  margin-bottom: $gf-space-sm;
-  padding: 0 $gf-space-md;
-  font-size: $gf-font-md;
-  line-height: 84rpx;
-  border-radius: $gf-control-radius;
-}
-
-.edit-button {
-  color: $gf-color-primary;
-  background-color: $gf-color-primary-weak;
 }
 
 .danger-button {

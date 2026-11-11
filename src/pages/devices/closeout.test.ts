@@ -4,6 +4,7 @@ import DeviceEdit from './edit.vue'
 import MaintenanceEdit from './maintenance.vue'
 import DeviceDetail from './detail.vue'
 import GearPicker from '@/components/GearPicker.vue'
+import ToolAction from '@/components/ToolAction.vue'
 import { deviceFixture, maintenanceFixture, warrantyFixture } from '@/test/fixtures'
 import type { MaintenanceDoc, WarrantyDoc } from '@/types/maintenance'
 import { AppError } from '@/utils/error'
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   getDevice: vi.fn(),
   getWarranty: vi.fn(),
   saveDevice: vi.fn(),
+  softDeleteDevice: vi.fn(),
   ensureCategories: vi.fn(),
   loadFirst: vi.fn(),
   getMaintenance: vi.fn(),
@@ -56,7 +58,7 @@ vi.mock('@/stores/device', () => ({
 vi.mock('@/services/device', () => ({
   getDevice: mocks.getDevice,
   saveDeviceWithWarranty: mocks.saveDevice,
-  softDeleteDevice: vi.fn(),
+  softDeleteDevice: mocks.softDeleteDevice,
 }))
 vi.mock('@/services/warranty', () => ({ getWarranty: mocks.getWarranty }))
 vi.mock('@/services/category', () => ({ getCategoryName: () => 'Test category' }))
@@ -305,6 +307,27 @@ describe('maintenance editor', () => {
 })
 
 describe('complete maintenance details', () => {
+  it('opens tools and requires confirmation before deleting the device', async () => {
+    const page = mount(DeviceDetail)
+    lifecycle.load({ id: deviceFixture.id })
+    lifecycle.show()
+    await flushPromises()
+    const tools = page.findAllComponents(ToolAction)
+    const attachments = tools.find((tool) => tool.props('title') === '照片与发票')
+    const deleteAction = tools.find((tool) => tool.props('title') === '删除设备')
+    expect(attachments).toBeDefined()
+    expect(deleteAction).toBeDefined()
+    await attachments!.get('button').trigger('click')
+    expect(mocks.navigateTo).toHaveBeenCalledWith({
+      url: `/pages/devices/attachments?deviceId=${encodeURIComponent(deviceFixture.id)}`,
+    })
+    await deleteAction!.get('button').trigger('click')
+    expect(page.get('.confirm-card').text()).toContain('删除设备')
+    expect(mocks.softDeleteDevice).not.toHaveBeenCalled()
+    await page.get('.confirm-card .cancel-button').trigger('click')
+    expect(mocks.softDeleteDevice).not.toHaveBeenCalled()
+  })
+
   it('shows a retryable warranty error instead of saying no warranty was entered', async () => {
     mocks.getWarranty.mockRejectedValueOnce(new AppError('INTERNAL_ERROR', 'Warranty unavailable'))
     const page = mount(DeviceDetail)

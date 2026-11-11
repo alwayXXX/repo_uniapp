@@ -85,6 +85,20 @@ button::after {
 .wd-button.gf-profile-danger {
   color: #c83c36;
 }
+
+.wd-button.gf-tool-action {
+  width: 100%;
+  height: auto;
+  min-height: 88rpx;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  border-bottom: 1rpx solid #eef1f5;
+}
+.wd-button.gf-tool-action .wd-button__content,
+.wd-button.gf-tool-action .wd-button__text {
+  width: 100%;
+}
 .wd-input.gf-wot-input {
   min-height: 88rpx;
   --wot-input-padding: 0 24rpx;
