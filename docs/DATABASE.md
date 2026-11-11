@@ -22,6 +22,6 @@
 
 设备删除采用软删除；账号注销须清除或匿名化个人资料和关联数据，并清理附件云文件。文件清理失败须保留可重试状态，不能先丢弃引用。备份由本人主动生成和恢复，范围及限制见 [PHASE12.md](PHASE12.md)。
 
-## 待执行的 AI 变更
+## AI 数据结构
 
-[identity-collation-draft.sql](../database/mysql/identity-collation-draft.sql) 与 [phase12-draft.sql](../database/mysql/phase12-draft.sql) 是 P12 变更草案，不是当前线上基线。用户已同意九张表账号标识比较规则调整、维护窗口和 AI 表及索引；实际执行状态应在操作前只读核实。DDL 非原子且索引创建不可盲目重复，安全条件见 [数据库方案](PHASE12-DATABASE-PLAN.md)。
+[identity-collation-draft.sql](../database/mysql/identity-collation-draft.sql) 与 [phase12-draft.sql](../database/mysql/phase12-draft.sql) 描述已在业务环境应用的 P12 结构变更。九张既有表的账号标识已改用二进制比较，AI 表和索引已创建；两张新表均为管理员专用。脚本含非幂等 DDL，不能对现有环境重复执行。云端 SDK 的条件更新及账号状态冻结已用虚构数据验证，完整业务链路与真实账号注销仍待验证，见 [数据库方案](PHASE12-DATABASE-PLAN.md)。

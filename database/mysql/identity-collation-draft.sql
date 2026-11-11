@@ -1,4 +1,4 @@
--- DRAFT ONLY. Authorization was granted; verify live state and maintenance readiness before execution.
+-- Applied to the GearFlow business environment. Do not rerun without checking live schema.
 -- Each ALTER commits independently; confirm schema and stop writes during migration.
 ALTER TABLE users MODIFY COLUMN openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL;
 ALTER TABLE devices MODIFY COLUMN openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL;
