@@ -1,9 +1,9 @@
 -- GearFlow MySQL schema (CloudBase MySQL 8.0).
--- Apply statements one at a time through `tcb db execute`.
+-- Current baseline for a new, empty database only; do not use as an upgrade script.
 
 CREATE TABLE IF NOT EXISTS users (
   id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   nickname varchar(64) DEFAULT NULL,
   avatar_url varchar(512) DEFAULT NULL,
   status varchar(16) NOT NULL DEFAULT 'ACTIVE',
@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY uk_users_openid (openid)
+  UNIQUE KEY uk_users_openid (openid),
+  UNIQUE KEY uk_users_openid_status (openid, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS device_categories (
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS device_categories (
 
 CREATE TABLE IF NOT EXISTS devices (
   id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   category_id varchar(36) DEFAULT NULL,
   name varchar(64) NOT NULL,
   status varchar(16) NOT NULL DEFAULT 'IN_USE',
@@ -59,7 +60,7 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE TABLE IF NOT EXISTS warranties (
   id varchar(36) NOT NULL,
   device_id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   start_date date DEFAULT NULL,
   end_date date NOT NULL,
   provider varchar(128) DEFAULT NULL,
@@ -76,7 +77,7 @@ CREATE TABLE IF NOT EXISTS warranties (
 CREATE TABLE IF NOT EXISTS maintenance_records (
   id varchar(36) NOT NULL,
   device_id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   title varchar(64) NOT NULL,
   type varchar(16) NOT NULL,
   occurred_at date NOT NULL,
@@ -94,7 +95,7 @@ CREATE TABLE IF NOT EXISTS maintenance_records (
 CREATE TABLE IF NOT EXISTS device_costs (
   id varchar(36) NOT NULL,
   device_id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   cost_type varchar(16) NOT NULL,
   amount_cents int NOT NULL,
   occurred_at date NOT NULL,
@@ -109,7 +110,7 @@ CREATE TABLE IF NOT EXISTS device_costs (
 CREATE TABLE IF NOT EXISTS device_timelines (
   id varchar(36) NOT NULL,
   device_id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   event_type varchar(24) NOT NULL,
   event_date date NOT NULL,
   title varchar(128) NOT NULL,
@@ -124,7 +125,7 @@ CREATE TABLE IF NOT EXISTS device_timelines (
 
 CREATE TABLE IF NOT EXISTS consent_records (
   id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   policy_type varchar(16) NOT NULL,
   policy_version varchar(32) NOT NULL,
   consented_at timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -137,7 +138,7 @@ CREATE TABLE IF NOT EXISTS device_attachments (
   id varchar(36) NOT NULL,
   device_id varchar(36) NOT NULL,
   slot tinyint NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   name varchar(128) NOT NULL,
   mime_type varchar(64) NOT NULL,
   size_bytes int NOT NULL,
@@ -155,7 +156,7 @@ CREATE TABLE IF NOT EXISTS device_attachments (
 CREATE TABLE IF NOT EXISTS device_reminders (
   id varchar(36) NOT NULL,
   device_id varchar(36) NOT NULL,
-  openid varchar(128) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
   remind_on date NOT NULL,
   warranty_end date NOT NULL,
   template_id varchar(128) NOT NULL,
@@ -170,3 +171,32 @@ CREATE TABLE IF NOT EXISTS device_reminders (
   UNIQUE KEY uk_reminder_owner_date (openid, device_id, remind_on),
   KEY idx_reminder_owner_device (openid, device_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ai_daily_quota (
+  id char(64) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
+  _openid varchar(64) NOT NULL DEFAULT '',
+  account_status varchar(16) NOT NULL DEFAULT 'ACTIVE',
+  quota_day date NOT NULL,
+  used_count int NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_ai_quota_owner_day (openid, quota_day),
+  KEY idx_ai_quota_user_status (openid, account_status),
+  CONSTRAINT fk_ai_quota_user_status FOREIGN KEY (openid, account_status)
+    REFERENCES users (openid, status) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS ai_grants (
+  id varchar(64) NOT NULL,
+  openid varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL,
+  _openid varchar(64) NOT NULL DEFAULT '',
+  account_status varchar(16) NOT NULL DEFAULT 'ACTIVE',
+  kind varchar(16) NOT NULL,
+  input_digest char(64) NOT NULL,
+  expires_at_ms bigint NOT NULL,
+  status varchar(16) NOT NULL DEFAULT 'ISSUED',
+  PRIMARY KEY (id),
+  KEY idx_ai_grants_user_status (openid, account_status),
+  CONSTRAINT fk_ai_grants_user_status FOREIGN KEY (openid, account_status)
+    REFERENCES users (openid, status) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -24,4 +24,4 @@
 
 ## AI 数据结构
 
-[identity-collation-draft.sql](../database/mysql/identity-collation-draft.sql) 与 [phase12-draft.sql](../database/mysql/phase12-draft.sql) 描述已在业务环境应用的 P12 结构变更。九张既有表的账号标识已改用二进制比较，AI 表和索引已创建；两张新表均为管理员专用。脚本含非幂等 DDL，不能对现有环境重复执行。云端 SDK 的条件更新及账号状态冻结已用虚构数据验证，完整业务链路与真实账号注销仍待验证，见 [数据库方案](PHASE12-DATABASE-PLAN.md)。
+当前基线包含账号标识的二进制比较规则、`users(openid,status)` 索引以及两张 AI 表。线上 AI 表均为管理员专用；新建环境时还需单独配置并核验权限。基线仅供空库使用，不是现有环境升级脚本。云端 SDK 的条件更新和账号状态冻结已用虚构数据验证；真实账号注销未做破坏性演练，见 [数据库方案](PHASE12-DATABASE-PLAN.md)。

@@ -64,15 +64,8 @@ try {
   sql(
     "INSERT INTO users (id,openid) VALUES ('synthetic-user-a','OwnerA'); INSERT INTO devices (id,openid,name) VALUES ('device-a','OwnerA','Synthetic device');",
   )
-  if (sql("SELECT COUNT(*) FROM devices WHERE openid='ownera';") !== '1')
-    throw new Error('Baseline comparison was not case-insensitive')
-  sql(
-    readFileSync(
-      new URL('../database/mysql/identity-collation-draft.sql', import.meta.url),
-      'utf8',
-    ),
-  )
-  sql(readFileSync(new URL('../database/mysql/phase12-draft.sql', import.meta.url), 'utf8'))
+  if (sql("SELECT COUNT(*) FROM devices WHERE openid='ownera';") !== '0')
+    throw new Error('Baseline does not isolate case-sensitive account identifiers')
   sql(
     "INSERT INTO users (id,openid) VALUES ('synthetic-user-b','ownera'); INSERT INTO devices (id,openid,name) VALUES ('device-b','ownera','Synthetic device B');",
   )
@@ -88,7 +81,7 @@ try {
   if (sql("SELECT COUNT(*) FROM users WHERE openid='ownera' AND status='ACTIVE';") !== '1')
     throw new Error('Other account changed')
   console.log(
-    'PASS: existing synthetic data preserved; case-sensitive isolation and grant freeze work in offline MySQL 8',
+    'PASS: current baseline supports case-sensitive isolation and grant freeze in offline MySQL 8',
   )
 } finally {
   if (/^[a-f0-9]{64}$/.test(id)) docker(['rm', '-f', '-v', id])
