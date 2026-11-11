@@ -4,9 +4,9 @@
 
 技术基线：uni-app + Vue 3 + TypeScript strict + Pinia + 腾讯云 CloudBase。
 
-当前为自用微信体验版，运行链路为 CloudBase MySQL + 微信 OPENID。Phase 0–11 按自用范围完成，1.2.2 体验版已交付；备份、设备恢复和测试图片恢复已在 iPhone 验证。运行配置见 [MySQL 配置](docs/MYSQL-MIGRATION.md)，接手先读 [HANDOFF](docs/HANDOFF.md)。
+当前为自用微信体验版，运行链路为 CloudBase MySQL + 微信 OPENID。Phase 0–11 按自用范围完成，1.3.0 已设为体验版；备份、设备恢复和测试图片恢复已在 iPhone 验证。运行配置见 [MySQL 配置](docs/MYSQL-MIGRATION.md)，接手先读 [HANDOFF](docs/HANDOFF.md)。
 
-P11 的附件与一次保修提醒已获本人真机确认；每小时配置上传成功后的自然整点执行尚未单独验证，见 [P11 记录](docs/PHASE11.md)。P12 AI 云端函数已部署，完整模型链路和新版真机验收未完成，见 [P12 记录](docs/PHASE12.md)。
+P11 的附件与一次保修提醒已获本人真机确认；每小时配置上传成功后的自然整点执行尚未单独验证，见 [P11 记录](docs/PHASE11.md)。P12 AI 的三项模型链路已使用虚构内容验证，页面真机验收未完成，见 [P12 记录](docs/PHASE12.md)。
 
 规划文档见 [docs/](docs/)，工程规范见 [AGENTS.md](AGENTS.md)。
 

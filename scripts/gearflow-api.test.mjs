@@ -712,6 +712,7 @@ test('AI gateway requires explicit consent and never exposes its token or truste
   })
   assert.equal(result.ok, true)
   assert.deepEqual(result.data, { suggestions: ['检查保修'], missing: [] })
+  assert.equal(api.aiCalls[0].timeout, 50000)
   assert.equal(JSON.stringify(result).includes('token'), false)
   assert.equal(JSON.stringify(api.aiCalls[0].data).includes('alpha'), false)
   assert.equal(api.tables.ai_grants.filter((row) => row.kind === 'advisor')[0].openid, 'alpha')

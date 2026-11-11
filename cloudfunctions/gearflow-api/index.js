@@ -1082,6 +1082,7 @@ const aiGateway = createGateway({
       name: 'gearflow-ai',
       config: { env: 'myrepo-d7go4fyg918beac-da173b08c' },
       data: request,
+      timeout: 50000,
     })
     if (!response?.result?.ok) throw new Error('AI_UNAVAILABLE')
     return response.result.data
