@@ -82,19 +82,27 @@
     "list": [
       {
         "pagePath": "pages/home/index",
-        "text": "首页"
+        "text": "首页",
+        "iconPath": "static/tabbar/home-normal.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
       },
       {
         "pagePath": "pages/devices/index",
-        "text": "设备"
+        "text": "设备",
+        "iconPath": "static/tabbar/devices-normal.png",
+        "selectedIconPath": "static/tabbar/devices-active.png"
       },
       {
         "pagePath": "pages/stats/index",
-        "text": "数据"
+        "text": "数据",
+        "iconPath": "static/tabbar/stats-normal.png",
+        "selectedIconPath": "static/tabbar/stats-active.png"
       },
       {
         "pagePath": "pages/profile/index",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "static/tabbar/profile-normal.png",
+        "selectedIconPath": "static/tabbar/profile-active.png"
       }
     ]
   },
