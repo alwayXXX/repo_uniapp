@@ -1,23 +1,36 @@
 <template>
   <view class="page wot-text-text-main">
     <view class="hero">
-      <text class="hero-kicker">GEARFLOW</text>
-      <text class="hero-title">你的设备，一目了然</text>
-      <text class="hero-sub">设备状态与保修提醒</text>
+      <view class="hero-orbit hero-orbit-outer" />
+      <view class="hero-orbit hero-orbit-inner" />
+      <view class="hero-topline">
+        <view class="hero-brand"><view class="hero-brand-dot" /><text>GEARFLOW</text></view>
+        <wd-icon name="apps" size="22px" color="#8bd4f7" />
+      </view>
+      <view class="hero-title"><text>你的设备，</text><text>井然有序。</text></view>
+      <text class="hero-sub">设备资产与保修，一手掌握</text>
       <view class="hero-stats">
         <view class="hero-stat">
-          <text class="hero-stat-value">{{ deviceCount }}</text>
+          <text class="hero-stat-value">{{ summaryReady ? deviceCount : '—' }}</text>
           <text class="hero-stat-label">设备总数</text>
         </view>
         <view class="hero-stat warning">
-          <text class="hero-stat-value">{{ expiringTotal }}</text>
+          <text class="hero-stat-value">{{ summaryReady ? expiringTotal : '—' }}</text>
           <text class="hero-stat-label">30 天内到期</text>
         </view>
         <view class="hero-stat muted">
-          <text class="hero-stat-value">{{ expiredTotal }}</text>
+          <text class="hero-stat-value">{{ summaryReady ? expiredTotal : '—' }}</text>
           <text class="hero-stat-label">已过保</text>
         </view>
       </view>
+    </view>
+
+    <view class="section-header">
+      <view
+        ><text class="section-kicker">YOUR ACTIVITY</text
+        ><text class="section-heading">保修与动态</text></view
+      >
+      <text class="section-hint">设备的最新记录</text>
     </view>
 
     <StatusView
@@ -106,6 +119,7 @@ const expiredTotal = ref(0)
 const expiring = ref<DashboardWarrantyItem[]>([])
 const expired = ref<DashboardWarrantyItem[]>([])
 const recentMaintenances = ref<DashboardMaintenanceItem[]>([])
+const summaryReady = computed(() => boardState.value === 'success' || boardState.value === 'empty')
 
 const boardEmptyTitle = computed(() =>
   expiring.value.length === 0 && expired.value.length === 0 ? '暂无保修临期事项' : '',
@@ -154,60 +168,107 @@ onShow(() => {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  padding: 40rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
+  padding: 32rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .hero {
-  padding: 0;
-  margin-bottom: $gf-space-lg;
+  position: relative;
+  overflow: hidden;
+  padding: 40rpx 36rpx 32rpx;
+  margin-bottom: 48rpx;
+  color: #fff;
+  background: linear-gradient(135deg, #101f38 0%, #183a65 72%, #195279 100%);
+  border-radius: 32rpx;
+  box-shadow: 0 18rpx 42rpx rgba(18, 39, 70, 0.15);
 }
 
-.hero-kicker {
-  display: block;
-  font-size: $gf-font-xs;
-  font-weight: 600;
-  letter-spacing: 2rpx;
-  color: $gf-color-primary;
+.hero-orbit {
+  position: absolute;
+  right: -86rpx;
+  top: 14rpx;
+  width: 310rpx;
+  height: 310rpx;
+  border: 1rpx solid rgba(128, 205, 246, 0.16);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero-orbit-inner {
+  top: 64rpx;
+  right: -36rpx;
+  width: 210rpx;
+  height: 210rpx;
+  border-color: rgba(128, 205, 246, 0.11);
+}
+
+.hero-topline {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: #a9cee8;
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 3rpx;
+}
+
+.hero-brand-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #45d7d0;
 }
 
 .hero-title {
+  position: relative;
   display: block;
-  margin-top: 16rpx;
-  font-size: $gf-font-xl;
+  margin-top: 52rpx;
+  font-size: 48rpx;
   font-weight: 700;
-  line-height: 1.25;
-  color: $gf-text-1;
+  line-height: 1.3;
+  color: #fff;
+}
+.hero-title text {
+  display: block;
 }
 
 .hero-sub {
+  position: relative;
   display: block;
-  margin-top: $gf-space-xs;
+  margin-top: 16rpx;
   font-size: $gf-font-sm;
   line-height: 1.45;
-  color: $gf-text-3;
+  color: #b9d1e4;
 }
 
 .hero-stats {
+  position: relative;
   display: flex;
   flex-direction: row;
   gap: 0;
-  margin-top: $gf-space-lg;
-  padding: 32rpx 0;
-  background: $gf-bg-card;
-  border: 1rpx solid #edf0f3;
-  border-radius: $gf-radius-lg;
-  box-shadow: $gf-shadow-sm;
+  margin-top: 52rpx;
+  padding: 28rpx 0 0;
+  border-top: 1rpx solid rgba(202, 226, 243, 0.2);
 }
 
 .hero-stat {
   min-width: 0;
   flex: 1;
-  padding: 0 28rpx;
+  padding: 0 24rpx;
 }
 
+.hero-stat:first-child {
+  padding-left: 0;
+}
 .hero-stat + .hero-stat {
-  border-left: 1rpx solid $gf-line;
+  border-left: 1rpx solid rgba(202, 226, 243, 0.18);
 }
 
 .hero-stat-value,
@@ -219,14 +280,44 @@ onShow(() => {
   font-size: 42rpx;
   font-weight: 700;
   line-height: 1.2;
-  color: $gf-text-1;
+  color: #fff;
 }
 
 .hero-stat-label {
   margin-top: 6rpx;
   font-size: $gf-font-xs;
   line-height: 1.35;
-  color: $gf-text-3;
+  color: #b9d1e4;
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin: 0 4rpx 24rpx;
+}
+
+.section-kicker,
+.section-heading {
+  display: block;
+}
+.section-kicker {
+  color: #74859b;
+  font-size: 18rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+.section-heading {
+  margin-top: 8rpx;
+  color: #16283e;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+.section-hint {
+  color: #718096;
+  font-size: 22rpx;
+  padding-bottom: 4rpx;
 }
 
 .card {

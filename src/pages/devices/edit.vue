@@ -1,6 +1,7 @@
 <template>
   <view class="page wot-text-text-main">
     <view class="page-intro">
+      <text class="eyebrow">{{ isEdit ? 'EDIT DEVICE' : 'NEW DEVICE' }}</text>
       <text class="page-title">{{ isEdit ? '编辑设备' : '添加设备' }}</text>
       <text class="page-subtitle">记录设备信息，让管理更轻松</text>
     </view>
@@ -503,12 +504,14 @@ async function onSave(): Promise<void> {
   display: block;
   font-size: $gf-font-xs;
   font-weight: 600;
-  color: $gf-color-primary;
+  color: #587c9f;
+  letter-spacing: 2rpx;
 }
 
 .page-title {
   display: block;
-  font-size: 42rpx;
+  margin-top: 16rpx;
+  font-size: 46rpx;
   font-weight: 700;
   line-height: 1.25;
   color: $gf-text-1;
@@ -524,7 +527,7 @@ async function onSave(): Promise<void> {
 }
 
 .card {
-  padding: 28rpx $gf-space-lg 24rpx;
+  padding: 36rpx $gf-space-lg 28rpx;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
   border: 1rpx solid #edf0f3;
@@ -679,7 +682,7 @@ async function onSave(): Promise<void> {
 .status-chip.active {
   color: $gf-color-primary;
   background-color: $gf-color-primary-weak;
-  border-color: rgba(26, 115, 232, 0.24);
+  border-color: rgba(26, 115, 232, 0.18);
 }
 
 .status-chip-text {

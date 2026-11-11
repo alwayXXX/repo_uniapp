@@ -1,9 +1,9 @@
 <template>
   <view class="page wot-text-text-main">
     <view class="masthead">
-      <text class="kicker">资产观察</text>
+      <text class="kicker">YOUR INSIGHTS</text>
       <view class="heading-row">
-        <text class="page-title">数据</text>
+        <text class="page-title">资产概览</text>
         <text class="range-note">{{ selectedRange.label }}</text>
       </view>
       <view class="controls">
@@ -39,6 +39,7 @@
 
       <template v-if="overview">
         <view class="asset-band">
+          <view class="asset-orbit" />
           <view class="band-topline">
             <text class="band-label">当前资产</text>
             <text class="band-range">{{
@@ -320,7 +321,8 @@ onShow(() => {
   display: block;
   font-size: $gf-font-xs;
   font-weight: 600;
-  color: $gf-color-primary;
+  color: #587c9f;
+  letter-spacing: 2rpx;
 }
 
 .heading-row {
@@ -329,13 +331,13 @@ onShow(() => {
   align-items: baseline;
   justify-content: space-between;
   gap: $gf-space-sm;
-  margin-top: $gf-space-xs;
+  margin-top: 16rpx;
 }
 
 .page-title {
   min-width: 0;
   flex: 1;
-  font-size: $gf-font-xl;
+  font-size: 48rpx;
   font-weight: 700;
   line-height: 1.25;
   color: $gf-text-1;
@@ -395,12 +397,25 @@ onShow(() => {
 }
 
 .asset-band {
-  margin-bottom: $gf-space-sm;
-  padding: $gf-space-lg;
-  background-color: #263f5b;
-  border-radius: $gf-radius-lg;
-  box-shadow: $gf-shadow-sm;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+  padding: 40rpx;
+  background: linear-gradient(135deg, #101f38, #1b436b);
+  border-radius: 30rpx;
+  box-shadow: 0 16rpx 38rpx rgba(18, 39, 70, 0.14);
   box-sizing: border-box;
+}
+
+.asset-orbit {
+  position: absolute;
+  right: -60rpx;
+  bottom: -155rpx;
+  width: 310rpx;
+  height: 310rpx;
+  border: 1rpx solid rgba(128, 205, 246, 0.18);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 .band-topline,
@@ -434,8 +449,8 @@ onShow(() => {
 
 .asset-value {
   display: block;
-  margin-top: $gf-space-sm;
-  font-size: 48rpx;
+  margin-top: 28rpx;
+  font-size: 54rpx;
   font-weight: 700;
   line-height: 1.2;
   color: #ffffff;
@@ -444,7 +459,7 @@ onShow(() => {
 
 .band-note {
   display: block;
-  margin-top: $gf-space-xs;
+  margin-top: 16rpx;
   font-size: $gf-font-xs;
   line-height: 1.4;
 }
@@ -454,13 +469,13 @@ onShow(() => {
   flex-direction: row;
   flex-wrap: wrap;
   gap: $gf-space-sm;
-  margin-bottom: $gf-space-md;
+  margin-bottom: 32rpx;
 }
 
 .metric-cell {
   flex: 1 1 260rpx;
   min-width: 260rpx;
-  padding: $gf-space-md;
+  padding: 32rpx;
   background-color: $gf-bg-card;
   border: 1rpx solid $gf-line;
   border-radius: $gf-radius-lg;
@@ -498,11 +513,11 @@ onShow(() => {
 }
 
 .section {
-  margin-top: $gf-space-md;
-  padding: $gf-space-md $gf-space-lg;
+  margin-top: 24rpx;
+  padding: 32rpx;
   background-color: $gf-bg-card;
   border: 1rpx solid $gf-line;
-  border-radius: $gf-radius-md;
+  border-radius: 28rpx;
   box-shadow: $gf-shadow-sm;
   box-sizing: border-box;
 }

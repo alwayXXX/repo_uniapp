@@ -68,6 +68,23 @@ button::after {
   box-sizing: border-box;
   background: #f7f8fa;
 }
+
+/* Full-width Wot actions keep account controls in a readable vertical list. */
+.wd-button.gf-profile-action {
+  width: 100%;
+  min-height: 88rpx;
+  padding: 0;
+  margin: 0;
+  color: #283a50;
+  border-radius: 0;
+  border-bottom: 1rpx solid #eef1f5;
+}
+.wd-button.gf-profile-action .wd-button__content {
+  justify-content: flex-start;
+}
+.wd-button.gf-profile-danger {
+  color: #c83c36;
+}
 .wd-input.gf-wot-input {
   min-height: 88rpx;
   --wot-input-padding: 0 24rpx;

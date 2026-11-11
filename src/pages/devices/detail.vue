@@ -3,6 +3,7 @@
     <StatusView :state="loadState" :error-text="errorText" @retry="load">
       <view v-if="device">
         <view class="card hero">
+          <text class="hero-kicker">DEVICE / 设备档案</text>
           <view class="hero-head">
             <text class="hero-name">{{ device.name }}</text>
             <text class="status-badge" :class="device.status.toLowerCase()">
@@ -656,7 +657,7 @@ async function confirmDelete(): Promise<void> {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  padding: 32rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -671,7 +672,20 @@ async function confirmDelete(): Promise<void> {
 }
 
 .hero {
-  border-top: 6rpx solid $gf-color-primary;
+  padding: 40rpx;
+  background: linear-gradient(135deg, #101f38, #1b436b);
+  border: 0;
+  border-radius: 30rpx;
+  box-shadow: 0 16rpx 38rpx rgba(18, 39, 70, 0.14);
+}
+
+.hero-kicker {
+  display: block;
+  margin-bottom: 24rpx;
+  color: #a9cee8;
+  font-size: 20rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
 }
 
 .hero-head {
@@ -688,7 +702,7 @@ async function confirmDelete(): Promise<void> {
   font-size: 44rpx;
   font-weight: 700;
   line-height: 1.25;
-  color: $gf-text-1;
+  color: #fff;
   word-break: break-word;
 }
 
@@ -730,10 +744,10 @@ async function confirmDelete(): Promise<void> {
 
 .hero-sub {
   display: block;
-  margin-top: $gf-space-xs;
+  margin-top: 20rpx;
   font-size: $gf-font-sm;
   line-height: 1.45;
-  color: $gf-text-3;
+  color: #bfd2e3;
   word-break: break-word;
 }
 

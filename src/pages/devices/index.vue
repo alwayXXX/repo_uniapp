@@ -84,22 +84,25 @@
       <view class="list">
         <view v-for="device in store.items" :key="device.id" class="device-card">
           <view class="device-main" @click="gotoDetail(device.id)">
-            <view class="device-head">
-              <text class="device-name">{{ device.name }}</text>
-              <text class="status-badge" :class="device.status.toLowerCase()">
-                {{ statusLabel(device.status) }}
+            <view class="device-symbol"><wd-icon name="apps" size="22px" color="#3977c9" /></view>
+            <view class="device-body">
+              <view class="device-head">
+                <text class="device-name">{{ device.name }}</text>
+                <text class="status-badge" :class="device.status.toLowerCase()">
+                  {{ statusLabel(device.status) }}
+                </text>
+              </view>
+              <text class="device-meta">
+                {{ categoryName(device) }} · {{ device.purchaseDate || '未填购买日期' }}
+              </text>
+              <text class="device-price">
+                {{
+                  device.purchasePriceCents === null
+                    ? '价格未填'
+                    : formatMoney(device.purchasePriceCents, device.currency)
+                }}
               </text>
             </view>
-            <text class="device-meta">
-              {{ categoryName(device) }} · {{ device.purchaseDate || '未填购买日期' }}
-            </text>
-            <text class="device-price">
-              {{
-                device.purchasePriceCents === null
-                  ? '价格未填'
-                  : formatMoney(device.purchasePriceCents, device.currency)
-              }}
-            </text>
           </view>
         </view>
 
@@ -299,7 +302,7 @@ function gotoDetail(id: string): void {
   align-items: flex-start;
   justify-content: space-between;
   gap: $gf-space-md;
-  margin-bottom: $gf-space-md;
+  margin-bottom: 40rpx;
 }
 
 .heading-copy {
@@ -312,13 +315,13 @@ function gotoDetail(id: string): void {
   font-size: $gf-font-xs;
   font-weight: 600;
   letter-spacing: 2rpx;
-  color: $gf-color-primary;
+  color: #51769f;
 }
 
 .page-title {
   display: block;
   margin-top: 16rpx;
-  font-size: 42rpx;
+  font-size: 48rpx;
   font-weight: 700;
   line-height: 1.25;
   color: $gf-text-1;
@@ -359,7 +362,7 @@ function gotoDetail(id: string): void {
 }
 
 .toolbar {
-  margin-bottom: $gf-space-sm;
+  margin-bottom: $gf-space-md;
 }
 
 .search-field {
@@ -413,7 +416,7 @@ function gotoDetail(id: string): void {
 
 .filters-scroll {
   width: 100%;
-  margin-bottom: $gf-space-md;
+  margin-bottom: 32rpx;
   white-space: nowrap;
 }
 
@@ -457,16 +460,34 @@ function gotoDetail(id: string): void {
 .device-card {
   position: relative;
   margin-bottom: $gf-space-sm;
-  padding: $gf-space-md;
+  padding: 32rpx;
   background-color: $gf-bg-card;
-  border-radius: $gf-radius-lg;
+  border-radius: 28rpx;
   border: 1rpx solid #edf0f3;
   box-shadow: $gf-shadow-sm;
   box-sizing: border-box;
 }
 
 .device-main {
-  padding-bottom: $gf-space-sm;
+  display: flex;
+  align-items: flex-start;
+  gap: 24rpx;
+}
+
+.device-symbol {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  background: #ebf3ff;
+}
+
+.device-body {
+  min-width: 0;
+  flex: 1;
 }
 
 .device-head {
@@ -525,10 +546,11 @@ function gotoDetail(id: string): void {
 
 .device-price {
   display: block;
-  margin-top: $gf-space-xs;
+  margin-top: 20rpx;
   font-size: $gf-font-md;
   line-height: 1.4;
-  color: $gf-text-1;
+  color: #243b55;
+  font-weight: 600;
   word-break: break-all;
 }
 

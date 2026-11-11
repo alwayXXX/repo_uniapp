@@ -6,7 +6,7 @@
       empty-title="尚未初始化"
       @retry="bootstrap"
     >
-      <view class="card wot-bg-filled-oppo wot-rounded-lg">
+      <view class="card profile-hero">
         <view class="user-row">
           <view class="avatar">
             <text class="avatar-mark">{{ avatarChar }}</text>
@@ -32,20 +32,41 @@
         </view>
       </view>
 
-      <view class="card wot-bg-filled-oppo wot-rounded-lg">
-        <wd-button type="primary" variant="soft" class="action-button" open-type="feedback"
+      <view class="card action-card">
+        <text class="group-title">数据与支持</text>
+        <wd-button
+          block
+          type="primary"
+          variant="text"
+          icon="file"
+          custom-class="gf-profile-action"
+          open-type="feedback"
           >意见反馈</wd-button
         >
-        <wd-button type="primary" variant="soft" class="action-button" @click="openAnnualReport"
+        <wd-button
+          block
+          type="primary"
+          variant="text"
+          icon="dashboard"
+          custom-class="gf-profile-action"
+          @click="openAnnualReport"
           >年度设备报告</wd-button
         >
-        <wd-button type="primary" variant="soft" class="action-button" @click="openBackup"
+        <wd-button
+          block
+          type="primary"
+          variant="text"
+          icon="storage"
+          custom-class="gf-profile-action"
+          @click="openBackup"
           >备份与恢复</wd-button
         >
         <wd-button
+          block
           type="primary"
-          variant="soft"
-          class="action-button"
+          variant="text"
+          icon="download"
+          custom-class="gf-profile-action"
           :disabled="exportingJson"
           @click="exportJson"
         >
@@ -54,13 +75,24 @@
         <text class="danger-hint"
           >导出设备、保修和维护资料，不含附件文件；分享副本由你保管，不支持直接恢复。</text
         >
-        <wd-button type="primary" variant="soft" class="action-button" @click="onLogout"
+      </view>
+      <view class="card action-card">
+        <text class="group-title">账户</text>
+        <wd-button
+          block
+          type="primary"
+          variant="text"
+          icon="user"
+          custom-class="gf-profile-action"
+          @click="onLogout"
           >退出登录</wd-button
         >
         <wd-button
+          block
           type="danger"
-          variant="soft"
-          class="danger-button"
+          variant="text"
+          icon="delete"
+          custom-class="gf-profile-action gf-profile-danger"
           :disabled="deleting"
           @click="onDeleteAccount"
         >
@@ -222,6 +254,39 @@ function askConfirmationText(): void {
   box-sizing: border-box;
 }
 
+.profile-hero {
+  padding: 40rpx;
+  border: 0;
+  border-radius: 30rpx;
+  background: linear-gradient(135deg, #101f38, #1b436b);
+  box-shadow: 0 16rpx 38rpx rgba(18, 39, 70, 0.14);
+}
+
+.profile-hero .avatar {
+  background: rgba(139, 212, 247, 0.16);
+}
+.profile-hero .avatar-mark {
+  color: #a8dcf6;
+}
+.profile-hero .name {
+  color: #fff;
+}
+.profile-hero .edit-mark,
+.profile-hero .user-caption {
+  color: #bfd2e3;
+}
+
+.action-card {
+  padding: 32rpx;
+}
+.group-title {
+  display: block;
+  margin-bottom: 12rpx;
+  color: #16283e;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
 .user-row {
   display: flex;
   flex-direction: row;
@@ -312,37 +377,12 @@ function askConfirmationText(): void {
   color: $gf-text-4;
 }
 
-.action-button {
-  width: 100%;
-  height: 84rpx;
-  min-height: 84rpx;
-  margin-bottom: $gf-space-sm;
-  padding: 0 $gf-space-md;
-  font-size: $gf-font-md;
-  line-height: 84rpx;
-  color: $gf-text-1;
-  background-color: $gf-bg-subtle;
-  border-radius: $gf-control-radius;
-}
-
-.danger-button {
-  width: 100%;
-  height: 84rpx;
-  min-height: 84rpx;
-  padding: 0 $gf-space-md;
-  font-size: $gf-font-md;
-  line-height: 84rpx;
-  color: $gf-color-danger;
-  background-color: $gf-color-danger-weak;
-  border-radius: $gf-control-radius;
-}
-
 .danger-hint {
   display: block;
   margin-top: $gf-space-xs;
   font-size: $gf-font-xs;
   line-height: 1.45;
   color: $gf-text-3;
-  text-align: center;
+  text-align: left;
 }
 </style>
