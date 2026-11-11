@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <view class="page-intro">
       <text class="eyebrow">设备生命周期 / {{ isEdit ? '编辑维护' : '新增维护' }}</text>
       <text class="page-title">{{ isEdit ? '编辑维护记录' : '记录一次维护' }}</text>
@@ -7,7 +7,7 @@
     </view>
 
     <StatusView :state="loadState" :error-text="loadError" @retry="load">
-      <view class="card">
+      <view class="card wot-bg-filled-oppo wot-rounded-lg">
         <view class="section-heading">
           <view>
             <text class="section-title">维护详情</text>
@@ -17,7 +17,13 @@
         </view>
 
         <FormField label="标题" required :error="errors.title">
-          <input v-model="form.title" class="input" placeholder="例如：更换电池" maxlength="64" />
+          <wd-input
+            v-model="form.title"
+            custom-class="gf-wot-input"
+            class="input"
+            placeholder="例如：更换电池"
+            :maxlength="64"
+          />
         </FormField>
 
         <FormField label="类型" :error="errors.type">
@@ -35,17 +41,18 @@
         </FormField>
 
         <FormField label="发生日期" required :error="errors.occurredAt">
-          <picker mode="date" :value="form.occurredAt" @change="onDateChange">
+          <GearPicker mode="date" :value="form.occurredAt" @change="onDateChange">
             <view class="select-field">
               <text class="select-value">{{ form.occurredAt }}</text>
               <text class="select-arrow">›</text>
             </view>
-          </picker>
+          </GearPicker>
         </FormField>
 
         <FormField label="费用（元）" :error="errors.cost">
-          <input
+          <wd-input
             v-model="form.costYuan"
+            custom-class="gf-wot-input"
             class="input"
             type="digit"
             placeholder="选填，例如 500.00"
@@ -53,46 +60,79 @@
         </FormField>
 
         <FormField label="服务商">
-          <input v-model="form.vendor" class="input" placeholder="选填" maxlength="128" />
+          <wd-input
+            v-model="form.vendor"
+            custom-class="gf-wot-input"
+            class="input"
+            placeholder="选填"
+            :maxlength="128"
+          />
         </FormField>
 
         <FormField label="备注" :error="errors.notes">
-          <textarea v-model="form.notes" class="textarea" placeholder="选填" maxlength="1000" />
+          <wd-textarea
+            v-model="form.notes"
+            custom-class="gf-wot-textarea"
+            class="textarea"
+            placeholder="选填"
+            :maxlength="1000"
+          />
         </FormField>
       </view>
 
       <view class="action-area">
-        <button
+        <wd-button
+          type="primary"
           class="save-button"
           :disabled="saving || deleting || loadState !== 'success'"
           @click="onSave"
         >
           {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存记录' }}
-        </button>
+        </wd-button>
         <text class="action-note">维护金额仅用于你的设备统计</text>
       </view>
 
-      <button v-if="isEdit" class="delete-button" :disabled="deleting || saving" @click="askDelete">
+      <wd-button
+        v-if="isEdit"
+        type="danger"
+        variant="soft"
+        class="delete-button"
+        :disabled="deleting || saving"
+        @click="askDelete"
+      >
         {{ deleting ? '删除中…' : '删除此维护记录' }}
-      </button>
+      </wd-button>
     </StatusView>
 
-    <view v-if="confirmVisible" class="mask" @click="confirmVisible = false">
-      <view class="confirm-card" @click.stop>
+    <wd-popup v-model="confirmVisible" position="center" round>
+      <view class="confirm-card">
         <text class="confirm-title">删除维护记录</text>
         <text class="confirm-text">将删除该维护记录及其费用（成本统计同步更新）。</text>
         <view class="confirm-actions">
-          <button class="cancel-button" @click="confirmVisible = false">取消</button>
-          <button class="danger-button" :disabled="deleting" @click="confirmDelete">
+          <wd-button
+            type="primary"
+            variant="soft"
+            class="cancel-button"
+            @click="confirmVisible = false"
+            >取消</wd-button
+          >
+          <wd-button
+            type="danger"
+            variant="soft"
+            class="danger-button"
+            :disabled="deleting"
+            @click="confirmDelete"
+          >
             {{ deleting ? '删除中…' : '删除' }}
-          </button>
+          </wd-button>
         </view>
       </view>
-    </view>
+    </wd-popup>
   </view>
 </template>
 
 <script setup lang="ts">
+import GearPicker from '@/components/GearPicker.vue'
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import {
@@ -457,19 +497,9 @@ async function confirmDelete(): Promise<void> {
   text-align: center;
 }
 
-.mask {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(0, 0, 0, 0.45);
-}
-
 .confirm-card {
-  width: calc(100% - 64rpx);
-  max-width: 640rpx;
+  width: 640rpx;
+  max-width: calc(100vw - 64rpx);
   padding: $gf-space-lg;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;

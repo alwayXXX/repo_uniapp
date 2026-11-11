@@ -1,13 +1,20 @@
 <template>
   <view class="status-error">
     <view class="glyph">
-      <text class="glyph-mark">!</text>
+      <wd-icon name="info-circle" size="26px" color="#d93025" />
     </view>
     <text class="title">{{ text }}</text>
     <text v-if="hint" class="hint">{{ hint }}</text>
-    <button v-if="retryable" class="retry" :disabled="loading" @click="emit('retry')">
+    <wd-button
+      v-if="retryable"
+      type="primary"
+      variant="soft"
+      class="retry"
+      :disabled="loading"
+      @click="emit('retry')"
+    >
       {{ loading ? '重试中…' : '重试' }}
-    </button>
+    </wd-button>
   </view>
 </template>
 

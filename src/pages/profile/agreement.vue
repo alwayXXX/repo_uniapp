@@ -1,11 +1,13 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <text class="title">{{ policy.title }}</text>
     <text class="meta">版本 {{ policy.version }} · {{ POLICY_PUBLISHED_AT }} 生效</text>
     <view class="content-card">
       <text class="content">{{ policy.content }}</text>
     </view>
-    <button class="feedback-button" open-type="feedback">意见反馈</button>
+    <wd-button type="primary" variant="soft" class="feedback-button" open-type="feedback"
+      >意见反馈</wd-button
+    >
   </view>
 </template>
 

@@ -1,8 +1,8 @@
 <template>
-  <view class="p11-page">
+  <view class="p11-page wot-text-text-main">
     <text class="eyebrow">GEARFLOW / 年度回顾</text>
     <text class="title">{{ year }} 年设备报告</text>
-    <picker
+    <GearPicker
       mode="date"
       fields="year"
       start="1970"
@@ -10,11 +10,11 @@
       :value="String(year)"
       @change="changeYear"
     >
-      <view class="card">选择年份 · {{ year }} 年 ›</view>
-    </picker>
+      <view class="card wot-bg-filled-oppo wot-rounded-lg">选择年份 · {{ year }} 年 ›</view>
+    </GearPicker>
     <StatusView :state="state" :error-text="error" @retry="refresh">
       <template v-if="report">
-        <view class="card"
+        <view class="card wot-bg-filled-oppo wot-rounded-lg"
           ><text>年度总支出</text
           ><text class="amount">{{ formatMoney(report.totalSpendCents) }}</text>
           <text class="hint">购买与维护支出合计，按发生日期计算；未填写金额的记录不计入合计</text>
@@ -34,7 +34,7 @@
             ><text>支出减处置收入</text><text>{{ formatMoney(report.netSpendCents) }}</text></view
           >
         </view>
-        <view class="card"
+        <view class="card wot-bg-filled-oppo wot-rounded-lg"
           ><text class="section-title">每月支出</text>
           <text
             v-if="report.purchaseCount + report.maintenanceCount + report.disposalCount === 0"
@@ -46,9 +46,13 @@
               ><text>{{ month.month }} 月</text
               ><text>{{ formatMoney(month.purchaseCents + month.maintenanceCents) }}</text></view
             >
-            <view class="track"
-              ><view class="fill" :style="{ width: `${barWidth(month)}%` }"
-            /></view>
+            <wd-progress
+              :percentage="barWidth(month)"
+              color="#1a73e8"
+              :duration="0"
+              hide-text
+              custom-style="--wot-progress-height: 12rpx; --wot-progress-bar-height: 12rpx; margin: 8rpx 0 18rpx"
+            />
           </view>
         </view>
         <text class="hint"
@@ -56,11 +60,17 @@
           {{ report.deviceCount }}
           台设备，已删除设备不计入。此报告按现有记录生成，不是历史年末资产快照。</text
         >
-        <view class="card">
+        <view class="card wot-bg-filled-oppo wot-rounded-lg">
           <text class="section-title">AI 年度解读</text>
-          <button v-if="!annualFacts" :disabled="aiBusy" @click="previewAnnual">
+          <wd-button
+            v-if="!annualFacts"
+            type="primary"
+            variant="soft"
+            :disabled="aiBusy"
+            @click="previewAnnual"
+          >
             查看发送内容
-          </button>
+          </wd-button>
           <AnnualAiPreview
             v-if="annualFacts"
             :facts="annualFacts"
@@ -83,6 +93,7 @@
   </view>
 </template>
 <script setup lang="ts">
+import GearPicker from '@/components/GearPicker.vue'
 import { computed, ref } from 'vue'
 import { onHide, onShow } from '@dcloudio/uni-app'
 import StatusView from '@/components/StatusView.vue'
@@ -167,15 +178,4 @@ onShow(() => {
 </script>
 <style scoped lang="scss">
 @import '@/styles/phase11.scss';
-.track {
-  height: 12rpx;
-  background: $gf-bg-subtle;
-  border-radius: 6rpx;
-  margin: 8rpx 0 18rpx;
-  overflow: hidden;
-}
-.fill {
-  height: 100%;
-  background: $gf-color-primary;
-}
 </style>

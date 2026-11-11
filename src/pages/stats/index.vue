@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <view class="masthead">
       <text class="kicker">资产观察</text>
       <view class="heading-row">
@@ -7,22 +7,24 @@
         <text class="range-note">{{ selectedRange.label }}</text>
       </view>
       <view class="controls">
-        <picker mode="selector" :range="rangeLabels" @change="onRangeChange">
+        <GearPicker mode="selector" :range="rangeLabels" @change="onRangeChange">
           <view class="control-chip">
             <text class="control-label">范围</text>
             <text class="control-value">{{ selectedRange.label }}</text>
           </view>
-        </picker>
-        <picker mode="selector" :range="categoryLabels" @change="onCategoryChange">
+        </GearPicker>
+        <GearPicker mode="selector" :range="categoryLabels" @change="onCategoryChange">
           <view class="control-chip">
             <text class="control-label">分类</text>
             <text class="control-value">{{ categoryLabel }}</text>
           </view>
-        </picker>
+        </GearPicker>
       </view>
     </view>
 
-    <button class="annual-entry" @click="openAnnualReport">查看年度设备报告 ›</button>
+    <wd-button type="primary" variant="soft" class="annual-entry" @click="openAnnualReport"
+      >查看年度设备报告 ›</wd-button
+    >
     <StatusView
       :state="pageState"
       :retry-loading="pageState === 'loading'"
@@ -32,7 +34,7 @@
       @retry="load"
     >
       <template #empty-action>
-        <button class="primary-button" @click="gotoDevices">去添加设备</button>
+        <wd-button type="primary" class="primary-button" @click="gotoDevices">去添加设备</wd-button>
       </template>
 
       <template v-if="overview">
@@ -85,13 +87,13 @@
                 {{ formatMoney(item.assetCents, overview.currency) }}</text
               >
             </view>
-            <view class="bar-track">
-              <view
-                class="bar-fill lifecycle-fill"
-                :class="`status-${item.status.toLowerCase()}`"
-                :style="{ width: `${lifecyclePercent(item.deviceCount)}%` }"
-              />
-            </view>
+            <wd-progress
+              :percentage="lifecyclePercent(item.deviceCount)"
+              :color="lifecycleColor(item.status)"
+              :duration="0"
+              hide-text
+              custom-style="--wot-progress-height: 12rpx; --wot-progress-bar-height: 12rpx; margin-top: 8rpx"
+            />
           </view>
         </view>
 
@@ -113,12 +115,13 @@
                 {{ formatMoney(item.assetCents, overview.currency) }}</text
               >
             </view>
-            <view class="bar-track">
-              <view
-                class="bar-fill category-fill"
-                :style="{ width: `${categoryPercent(item)}%` }"
-              />
-            </view>
+            <wd-progress
+              :percentage="categoryPercent(item)"
+              color="#1a73e8"
+              :duration="0"
+              hide-text
+              custom-style="--wot-progress-height: 12rpx; --wot-progress-bar-height: 12rpx; margin-top: 8rpx"
+            />
           </view>
           <text v-if="overview.categoryDistribution.length === 0" class="section-empty"
             >暂无分类数据</text
@@ -159,6 +162,7 @@
 </template>
 
 <script setup lang="ts">
+import GearPicker from '@/components/GearPicker.vue'
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { ensureSession } from '@/services/auth'
@@ -205,6 +209,12 @@ const categoryDeviceTotal = computed(
 
 function lifecyclePercent(value: number): number {
   return percentage(value, lifecycleTotal.value)
+}
+
+function lifecycleColor(status: string): string {
+  if (status === 'IN_USE') return '#188038'
+  if (status === 'IDLE') return '#b06000'
+  return '#bdc1c6'
 }
 
 function categoryPercent(item: CategoryDistributionItem): number {
@@ -545,37 +555,6 @@ onShow(() => {
   color: $gf-text-1;
   text-align: right;
   word-break: break-all;
-}
-
-.bar-track {
-  height: 12rpx;
-  margin-top: $gf-space-xs;
-  overflow: hidden;
-  background-color: $gf-bg-subtle;
-  border-radius: 6rpx;
-}
-
-.bar-fill {
-  height: 100%;
-  min-width: 0;
-  border-radius: 6rpx;
-}
-
-.category-fill {
-  background-color: $gf-color-primary;
-}
-
-.status-in_use {
-  background-color: $gf-color-success;
-}
-
-.status-idle {
-  background-color: $gf-color-warning;
-}
-
-.status-sold,
-.status-discarded {
-  background-color: $gf-text-4;
 }
 
 .section-empty {

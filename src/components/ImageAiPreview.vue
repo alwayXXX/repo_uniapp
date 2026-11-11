@@ -9,9 +9,14 @@
     <text class="hint"
       >预览为实际发送的图片，较大的图片可能已在本机压缩。请先遮盖姓名、地址、序列号等不想发送的内容；图片也可能含拍摄地点等元数据，请先处理。识别结果可能有误，需要你核对后再保存。</text
     >
-    <button class="primary" :disabled="busy || !imagePath" @click="emit('confirm')">
+    <wd-button
+      type="primary"
+      class="primary"
+      :disabled="busy || !imagePath"
+      @click="emit('confirm')"
+    >
       {{ busy ? '正在识别…' : '同意并识别' }}
-    </button>
+    </wd-button>
   </view>
 </template>
 

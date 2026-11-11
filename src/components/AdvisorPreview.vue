@@ -38,9 +38,9 @@
     <text class="hint"
       >序列号、设备备注、发票和附件不会自动发送。AI 建议可能有误，请自行核对。</text
     >
-    <button class="primary" :disabled="busy" @click="emit('confirm')">
+    <wd-button type="primary" class="primary" :disabled="busy" @click="emit('confirm')">
       {{ busy ? '正在生成…' : '同意并生成建议' }}
-    </button>
+    </wd-button>
   </view>
 </template>
 

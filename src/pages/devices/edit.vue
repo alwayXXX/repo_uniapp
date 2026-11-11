@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <view class="page-intro">
       <text class="eyebrow">设备资产 / {{ isEdit ? '编辑' : '新增' }}</text>
       <text class="page-title">{{ isEdit ? '编辑设备' : '添加设备' }}</text>
@@ -7,7 +7,7 @@
     </view>
 
     <StatusView :state="loadState" :error-text="loadError" @retry="load">
-      <view class="card">
+      <view class="card wot-bg-filled-oppo wot-rounded-lg">
         <view class="section-heading">
           <view>
             <text class="section-title">基本信息</text>
@@ -16,9 +16,14 @@
           <text class="section-index">01</text>
         </view>
 
-        <button :disabled="imageBusy || loadState !== 'success'" @click="selectAiImage">
+        <wd-button
+          type="primary"
+          variant="soft"
+          :disabled="imageBusy || loadState !== 'success'"
+          @click="selectAiImage"
+        >
           选择图片识别设备
-        </button>
+        </wd-button>
         <ImageAiPreview
           v-if="imagePath"
           :image-path="imagePath"
@@ -32,7 +37,9 @@
             {{ imageResult.brand || '品牌未知' }} /
             {{ imageResult.model || '型号未知' }}。请核对后再填写。</text
           >
-          <button @click="applyRecognition">将候选填入空白项</button>
+          <wd-button type="primary" variant="soft" @click="applyRecognition"
+            >将候选填入空白项</wd-button
+          >
         </view>
 
         <FormField label="分类" required :error="errors.categoryId">
@@ -40,12 +47,18 @@
             <text :class="categoryName ? 'select-value' : 'select-placeholder'">
               {{ categoryName || '请选择分类' }}
             </text>
-            <text class="select-arrow">›</text>
+            <wd-icon name="arrow-right" size="16px" color="#9aa0a6" />
           </view>
         </FormField>
 
         <FormField label="名称" required :error="errors.name">
-          <input v-model="form.name" class="input" placeholder="例如：MacBook Pro" maxlength="64" />
+          <wd-input
+            v-model="form.name"
+            custom-class="gf-wot-input"
+            class="input"
+            placeholder="例如：MacBook Pro"
+            :maxlength="64"
+          />
         </FormField>
 
         <FormField label="状态">
@@ -63,11 +76,23 @@
         </FormField>
 
         <FormField label="品牌">
-          <input v-model="form.brand" class="input" placeholder="选填" maxlength="64" />
+          <wd-input
+            v-model="form.brand"
+            custom-class="gf-wot-input"
+            class="input"
+            placeholder="选填"
+            :maxlength="64"
+          />
         </FormField>
 
         <FormField label="型号">
-          <input v-model="form.model" class="input" placeholder="选填" maxlength="128" />
+          <wd-input
+            v-model="form.model"
+            custom-class="gf-wot-input"
+            class="input"
+            placeholder="选填"
+            :maxlength="128"
+          />
         </FormField>
 
         <FormField
@@ -75,32 +100,40 @@
           :error="errors.serialNumber"
           hint="选填，仅供查询和报修；账号注销时删除"
         >
-          <input v-model="form.serialNumber" class="input" placeholder="选填" maxlength="128" />
+          <wd-input
+            v-model="form.serialNumber"
+            custom-class="gf-wot-input"
+            class="input"
+            placeholder="选填"
+            :maxlength="128"
+          />
         </FormField>
 
         <FormField label="购买日期" :error="errors.purchaseDate">
-          <picker mode="date" :value="form.purchaseDate" @change="onPurchaseDateChange">
-            <view class="select-field">
+          <GearPicker mode="date" :value="form.purchaseDate" @change="onPurchaseDateChange">
+            <view class="select-field purchase-date-field">
               <text :class="form.purchaseDate ? 'select-value' : 'select-placeholder'">
                 {{ form.purchaseDate || '选择日期（可选）' }}
               </text>
               <text class="select-arrow">›</text>
             </view>
-          </picker>
+          </GearPicker>
         </FormField>
 
         <FormField label="购买渠道">
-          <input
+          <wd-input
             v-model="form.purchaseChannel"
+            custom-class="gf-wot-input"
             class="input"
             placeholder="选填，例如 Apple Store"
-            maxlength="128"
+            :maxlength="128"
           />
         </FormField>
 
         <FormField label="购买价格（元）" :error="errors.purchasePrice">
-          <input
+          <wd-input
             v-model="form.purchasePriceYuan"
+            custom-class="gf-wot-input"
             class="input"
             type="digit"
             placeholder="选填，例如 9999.00"
@@ -108,11 +141,17 @@
         </FormField>
 
         <FormField label="备注" :error="errors.notes">
-          <textarea v-model="form.notes" class="textarea" placeholder="选填" maxlength="1000" />
+          <wd-textarea
+            v-model="form.notes"
+            custom-class="gf-wot-textarea"
+            class="textarea"
+            placeholder="选填"
+            :maxlength="1000"
+          />
         </FormField>
       </view>
 
-      <view class="card">
+      <view class="card wot-bg-filled-oppo wot-rounded-lg">
         <view class="section-heading">
           <view>
             <text class="section-title">保修信息</text>
@@ -121,52 +160,60 @@
           <text class="section-index">02</text>
         </view>
         <FormField label="保修开始日期" :error="errors.warrantyDates">
-          <picker mode="date" :value="warrantyStart" @change="onWarrantyStartChange">
+          <GearPicker mode="date" :value="warrantyStart" @change="onWarrantyStartChange">
             <view class="select-field">
               <text :class="warrantyStart ? 'select-value' : 'select-placeholder'">
                 {{ warrantyStart || '选择日期' }}
               </text>
               <text class="select-arrow">›</text>
             </view>
-          </picker>
+          </GearPicker>
         </FormField>
         <FormField label="保修结束日期" :error="errors.warrantyDates">
-          <picker mode="date" :value="warrantyEnd" @change="onWarrantyEndChange">
+          <GearPicker mode="date" :value="warrantyEnd" @change="onWarrantyEndChange">
             <view class="select-field">
               <text :class="warrantyEnd ? 'select-value' : 'select-placeholder'">
                 {{ warrantyEnd || '选择日期（填写后自动计算保修状态）' }}
               </text>
               <text class="select-arrow">›</text>
             </view>
-          </picker>
+          </GearPicker>
         </FormField>
         <FormField label="保修提供方">
-          <input
+          <wd-input
             v-model="warrantyProvider"
+            custom-class="gf-wot-input"
             class="input"
             placeholder="选填，例如 Apple"
-            maxlength="128"
+            :maxlength="128"
           />
         </FormField>
-        <button
+        <wd-button
           v-if="warrantyStart || warrantyEnd || warrantyProvider"
+          type="primary"
+          variant="soft"
           class="clear-warranty"
           @click="clearWarranty"
         >
           清除保修
-        </button>
+        </wd-button>
       </view>
 
       <view class="action-area">
-        <button class="save-button" :disabled="saving || loadState !== 'success'" @click="onSave">
+        <wd-button
+          type="primary"
+          class="save-button"
+          :disabled="saving || loadState !== 'success'"
+          @click="onSave"
+        >
           {{ saving ? '保存中…' : isEdit ? '保存修改' : '保存设备' }}
-        </button>
+        </wd-button>
         <text class="action-note">信息只会保存在你的 GearFlow 账户中</text>
       </view>
     </StatusView>
 
-    <view v-if="showCategorySheet" class="sheet-mask" @click="showCategorySheet = false">
-      <view class="sheet" @click.stop>
+    <wd-popup v-model="showCategorySheet" position="bottom" round safe-area-inset-bottom>
+      <view class="sheet">
         <text class="sheet-title">选择分类</text>
         <scroll-view scroll-y class="sheet-list">
           <view
@@ -180,11 +227,12 @@
           </view>
         </scroll-view>
       </view>
-    </view>
+    </wd-popup>
   </view>
 </template>
 
 <script setup lang="ts">
+import GearPicker from '@/components/GearPicker.vue'
 import { computed, ref } from 'vue'
 import { onHide, onLoad } from '@dcloudio/uni-app'
 import ImageAiPreview from '@/components/ImageAiPreview.vue'
@@ -674,19 +722,10 @@ async function onSave(): Promise<void> {
   text-align: center;
 }
 
-.sheet-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  align-items: flex-end;
-  background-color: rgba(0, 0, 0, 0.45);
-}
-
 .sheet {
   width: 100%;
   max-height: 70vh;
-  padding: $gf-space-lg $gf-space-lg calc($gf-space-lg + env(safe-area-inset-bottom));
+  padding: $gf-space-lg;
   background-color: $gf-bg-card;
   border-top: 1rpx solid $gf-line;
   border-radius: 20rpx 20rpx 0 0;

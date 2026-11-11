@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <view class="page-header">
       <view class="heading-copy">
         <text class="eyebrow">GearFlow / 设备资产</text>
@@ -7,46 +7,55 @@
         <text class="page-subtitle">集中管理设备资料、状态与购买成本。</text>
       </view>
       <view class="header-actions">
-        <button class="header-action" :disabled="exporting" @click="exportDevicesCsv">
-          <text class="header-action-mark">⇩</text>
-          <text>导出</text>
-        </button>
-        <button class="header-action" @click="gotoCreate">
-          <text class="header-action-mark">＋</text>
-          <text>添加</text>
-        </button>
+        <wd-button
+          type="primary"
+          variant="soft"
+          icon="download"
+          class="header-action"
+          :disabled="exporting"
+          @click="exportDevicesCsv"
+        >
+          导出
+        </wd-button>
+        <wd-button
+          type="primary"
+          variant="soft"
+          icon="plus"
+          class="header-action"
+          @click="gotoCreate"
+        >
+          添加
+        </wd-button>
       </view>
     </view>
 
     <view class="toolbar">
-      <view class="search-field">
-        <text class="search-mark">⌕</text>
-        <input
-          class="search"
-          :value="store.keyword"
-          placeholder="搜索名称、品牌或型号"
-          @input="onKeywordInput"
-          @confirm="store.loadFirst()"
-        />
-        <text v-if="store.keyword" class="search-clear" @click="clearKeyword">×</text>
-      </view>
+      <wd-search
+        :model-value="store.keyword"
+        placeholder="搜索名称、品牌或型号"
+        hide-cancel
+        placeholder-left
+        @update:model-value="onKeywordInput"
+        @search="store.loadFirst()"
+        @clear="clearKeyword"
+      />
     </view>
 
     <scroll-view class="filters-scroll" scroll-x :show-scrollbar="false">
       <view class="filters">
-        <picker mode="selector" :range="categoryOptions" @change="onCategoryChange">
+        <GearPicker mode="selector" :range="categoryOptions" @change="onCategoryChange">
           <view class="filter-chip" :class="{ active: store.categoryId !== '' }">
             {{ categoryFilterLabel }}
           </view>
-        </picker>
-        <picker mode="selector" :range="statusFilterLabels" @change="onStatusChange">
+        </GearPicker>
+        <GearPicker mode="selector" :range="statusFilterLabels" @change="onStatusChange">
           <view class="filter-chip" :class="{ active: store.deviceStatus !== '' }">
             {{ statusFilterLabel }}
           </view>
-        </picker>
-        <picker mode="selector" :range="sortLabels" @change="onSortChange">
+        </GearPicker>
+        <GearPicker mode="selector" :range="sortLabels" @change="onSortChange">
           <view class="filter-chip">{{ sortLabel }}</view>
-        </picker>
+        </GearPicker>
       </view>
     </scroll-view>
 
@@ -58,10 +67,16 @@
       @retry="store.loadFirst()"
     >
       <template #empty-action>
-        <button v-if="store.hasFilter" class="ghost-button" @click="store.clearFilters()">
+        <wd-button
+          v-if="store.hasFilter"
+          type="primary"
+          variant="soft"
+          class="ghost-button"
+          @click="store.clearFilters()"
+        >
           清空筛选
-        </button>
-        <button class="primary-button" @click="gotoCreate()">添加设备</button>
+        </wd-button>
+        <wd-button type="primary" class="primary-button" @click="gotoCreate()">添加设备</wd-button>
       </template>
 
       <view class="list">
@@ -101,6 +116,7 @@
 </template>
 
 <script setup lang="ts">
+import GearPicker from '@/components/GearPicker.vue'
 import { computed, ref } from 'vue'
 import { onHide, onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import { useDeviceStore } from '@/stores/device'
@@ -201,8 +217,7 @@ onHide(() => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = null
 })
-function onKeywordInput(event: unknown): void {
-  const value = (event as { detail?: { value?: string } }).detail?.value ?? ''
+function onKeywordInput(value: string): void {
   store.setKeyword(value)
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {

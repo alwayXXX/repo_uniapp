@@ -40,9 +40,9 @@
       >
     </view>
     <text class="hint">未填写的金额不计入统计。AI 解读仅供参考，报告数字以原始统计为准。</text>
-    <button class="primary" :disabled="busy" @click="emit('confirm')">
+    <wd-button type="primary" class="primary" :disabled="busy" @click="emit('confirm')">
       {{ busy ? '正在生成…' : '同意并生成解读' }}
-    </button>
+    </wd-button>
   </view>
 </template>
 

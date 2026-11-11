@@ -3,6 +3,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import DeviceEdit from './edit.vue'
 import MaintenanceEdit from './maintenance.vue'
 import DeviceDetail from './detail.vue'
+import GearPicker from '@/components/GearPicker.vue'
 import { deviceFixture, maintenanceFixture, warrantyFixture } from '@/test/fixtures'
 import type { MaintenanceDoc, WarrantyDoc } from '@/types/maintenance'
 import { AppError } from '@/utils/error'
@@ -190,8 +191,8 @@ describe('device editor warranty safety', () => {
     const page = mount(DeviceEdit)
     lifecycle.load({ id: deviceFixture.id })
     await flushPromises()
-    expect(page.findAll('picker')).toHaveLength(3)
-    await page.findAll('picker')[2]!.trigger('change', { detail: { value: '2028-01-01' } })
+    expect(page.findAllComponents(GearPicker)).toHaveLength(3)
+    page.findAllComponents(GearPicker)[2]!.vm.$emit('change', { detail: { value: '2028-01-01' } })
     await page.get('.save-button').trigger('click')
     await flushPromises()
     expect(mocks.saveDevice).toHaveBeenCalledWith(
@@ -231,6 +232,22 @@ describe('device editor warranty safety', () => {
 })
 
 describe('maintenance editor', () => {
+  it('requires confirmation before deleting a maintenance record', async () => {
+    const page = mount(MaintenanceEdit)
+    lifecycle.load({ deviceId: deviceFixture.id, id: 'synthetic-maintenance-51' })
+    await flushPromises()
+    await page.get('.delete-button').trigger('click')
+    expect(mocks.deleteMaintenance).not.toHaveBeenCalled()
+    await page.get('.confirm-card .cancel-button').trigger('click')
+    expect(page.find('.confirm-card').exists()).toBe(false)
+    expect(mocks.deleteMaintenance).not.toHaveBeenCalled()
+    await page.get('.delete-button').trigger('click')
+    await page.get('.confirm-card .danger-button').trigger('click')
+    await flushPromises()
+    expect(mocks.deleteMaintenance).toHaveBeenCalledOnce()
+    expect(mocks.deleteMaintenance).toHaveBeenCalledWith('synthetic-maintenance-51')
+  })
+
   it('loads a record directly by device and record ID', async () => {
     const page = mount(MaintenanceEdit)
     lifecycle.load({ deviceId: deviceFixture.id, id: 'synthetic-maintenance-51' })

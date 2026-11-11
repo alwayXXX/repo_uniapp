@@ -1,23 +1,29 @@
 <template>
-  <view class="p11-page">
+  <view class="p11-page wot-text-text-main">
     <text class="eyebrow">设备 / 私人凭证</text><text class="title">照片与发票</text>
     <text class="hint"
       >仅供本人查阅，保存在国内
       CloudBase，至删除附件、设备或注销账号时清理。建议先遮盖发票上的姓名、地址等无关信息。</text
     >
-    <button
+    <wd-button
+      type="primary"
       class="primary"
       :disabled="busy || state !== 'success' || items.length >= 10"
       @click="upload"
     >
       {{ busy ? '处理中…' : '从微信文件选择附件' }}
-    </button>
+    </wd-button>
     <text class="hint">支持 JPG、PNG、WebP、PDF，每份最多 2 MiB，每台最多 10 份。</text>
-    <button :disabled="busy || state !== 'success' || items.length >= 10" @click="uploadPhoto">
+    <wd-button
+      type="primary"
+      variant="soft"
+      :disabled="busy || state !== 'success' || items.length >= 10"
+      @click="uploadPhoto"
+    >
       从相册选择照片
-    </button>
+    </wd-button>
     <StatusView :state="state" :error-text="error" @retry="refresh">
-      <view class="card"
+      <view class="card wot-bg-filled-oppo wot-rounded-lg"
         ><text class="section-title">{{ deviceName }} · {{ items.length }}/10</text>
         <text v-if="items.length === 0" class="hint">还没有附件，点击上方按钮添加凭证。</text>
         <view v-for="item in items" :key="item.id" class="row">
@@ -25,8 +31,22 @@
             ><text>{{ item.name }}</text
             ><text class="hint">{{ Math.ceil(item.size / 1024) }} KiB</text></view
           >
-          <button class="compact" :disabled="busy" @click="open(item.id)">查看</button>
-          <button class="compact danger" :disabled="busy" @click="remove(item)">删除</button>
+          <wd-button
+            type="primary"
+            variant="soft"
+            class="compact"
+            :disabled="busy"
+            @click="open(item.id)"
+            >查看</wd-button
+          >
+          <wd-button
+            type="danger"
+            variant="soft"
+            class="compact danger"
+            :disabled="busy"
+            @click="remove(item)"
+            >删除</wd-button
+          >
         </view>
       </view>
     </StatusView>

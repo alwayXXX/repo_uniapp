@@ -1,8 +1,8 @@
 <template>
-  <view class="p11-page">
+  <view class="p11-page wot-text-text-main">
     <text class="eyebrow">设备 / 订阅提醒</text><text class="title">保修到期提醒</text>
     <StatusView :state="state" :error-text="error" @retry="refresh">
-      <view class="card"
+      <view class="card wot-bg-filled-oppo wot-rounded-lg"
         ><text class="section-title">{{ deviceName }}</text>
         <text class="hint">{{
           warrantyEnd ? `保修到期：${warrantyEnd}` : '先在设备编辑页填写保修信息。'
@@ -14,48 +14,52 @@
           >微信订阅模板尚未配置。开发者需在微信后台添加设备保修到期模板后才能开启；其他功能可正常使用。</text
         >
         <FormField label="提醒日期"
-          ><picker
+          ><GearPicker
             mode="date"
             :value="remindOn"
             :start="tomorrow"
             :end="warrantyEnd >= tomorrow ? warrantyEnd : tomorrow"
             @change="remindOn = $event.detail.value"
-            ><view class="input">{{ remindOn }} ›</view></picker
+            ><view class="input">{{ remindOn }} ›</view></GearPicker
           ></FormField
         >
         <text class="hint"
           >只在你主动授权后计划一次提醒，可取消尚未发送的任务。微信拒绝授权时不会创建计划。</text
         >
-        <button
+        <wd-button
+          type="primary"
           class="primary"
           :disabled="busy || !config?.available || warrantyEnd < tomorrow || !active"
           @click="subscribe"
         >
           {{ busy ? '处理中…' : '授权并设置一次提醒' }}
-        </button>
+        </wd-button>
         <text v-if="!active" class="hint">已出售或报废的设备不安排提醒。</text>
       </view>
-      <view class="card"
+      <view class="card wot-bg-filled-oppo wot-rounded-lg"
         ><text class="section-title">提醒记录</text
         ><text v-if="!items.length" class="hint">暂无提醒计划</text>
         <view v-for="item in items" :key="item.id" class="row"
           ><view
             ><text>{{ item.remindOn }}</text
             ><text class="hint">{{ labels[item.status] }}</text></view
-          ><button
+          ><wd-button
             v-if="item.status === 'PENDING'"
+            type="primary"
+            variant="soft"
             class="compact"
             :disabled="busy"
             @click="cancel(item.id)"
           >
             取消
-          </button></view
+          </wd-button></view
         >
       </view>
     </StatusView>
   </view>
 </template>
 <script setup lang="ts">
+import GearPicker from '@/components/GearPicker.vue'
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import StatusView from '@/components/StatusView.vue'

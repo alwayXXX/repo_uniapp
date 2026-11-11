@@ -1,49 +1,56 @@
 <template>
-  <view class="p11-page">
+  <view class="p11-page wot-text-text-main">
     <text class="eyebrow">设备 / 处置记录</text><text class="title">出售或报废</text>
     <StatusView :state="state" :error-text="error" @retry="refresh">
-      <view v-if="device" class="card">
+      <view v-if="device" class="card wot-bg-filled-oppo wot-rounded-lg">
         <text class="section-title">{{ device.name }}</text>
         <FormField label="处置方式" required
-          ><picker
+          ><GearPicker
             :range="['已出售', '已报废']"
             :value="status === 'SOLD' ? 0 : 1"
             @change="status = Number($event.detail.value) === 0 ? 'SOLD' : 'DISCARDED'"
-            ><view class="input">{{ status === 'SOLD' ? '已出售' : '已报废' }} ›</view></picker
+            ><view class="input">{{ status === 'SOLD' ? '已出售' : '已报废' }} ›</view></GearPicker
           ></FormField
         >
         <FormField label="处置日期" required :error="formError"
-          ><picker
+          ><GearPicker
             mode="date"
             :value="date"
             :start="device.purchaseDate || '1970-01-01'"
             :end="todayString()"
             @change="date = $event.detail.value"
-            ><view class="input">{{ date }}</view></picker
+            ><view class="input">{{ date }}</view></GearPicker
           ></FormField
         >
         <FormField label="处置收入（元，选填）"
-          ><input v-model="amount" class="input" type="digit" placeholder="未获得收入可留空"
+          ><wd-input
+            v-model="amount"
+            custom-class="gf-wot-input"
+            class="input"
+            type="digit"
+            placeholder="未获得收入可留空"
         /></FormField>
         <FormField label="处置说明（选填）">
-          <textarea
+          <wd-textarea
             v-model="notes"
+            custom-class="gf-wot-textarea"
             class="textarea"
-            maxlength="1000"
+            :maxlength="1000"
             placeholder="例如回收方式；请勿填写无关个人资料"
           />
         </FormField>
         <text class="hint"
           >保存后更新设备状态和时间线，取消该设备未发送提醒。处置收入独立记录，原购买价格与维护费用保留。</text
         >
-        <button class="primary" :disabled="busy" @click="save">
+        <wd-button type="primary" class="primary" :disabled="busy" @click="save">
           {{ busy ? '保存中…' : '保存处置记录' }}
-        </button>
+        </wd-button>
       </view>
     </StatusView>
   </view>
 </template>
 <script setup lang="ts">
+import GearPicker from '@/components/GearPicker.vue'
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import StatusView from '@/components/StatusView.vue'

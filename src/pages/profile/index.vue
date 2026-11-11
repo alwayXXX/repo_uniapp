@@ -1,12 +1,12 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <StatusView
       :state="storeStatus"
       :retry-loading="status === 'loading'"
       empty-title="尚未初始化"
       @retry="bootstrap"
     >
-      <view class="card">
+      <view class="card wot-bg-filled-oppo wot-rounded-lg">
         <view class="user-row">
           <view class="avatar">
             <text class="avatar-mark">{{ avatarChar }}</text>
@@ -21,7 +21,7 @@
         </view>
       </view>
 
-      <view class="card">
+      <view class="card wot-bg-filled-oppo wot-rounded-lg">
         <view class="cell" @click="openPolicy('terms')">
           <text class="cell-label">用户协议</text>
           <text class="cell-arrow">›</text>
@@ -32,20 +32,40 @@
         </view>
       </view>
 
-      <view class="card">
-        <button class="action-button" open-type="feedback">意见反馈</button>
-        <button class="action-button" @click="openAnnualReport">年度设备报告</button>
-        <button class="action-button" @click="openBackup">备份与恢复</button>
-        <button class="action-button" :disabled="exportingJson" @click="exportJson">
+      <view class="card wot-bg-filled-oppo wot-rounded-lg">
+        <wd-button type="primary" variant="soft" class="action-button" open-type="feedback"
+          >意见反馈</wd-button
+        >
+        <wd-button type="primary" variant="soft" class="action-button" @click="openAnnualReport"
+          >年度设备报告</wd-button
+        >
+        <wd-button type="primary" variant="soft" class="action-button" @click="openBackup"
+          >备份与恢复</wd-button
+        >
+        <wd-button
+          type="primary"
+          variant="soft"
+          class="action-button"
+          :disabled="exportingJson"
+          @click="exportJson"
+        >
           {{ exportingJson ? '导出中…' : '导出 JSON 数据' }}
-        </button>
+        </wd-button>
         <text class="danger-hint"
           >导出设备、保修和维护资料，不含附件文件；分享副本由你保管，不支持直接恢复。</text
         >
-        <button class="action-button" @click="onLogout">退出登录</button>
-        <button class="danger-button" :disabled="deleting" @click="onDeleteAccount">
+        <wd-button type="primary" variant="soft" class="action-button" @click="onLogout"
+          >退出登录</wd-button
+        >
+        <wd-button
+          type="danger"
+          variant="soft"
+          class="danger-button"
+          :disabled="deleting"
+          @click="onDeleteAccount"
+        >
           {{ deleting ? '注销中…' : '注销账号' }}
-        </button>
+        </wd-button>
         <text class="danger-hint">注销将删除业务数据并匿名化账号资料，无法恢复</text>
       </view>
     </StatusView>

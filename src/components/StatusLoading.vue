@@ -1,6 +1,6 @@
 <template>
-  <view class="status-loading">
-    <view class="spinner" />
+  <view class="status-loading wot-text-text-secondary">
+    <wd-loading type="circular" size="24px" color="#1a73e8" />
     <text class="text">{{ text }}</text>
   </view>
 </template>
@@ -18,26 +18,11 @@ withDefaults(defineProps<{ text?: string }>(), { text: '加载中…' })
   padding: $gf-space-xl 0;
 }
 
-.spinner {
-  width: 48rpx;
-  height: 48rpx;
-  border: 4rpx solid $gf-color-primary-weak;
-  border-top-color: $gf-color-primary;
-  border-radius: 50%;
-  animation: gf-spin 0.8s linear infinite;
-}
-
 .text {
   margin-top: $gf-space-sm;
   font-size: $gf-font-sm;
   line-height: 1.45;
   color: $gf-text-3;
   text-align: center;
-}
-
-@keyframes gf-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>

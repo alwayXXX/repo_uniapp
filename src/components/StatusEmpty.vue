@@ -1,14 +1,10 @@
 <template>
-  <view class="status-empty">
-    <view class="glyph">
-      <text class="glyph-mark">∅</text>
-    </view>
-    <text class="title">{{ title }}</text>
-    <text v-if="hint" class="hint">{{ hint }}</text>
-    <view v-if="$slots.action" class="action">
-      <slot name="action" />
-    </view>
-  </view>
+  <wd-empty class="status-empty" :tip="title">
+    <template #bottom>
+      <text v-if="hint" class="hint">{{ hint }}</text>
+      <view v-if="$slots.action" class="action"><slot name="action" /></view>
+    </template>
+  </wd-empty>
 </template>
 
 <script setup lang="ts">
@@ -25,30 +21,6 @@ withDefaults(defineProps<{ title?: string; hint?: string }>(), {
   align-items: center;
   min-width: 0;
   padding: $gf-space-xl $gf-space-lg;
-}
-
-.glyph {
-  width: 112rpx;
-  height: 112rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: $gf-bg-page;
-  border: 1rpx solid $gf-line;
-  border-radius: 50%;
-}
-
-.glyph-mark {
-  font-size: 48rpx;
-  color: $gf-text-4;
-}
-
-.title {
-  margin-top: $gf-space-md;
-  font-size: $gf-font-md;
-  line-height: 1.4;
-  color: $gf-text-2;
-  text-align: center;
 }
 
 .hint {

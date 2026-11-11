@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <StatusView :state="loadState" :error-text="errorText" @retry="load">
       <view v-if="device">
         <view class="card hero">
@@ -12,7 +12,7 @@
           <text class="hero-sub">{{ categoryLabel }}{{ purchasedAtText }}</text>
         </view>
 
-        <view class="card">
+        <view class="card wot-bg-filled-oppo wot-rounded-lg">
           <text class="card-title">基础信息</text>
           <view class="row">
             <text class="row-label">品牌</text>
@@ -32,7 +32,7 @@
           </view>
         </view>
 
-        <view class="card">
+        <view class="card wot-bg-filled-oppo wot-rounded-lg">
           <text class="card-title">购买信息</text>
           <view class="row">
             <text class="row-label">购买日期</text>
@@ -86,18 +86,26 @@
           </StatusView>
         </view>
 
-        <view class="card">
+        <view class="card wot-bg-filled-oppo wot-rounded-lg">
           <view class="card-title-row">
             <text class="card-title">维护记录</text>
             <view class="maintenance-actions">
-              <button
+              <wd-button
+                type="primary"
+                variant="soft"
                 class="add-maintenance"
                 :disabled="exportingMaintenance || maintenanceState !== 'success'"
                 @click="exportMaintenanceCsv"
               >
                 导出
-              </button>
-              <button class="add-maintenance" @click="gotoMaintenance('')">+ 添加</button>
+              </wd-button>
+              <wd-button
+                type="primary"
+                variant="soft"
+                class="add-maintenance"
+                @click="gotoMaintenance('')"
+                >+ 添加</wd-button
+              >
             </view>
           </view>
           <text v-if="maintenanceSubtotal !== null" class="subtotal">
@@ -130,17 +138,19 @@
                 formatMoney(record.costCents, device.currency)
               }}</text>
             </view>
-            <button
+            <wd-button
               v-if="visibleMaintenances.length < maintenances.length"
+              type="primary"
+              variant="soft"
               class="timeline-more-button"
               @click="maintenanceVisibleCount += 20"
             >
               加载更多
-            </button>
+            </wd-button>
           </StatusView>
         </view>
 
-        <view class="card">
+        <view class="card wot-bg-filled-oppo wot-rounded-lg">
           <text class="card-title">时间线</text>
           <StatusView
             :state="timelineState"
@@ -151,18 +161,20 @@
             @retry="loadTimeline"
           >
             <DeviceTimelineList :items="timelineItems" />
-            <button
+            <wd-button
               v-if="timelineHasMore"
+              type="primary"
+              variant="soft"
               class="timeline-more-button"
               :disabled="timelineLoadingMore"
               @click="loadMoreTimeline"
             >
               {{ timelineLoadingMore ? '加载中…' : '加载更多' }}
-            </button>
+            </wd-button>
           </StatusView>
         </view>
 
-        <view v-if="device.disposalDate" class="card">
+        <view v-if="device.disposalDate" class="card wot-bg-filled-oppo wot-rounded-lg">
           <text class="card-title">处置记录</text>
           <view class="row"
             ><text class="row-label">日期</text
@@ -183,9 +195,15 @@
         </view>
         <view class="card actions">
           <text class="card-title">设备工具</text>
-          <button class="edit-button" :disabled="aiBusy" @click="previewAdvisor">
+          <wd-button
+            type="primary"
+            variant="soft"
+            class="edit-button"
+            :disabled="aiBusy"
+            @click="previewAdvisor"
+          >
             AI 设备顾问
-          </button>
+          </wd-button>
           <AdvisorPreview
             v-if="advisorFacts"
             :facts="advisorFacts"
@@ -202,32 +220,70 @@
               item
             }}</view>
           </view>
-          <button class="edit-button" @click="openFeature('attachments')">照片与发票</button>
-          <button class="edit-button" @click="openFeature('reminders')">保修到期提醒</button>
-          <button class="edit-button" @click="openFeature('dispose')">出售 / 报废记录</button>
-          <button class="edit-button" @click="gotoEdit">编辑</button>
-          <button class="danger-button" :disabled="deleting" @click="askDelete">
+          <wd-button
+            type="primary"
+            variant="soft"
+            class="edit-button"
+            @click="openFeature('attachments')"
+            >照片与发票</wd-button
+          >
+          <wd-button
+            type="primary"
+            variant="soft"
+            class="edit-button"
+            @click="openFeature('reminders')"
+            >保修到期提醒</wd-button
+          >
+          <wd-button
+            type="primary"
+            variant="soft"
+            class="edit-button"
+            @click="openFeature('dispose')"
+            >出售 / 报废记录</wd-button
+          >
+          <wd-button type="primary" variant="soft" class="edit-button" @click="gotoEdit"
+            >编辑</wd-button
+          >
+          <wd-button
+            type="danger"
+            variant="soft"
+            class="danger-button"
+            :disabled="deleting"
+            @click="askDelete"
+          >
             {{ deleting ? '删除中…' : '删除设备' }}
-          </button>
+          </wd-button>
           <text class="danger-hint">删除为软删除，数据可追溯且不可被他人访问</text>
         </view>
       </view>
     </StatusView>
 
-    <view v-if="confirmVisible" class="mask" @click="confirmVisible = false">
-      <view class="confirm-card" @click.stop>
+    <wd-popup v-model="confirmVisible" position="center" round>
+      <view class="confirm-card">
         <text class="confirm-title">删除设备</text>
         <text class="confirm-text">
           将删除「{{ device?.name }}」，删除后列表与统计不再显示（软删除）。
         </text>
         <view class="confirm-actions">
-          <button class="cancel-button" @click="confirmVisible = false">取消</button>
-          <button class="danger-button" :disabled="deleting" @click="confirmDelete">
+          <wd-button
+            type="primary"
+            variant="soft"
+            class="cancel-button"
+            @click="confirmVisible = false"
+            >取消</wd-button
+          >
+          <wd-button
+            type="danger"
+            variant="soft"
+            class="danger-button"
+            :disabled="deleting"
+            @click="confirmDelete"
+          >
             {{ deleting ? '删除中…' : '删除' }}
-          </button>
+          </wd-button>
         </view>
       </view>
-    </view>
+    </wd-popup>
   </view>
 </template>
 
@@ -880,21 +936,9 @@ async function confirmDelete(): Promise<void> {
   text-align: center;
 }
 
-.mask {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32rpx;
-  background-color: rgba(32, 33, 36, 0.45);
-  box-sizing: border-box;
-}
-
 .confirm-card {
-  width: 100%;
-  max-width: 640rpx;
+  width: 640rpx;
+  max-width: calc(100vw - 64rpx);
   padding: $gf-space-lg;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;

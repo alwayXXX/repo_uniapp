@@ -1,31 +1,37 @@
 <template>
-  <view class="p11-page">
+  <view class="p11-page wot-text-text-main">
     <text class="eyebrow">我的 / 数据保护</text>
     <text class="title">备份与恢复</text>
     <text class="hint"
       >备份包含当前设备、保修、维护、时间线和附件。文件未经加密，请保存到你信任的位置。</text
     >
-    <view class="card">
+    <view class="card wot-bg-filled-oppo wot-rounded-lg">
       <text class="section-title">导出备份</text>
       <text class="hint">单份文件最多 20 MiB、1000 台设备。导出时请暂时不要修改设备或附件。</text>
-      <button class="primary" :disabled="busy" @click="confirmExport">
+      <wd-button type="primary" class="primary" :disabled="busy" @click="confirmExport">
         {{ busy && mode === 'export' ? '正在准备备份…' : '生成备份' }}
-      </button>
+      </wd-button>
       <text v-if="prepared" class="hint"
         >备份已生成，请点击下方按钮分享；离开页面后需重新生成。</text
       >
-      <button v-if="prepared" class="primary" :disabled="busy" @click="sharePrepared">
+      <wd-button
+        v-if="prepared"
+        type="primary"
+        class="primary"
+        :disabled="busy"
+        @click="sharePrepared"
+      >
         分享备份
-      </button>
+      </wd-button>
     </view>
-    <view class="card">
+    <view class="card wot-bg-filled-oppo wot-rounded-lg">
       <text class="section-title">从备份恢复</text>
       <text class="hint"
         >先从微信聊天文件选择备份。已有设备会跳过，不覆盖原数据；微信提醒需要重新授权。</text
       >
-      <button :disabled="busy" @click="pickBackup">
+      <wd-button type="primary" variant="soft" :disabled="busy" @click="pickBackup">
         {{ busy && mode === 'preview' ? '正在检查…' : '选择备份文件' }}
-      </button>
+      </wd-button>
       <view v-if="bundle && preview.length" class="preview">
         <text class="section-title">恢复预览</text>
         <text class="hint"
@@ -46,13 +52,14 @@
         <text v-if="problemCount > problemItems.length" class="hint"
           >另有 {{ problemCount - problemItems.length }} 台已跳过或无法恢复。</text
         >
-        <button
+        <wd-button
+          type="primary"
           class="primary"
           :disabled="busy || count('create') + count('resume') === 0"
           @click="confirmRestore"
         >
           确认恢复
-        </button>
+        </wd-button>
       </view>
       <text v-else-if="bundle && !preview.length" class="hint">这份备份中没有设备。</text>
     </view>

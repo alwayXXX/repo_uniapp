@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <view class="brand-lockup">
       <view class="brand-mark"><text>G</text></view>
       <text class="title">GearFlow</text>
@@ -8,21 +8,23 @@
 
     <view class="features">
       <view class="feature">
-        <view class="feature-icon"><text>01</text></view>
+        <view class="feature-icon"><wd-icon name="desktop" size="24px" color="#1a73e8" /></view>
         <view class="feature-text">
           <text class="feature-title">记录设备档案</text>
           <text class="feature-desc">名称、购买、保修、维护，五项内完成首台录入</text>
         </view>
       </view>
       <view class="feature">
-        <view class="feature-icon"><text>02</text></view>
+        <view class="feature-icon"
+          ><wd-icon name="calendar-line" size="24px" color="#1a73e8"
+        /></view>
         <view class="feature-text">
           <text class="feature-title">保修不再错过</text>
           <text class="feature-desc">自动计算保修状态，临期事项集中提醒</text>
         </view>
       </view>
       <view class="feature">
-        <view class="feature-icon"><text>03</text></view>
+        <view class="feature-icon"><wd-icon name="dashboard" size="24px" color="#1a73e8" /></view>
         <view class="feature-text">
           <text class="feature-title">看清资产与支出</text>
           <text class="feature-desc">设备数量、总资产、年度支出一目了然</text>
@@ -43,9 +45,15 @@
       </view>
     </view>
 
-    <button class="enter-button" :disabled="!agreed || bootstrapping" @click="onEnter">
+    <wd-button
+      class="enter-button"
+      block
+      size="large"
+      :disabled="!agreed || bootstrapping"
+      @click="onEnter"
+    >
       {{ bootstrapping ? '正在初始化…' : '同意并开始使用' }}
-    </button>
+    </wd-button>
     <text v-if="errorMessage" class="error">{{ errorMessage }}</text>
   </view>
 </template>
@@ -158,13 +166,6 @@ async function onEnter(): Promise<void> {
   margin-right: $gf-space-md;
   background-color: $gf-color-primary-weak;
   border-radius: $gf-radius-md;
-}
-
-.feature-icon text {
-  font-size: $gf-font-sm;
-  font-weight: 700;
-  line-height: 1;
-  color: $gf-color-primary;
 }
 
 .feature-text {

@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page wot-text-text-main">
     <view class="hero">
       <text class="hero-kicker">GearFlow / 概览</text>
       <text class="hero-title">保修与待办</text>
