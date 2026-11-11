@@ -3,7 +3,7 @@
     <text class="heading">确认发送内容</text>
     <text class="hint"
       >以下摘要将发送给腾讯云 CloudBase 及第三方 DeepSeek
-      模型，用于生成建议。服务方按其规则处理及保存数据，请先核对。</text
+      模型，用于生成建议。云平台日志可能记录返回的内容；服务方按其规则处理及保存数据，请先核对。</text
     >
     <view class="row"
       ><text>统计日期</text><text>{{ facts.asOf }}</text></view

@@ -62,6 +62,18 @@ interface ImageFiles {
     success: (value: { tempFiles: Array<{ tempFilePath: string; size: number }> }) => void
     fail: (error: { errMsg?: string }) => void
   }): void
+  compressImage?(options: {
+    src: string
+    quality: number
+    compressedWidth: number
+    success: (value: { tempFilePath: string }) => void
+    fail: () => void
+  }): void
+  getFileInfo?(options: {
+    filePath: string
+    success: (value: { size: number }) => void
+    fail: () => void
+  }): void
   getFileSystemManager(): { readFileSync(path: string, encoding: 'base64'): string }
 }
 
@@ -87,12 +99,33 @@ export async function chooseAiImage(): Promise<{ path: string; size: number } | 
           : reject(new AppError('INTERNAL_ERROR', '图片选择失败')),
     })
   })
-  if (
-    selected &&
-    (!Number.isSafeInteger(selected.size) || selected.size <= 0 || selected.size > 1024 * 1024)
-  )
+  if (!selected) return null
+  if (!Number.isSafeInteger(selected.size) || selected.size <= 0)
     throw new AppError('VALIDATION_ERROR', '请选择不超过 1 MiB 的 JPEG 或 PNG 图片')
-  return selected
+  if (selected.size <= 1024 * 1024) return selected
+
+  const api = imageFiles()
+  if (!api.compressImage || !api.getFileInfo)
+    throw new AppError('VALIDATION_ERROR', '图片超过 1 MiB，请先压缩后重新选择')
+  const path = await new Promise<string>((resolve, reject) => {
+    api.compressImage!({
+      src: selected.path,
+      quality: 75,
+      compressedWidth: 1600,
+      success: ({ tempFilePath }) => resolve(tempFilePath),
+      fail: () => reject(new AppError('VALIDATION_ERROR', '图片压缩失败，请先压缩后重新选择')),
+    })
+  })
+  const size = await new Promise<number>((resolve, reject) => {
+    api.getFileInfo!({
+      filePath: path,
+      success: (value) => resolve(value.size),
+      fail: () => reject(new AppError('VALIDATION_ERROR', '无法读取压缩后图片，请重新选择')),
+    })
+  })
+  if (!Number.isSafeInteger(size) || size <= 0 || size > 1024 * 1024)
+    throw new AppError('VALIDATION_ERROR', '压缩后仍超过 1 MiB，请先缩小图片后重新选择')
+  return { path, size }
 }
 
 export function readAiImage(path: string): { mimeType: string; content: string } {

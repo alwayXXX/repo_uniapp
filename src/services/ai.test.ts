@@ -48,8 +48,35 @@ describe('AI service boundaries', () => {
         options.success({ tempFiles: [{ tempFilePath: 'test.jpg', size: 1024 * 1024 + 1 }] }),
       getFileSystemManager: () => ({ readFileSync }),
     })
-    await expect(chooseAiImage()).rejects.toThrow('不超过 1 MiB')
+    await expect(chooseAiImage()).rejects.toThrow('超过 1 MiB')
     expect(readFileSync).not.toHaveBeenCalled()
+    expect(phase11Request).not.toHaveBeenCalled()
+  })
+  it('previews the compressed local file without sending an AI request', async () => {
+    const compressImage = vi.fn((options: { success(value: unknown): void }) =>
+      options.success({ tempFilePath: 'compressed.jpg' }),
+    )
+    vi.stubGlobal('wx', {
+      chooseMedia: (options: { success(value: unknown): void }) =>
+        options.success({ tempFiles: [{ tempFilePath: 'original.jpg', size: 4 * 1024 * 1024 }] }),
+      compressImage,
+      getFileInfo: (options: { success(value: unknown): void }) =>
+        options.success({ size: 500000 }),
+    })
+    await expect(chooseAiImage()).resolves.toEqual({ path: 'compressed.jpg', size: 500000 })
+    expect(compressImage).toHaveBeenCalledOnce()
+    expect(phase11Request).not.toHaveBeenCalled()
+  })
+  it('rejects a compressed image that is still oversized', async () => {
+    vi.stubGlobal('wx', {
+      chooseMedia: (options: { success(value: unknown): void }) =>
+        options.success({ tempFiles: [{ tempFilePath: 'original.jpg', size: 4 * 1024 * 1024 }] }),
+      compressImage: (options: { success(value: unknown): void }) =>
+        options.success({ tempFilePath: 'compressed.jpg' }),
+      getFileInfo: (options: { success(value: unknown): void }) =>
+        options.success({ size: 1024 * 1024 + 1 }),
+    })
+    await expect(chooseAiImage()).rejects.toThrow('压缩后仍超过 1 MiB')
     expect(phase11Request).not.toHaveBeenCalled()
   })
   it('rejects an unsupported file signature before requesting AI', () => {

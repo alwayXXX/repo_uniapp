@@ -112,7 +112,7 @@ P0 只需要：
 ```text
 cloudfunctions/
 ├── gearflow-api/
-├── gearflow-ai/             # P12 AI 云函数草案，尚未部署
+├── gearflow-ai/             # P12 AI 云函数，已部署到独立 AI 环境
 └── gearflow-maintenance/    # P12 维护入口草案，尚未部署
 ```
 
