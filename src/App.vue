@@ -100,9 +100,9 @@ button::after {
   width: 100%;
 }
 .wd-input.gf-wot-input {
-  min-height: 88rpx;
+  min-height: 48px;
   --wot-input-padding: 0 24rpx;
-  --wot-input-inner-height: 88rpx;
+  --wot-input-inner-height: 48px;
 }
 .wd-textarea.gf-wot-textarea {
   min-height: 176rpx;

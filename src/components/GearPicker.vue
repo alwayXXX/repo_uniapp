@@ -1,6 +1,12 @@
 <template>
   <view class="gear-picker">
-    <view @click="visible = true"><slot /></view>
+    <view
+      class="gear-picker-trigger"
+      aria-role="button"
+      hover-class="gear-picker-pressed"
+      @click="visible = true"
+      ><slot
+    /></view>
     <wd-picker
       v-if="mode === 'selector'"
       :visible="visible"
@@ -84,3 +90,12 @@ function confirmDate(event: { value: number | string | Array<number | string> })
   emit('change', { detail: { value: props.fields === 'year' ? year : `${year}-${month}-${day}` } })
 }
 </script>
+
+<style scoped>
+.gear-picker-trigger {
+  min-height: 48px;
+}
+.gear-picker-pressed {
+  opacity: 0.72;
+}
+</style>

@@ -33,7 +33,7 @@
     <view class="toolbar">
       <wd-search
         :model-value="store.keyword"
-        custom-style="--wot-search-plain-bg: transparent; --wot-search-padding: 0; --wot-search-input-height: 88rpx; --wot-search-input-radius: 16rpx;"
+        custom-style="--wot-search-plain-bg: transparent; --wot-search-padding: 0; --wot-search-input-height: 48px; --wot-search-input-radius: 16rpx;"
         placeholder="搜索名称、品牌或型号"
         hide-cancel
         placeholder-left
@@ -433,10 +433,10 @@ function gotoDetail(id: string): void {
 
 .filter-chip {
   min-width: 176rpx;
-  height: 68rpx;
+  height: 48px;
   padding: 0 $gf-space-md;
   font-size: $gf-font-sm;
-  line-height: 68rpx;
+  line-height: 48px;
   color: $gf-text-2;
   background-color: $gf-bg-card;
   border: 1rpx solid $gf-line;
@@ -449,7 +449,7 @@ function gotoDetail(id: string): void {
 }
 
 .filter-chip.active {
-  color: $gf-color-primary;
+  color: $gf-color-primary-strong;
   background-color: $gf-color-primary-weak;
 }
 

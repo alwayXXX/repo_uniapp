@@ -68,6 +68,9 @@
               :key="option.value"
               class="status-chip"
               :class="{ active: form.status === option.value }"
+              aria-role="button"
+              :aria-label="`${option.label}${form.status === option.value ? '，已选择' : ''}`"
+              hover-class="status-chip-pressed"
               @click="form.status = option.value"
             >
               <text class="status-chip-text">{{ option.label }}</text>
@@ -483,8 +486,8 @@ async function onSave(): Promise<void> {
 <style scoped lang="scss">
 .clear-warranty {
   margin: 12rpx 0;
-  min-height: 72rpx;
-  line-height: 72rpx;
+  min-height: 48px;
+  line-height: 48px;
   font-size: $gf-font-sm;
   color: $gf-color-danger;
   background-color: $gf-color-danger-weak;
@@ -666,7 +669,7 @@ async function onSave(): Promise<void> {
 .status-chip {
   flex: 1 1 132rpx;
   min-width: 132rpx;
-  min-height: 72rpx;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -680,9 +683,13 @@ async function onSave(): Promise<void> {
 }
 
 .status-chip.active {
-  color: $gf-color-primary;
+  color: $gf-color-primary-strong;
   background-color: $gf-color-primary-weak;
   border-color: rgba(26, 115, 232, 0.18);
+}
+
+.status-chip-pressed {
+  opacity: 0.72;
 }
 
 .status-chip-text {
@@ -746,7 +753,7 @@ async function onSave(): Promise<void> {
 }
 
 .sheet-option {
-  min-height: 84rpx;
+  min-height: 48px;
   display: flex;
   align-items: center;
   padding: 0 $gf-space-sm;

@@ -3,6 +3,19 @@ import { mount } from '@vue/test-utils'
 import GearPicker from './GearPicker.vue'
 
 describe('Wot picker adapter', () => {
+  it('opens from the labeled control and closes when the picker is dismissed', async () => {
+    const view = mount(GearPicker, {
+      props: { range: ['全部', '电脑'] },
+      slots: { default: '分类' },
+    })
+    const picker = view.getComponent({ name: 'WdPicker' })
+    await view.get('[aria-role="button"]').trigger('click')
+    expect(picker.props('visible')).toBe(true)
+    picker.vm.$emit('update:visible', false)
+    await view.vm.$nextTick()
+    expect(picker.props('visible')).toBe(false)
+  })
+
   it('converts a selected option to the existing index event', async () => {
     const view = mount(GearPicker, { props: { range: ['全部', '电脑'], value: 0 } })
     const picker = view.getComponent({ name: 'WdPicker' })
