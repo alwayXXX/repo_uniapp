@@ -1,8 +1,8 @@
 # GearFlow 技术架构文档
 
-> **2026-11-10 迭代说明**：用户授权自用备份与恢复及 Phase 12 AI。保留现有 MySQL、可信 OPENID 与云函数边界；备份和模型的设计与前置条件见 `docs/PHASE12.md`，准备阶段不代表能力已上线。
+> **2026-11-10 迭代说明**：用户授权自用备份与恢复及 Phase 12 AI。保留现有 MySQL、可信 OPENID 与云函数边界；备份和模型的设计与前置条件见 `docs/PHASE12.md`，备份已交付，AI 尚未上线。
 
-> **2026-10-07 当前架构**：原 PG 环境注销后，运行环境为 CloudBase MySQL。小程序使用 `wx.cloud.callFunction('gearflow-api')`，云函数从微信运行环境读取 OPENID，再通过 `@cloudbase/node-sdk app.rdb()` 访问 MySQL。下文 PG/RLS/RPC/AppSecret 描述是 Phase 0-10 历史架构，当前实现以 `docs/MYSQL-MIGRATION.md` 为准。
+> **当前架构**：小程序使用 wx.cloud.callFunction 调用 gearflow-api，服务端依据可信微信身份访问 CloudBase MySQL。
 
 ## 1. 总体结论
 
@@ -127,7 +127,7 @@ cloudfunctions/
 | 设备创建、编辑、删除 | `gearflow-api.device.save/softDelete` | 云函数校验归属，并同步保修与时间线         |
 | 维护记录写入         | `gearflow-api.maintenance.*`          | 云函数同步维护、成本和时间线，并做失败补偿 |
 | 统计查询             | `gearflow-api.stats/dashboard`        | 服务端按 OPENID 聚合，避免客户端伪造归属   |
-| 账号注销             | `SECURITY DEFINER` RPC                | 需要跨表删除、匿名化和审计                 |
+| 账号注销             | gearflow-api 云函数                   | 需要跨表删除、匿名化和审计                 |
 | P1 附件上传          | CloudBase 云存储 + 云函数元数据校验   | 文件和业务数据分离                         |
 
 ### 身份与权限
@@ -348,4 +348,4 @@ uni-app
           → PostgreSQL / MySQL
 ```
 
-NestJS、Prisma 和自管数据库服务器属于演进选项，不进入当前 MVP。已使用的 CloudBase 托管 PostgreSQL 与仅用于隔离回归的 PGlite 不属于新增自建后端。
+NestJS、Prisma 和自管数据库服务器属于演进选项，不进入当前 MVP。PGlite 仅用于隔离回归。

@@ -1,4 +1,4 @@
--- Phase 12 draft only: apply only after identity-collation-draft.sql is separately authorized and applied.
+-- Phase 12 draft only: verify live state; apply only after the approved identity collation changes are verified.
 -- Do not apply until deletion/retry, permissions and CloudBase SDK behavior are verified.
 -- The index must first be checked in INFORMATION_SCHEMA; ADD INDEX is not idempotent.
 ALTER TABLE users ADD UNIQUE KEY uk_users_openid_status (openid, status);

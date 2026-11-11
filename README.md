@@ -4,7 +4,7 @@
 
 技术基线：uni-app + Vue 3 + TypeScript strict + Pinia + 腾讯云 CloudBase。
 
-当前为自用微信体验版，运行链路为 CloudBase MySQL + 微信 OPENID。Phase 0–11 按自用范围完成，1.2.2 体验版已交付；备份、设备恢复和测试图片恢复已在 iPhone 验证。迁移详情见 [MySQL 迁移记录](docs/MYSQL-MIGRATION.md)，接手先读 [HANDOFF](docs/HANDOFF.md)。
+当前为自用微信体验版，运行链路为 CloudBase MySQL + 微信 OPENID。Phase 0–11 按自用范围完成，1.2.2 体验版已交付；备份、设备恢复和测试图片恢复已在 iPhone 验证。运行配置见 [MySQL 配置](docs/MYSQL-MIGRATION.md)，接手先读 [HANDOFF](docs/HANDOFF.md)。
 
 P11 的附件与一次保修提醒已获本人真机确认；每小时配置上传成功后的自然整点执行尚未单独验证，见 [P11 记录](docs/PHASE11.md)。P12 AI 仍在开发，云端部署和真机验收未完成，见 [P12 记录](docs/PHASE12.md)。
 
@@ -58,7 +58,7 @@ pnpm format             # Prettier 格式化
 - 复制 `.env.example` 为 `.env`，填入 `CLOUDBASE_ENV_ID`（公开配置，可安全放在客户端）。
 - 服务端密钥一律不进入前端与仓库；当前用户身份使用微信原生 OPENID，不再需要 AppSecret 或自定义登录私钥。
 - 测试无需生产凭据或线上数据库连接。发布检查始终扫描通用凭据模式；环境未提供精确密钥值时，会明确报告附加精确扫描未执行。
-- 当前发现与决策记录见 [docs/PHASE1-FINDINGS.md](docs/PHASE1-FINDINGS.md)。
+- 当前状态和操作约束见 [docs/HANDOFF.md](docs/HANDOFF.md)。
 
 ## 目录结构
 
