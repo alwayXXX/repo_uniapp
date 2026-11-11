@@ -1,9 +1,9 @@
 <template>
   <view class="page wot-text-text-main">
     <view class="hero">
-      <text class="hero-kicker">GearFlow / 概览</text>
-      <text class="hero-title">保修与待办</text>
-      <text class="hero-sub">{{ deviceCount }} 台设备 · {{ expiringTotal }} 台保修临期</text>
+      <text class="hero-kicker">GEARFLOW</text>
+      <text class="hero-title">你的设备，一目了然</text>
+      <text class="hero-sub">设备状态与保修提醒</text>
       <view class="hero-stats">
         <view class="hero-stat">
           <text class="hero-stat-value">{{ deviceCount }}</text>
@@ -154,25 +154,26 @@ onShow(() => {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  padding: 40rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .hero {
-  padding: 8rpx 8rpx 4rpx;
-  margin-bottom: $gf-space-md;
+  padding: 0;
+  margin-bottom: $gf-space-lg;
 }
 
 .hero-kicker {
   display: block;
   font-size: $gf-font-xs;
   font-weight: 600;
+  letter-spacing: 2rpx;
   color: $gf-color-primary;
 }
 
 .hero-title {
   display: block;
-  margin-top: 8rpx;
+  margin-top: 16rpx;
   font-size: $gf-font-xl;
   font-weight: 700;
   line-height: 1.25;
@@ -190,27 +191,23 @@ onShow(() => {
 .hero-stats {
   display: flex;
   flex-direction: row;
-  gap: $gf-space-sm;
-  margin-top: $gf-space-md;
+  gap: 0;
+  margin-top: $gf-space-lg;
+  padding: 32rpx 0;
+  background: $gf-bg-card;
+  border: 1rpx solid #edf0f3;
+  border-radius: $gf-radius-lg;
+  box-shadow: $gf-shadow-sm;
 }
 
 .hero-stat {
   min-width: 0;
   flex: 1;
-  padding: 16rpx;
-  background-color: $gf-bg-card;
-  border: 1rpx solid $gf-line;
-  border-top: 5rpx solid $gf-color-primary;
-  border-radius: $gf-radius-md;
-  box-shadow: $gf-shadow-sm;
+  padding: 0 28rpx;
 }
 
-.hero-stat.warning {
-  border-top-color: $gf-color-warning;
-}
-
-.hero-stat.muted {
-  border-top-color: $gf-text-4;
+.hero-stat + .hero-stat {
+  border-left: 1rpx solid $gf-line;
 }
 
 .hero-stat-value,
@@ -219,7 +216,7 @@ onShow(() => {
 }
 
 .hero-stat-value {
-  font-size: $gf-font-lg;
+  font-size: 42rpx;
   font-weight: 700;
   line-height: 1.2;
   color: $gf-text-1;
@@ -227,7 +224,7 @@ onShow(() => {
 
 .hero-stat-label {
   margin-top: 6rpx;
-  font-size: 20rpx;
+  font-size: $gf-font-xs;
   line-height: 1.35;
   color: $gf-text-3;
 }
@@ -243,15 +240,15 @@ onShow(() => {
 }
 
 .card-warning {
-  border-left: 6rpx solid $gf-color-warning;
+  border-left: 1rpx solid $gf-line;
 }
 
 .card-muted {
-  border-left: 6rpx solid $gf-text-4;
+  border-left: 1rpx solid $gf-line;
 }
 
 .card-primary {
-  border-left: 6rpx solid $gf-color-primary;
+  border-left: 1rpx solid $gf-line;
 }
 
 .card-title {

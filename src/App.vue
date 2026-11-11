@@ -28,7 +28,7 @@ onLaunch(() => {
 /* Shared baseline: keep native controls readable across WeChat iOS and Android. */
 page {
   min-height: 100%;
-  background-color: #f8f9fa;
+  background-color: #f5f7fa;
   font-size: 28rpx;
   color: #202124;
   font-family: 'Noto Sans SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
@@ -63,10 +63,10 @@ button::after {
 /* Wot renders its own input root. Keep a visible touch target in forms. */
 .wd-input.gf-wot-input,
 .wd-textarea.gf-wot-textarea {
-  border: 1rpx solid #dadce0;
-  border-radius: 12rpx;
+  border: 1rpx solid #edf0f3;
+  border-radius: 14rpx;
   box-sizing: border-box;
-  background: #fff;
+  background: #f7f8fa;
 }
 .wd-input.gf-wot-input {
   min-height: 88rpx;

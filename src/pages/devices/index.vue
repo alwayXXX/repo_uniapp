@@ -2,15 +2,16 @@
   <view class="page wot-text-text-main">
     <view class="page-header">
       <view class="heading-copy">
-        <text class="eyebrow">GearFlow / 设备资产</text>
-        <text class="page-title">设备</text>
-        <text class="page-subtitle">集中管理设备资料、状态与购买成本。</text>
+        <text class="eyebrow">MY GEAR</text>
+        <text class="page-title">我的设备</text>
+        <text class="page-subtitle">你的设备档案都在这里</text>
       </view>
       <view class="header-actions">
         <wd-button
           type="primary"
-          variant="soft"
+          variant="subtle"
           icon="download"
+          size="small"
           class="header-action"
           :disabled="exporting"
           @click="exportDevicesCsv"
@@ -19,8 +20,8 @@
         </wd-button>
         <wd-button
           type="primary"
-          variant="soft"
           icon="plus"
+          size="small"
           class="header-action"
           @click="gotoCreate"
         >
@@ -32,6 +33,7 @@
     <view class="toolbar">
       <wd-search
         :model-value="store.keyword"
+        custom-style="--wot-search-plain-bg: transparent; --wot-search-padding: 0; --wot-search-input-height: 88rpx; --wot-search-input-radius: 16rpx;"
         placeholder="搜索名称、品牌或型号"
         hide-cancel
         placeholder-left
@@ -287,7 +289,7 @@ function gotoDetail(id: string): void {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  padding: 40rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -309,13 +311,14 @@ function gotoDetail(id: string): void {
   display: block;
   font-size: $gf-font-xs;
   font-weight: 600;
+  letter-spacing: 2rpx;
   color: $gf-color-primary;
 }
 
 .page-title {
   display: block;
-  margin-top: 8rpx;
-  font-size: 44rpx;
+  margin-top: 16rpx;
+  font-size: 42rpx;
   font-weight: 700;
   line-height: 1.25;
   color: $gf-text-1;
@@ -434,7 +437,7 @@ function gotoDetail(id: string): void {
   color: $gf-text-2;
   background-color: $gf-bg-card;
   border: 1rpx solid $gf-line;
-  border-radius: $gf-control-radius;
+  border-radius: 100rpx;
   box-sizing: border-box;
   text-align: center;
   white-space: nowrap;
@@ -457,7 +460,7 @@ function gotoDetail(id: string): void {
   padding: $gf-space-md;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
-  border: 1rpx solid $gf-line;
+  border: 1rpx solid #edf0f3;
   box-shadow: $gf-shadow-sm;
   box-sizing: border-box;
 }

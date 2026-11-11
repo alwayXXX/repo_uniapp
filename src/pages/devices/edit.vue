@@ -1,9 +1,8 @@
 <template>
   <view class="page wot-text-text-main">
     <view class="page-intro">
-      <text class="eyebrow">设备资产 / {{ isEdit ? '编辑' : '新增' }}</text>
       <text class="page-title">{{ isEdit ? '编辑设备' : '添加设备' }}</text>
-      <text class="page-subtitle">记录关键资料，后续维护和统计会自动关联。</text>
+      <text class="page-subtitle">记录设备信息，让管理更轻松</text>
     </view>
 
     <StatusView :state="loadState" :error-text="loadError" @retry="load">
@@ -11,19 +10,19 @@
         <view class="section-heading">
           <view>
             <text class="section-title">基本信息</text>
-            <text class="section-caption">设备识别与资产归属</text>
+            <text class="section-caption">先填写设备的基本资料</text>
           </view>
-          <text class="section-index">01</text>
+          <wd-button
+            type="primary"
+            variant="soft"
+            size="small"
+            icon="scan"
+            class="image-recognition"
+            :disabled="imageBusy || loadState !== 'success'"
+            @click="selectAiImage"
+            >图片识别</wd-button
+          >
         </view>
-
-        <wd-button
-          type="primary"
-          variant="soft"
-          :disabled="imageBusy || loadState !== 'success'"
-          @click="selectAiImage"
-        >
-          选择图片识别设备
-        </wd-button>
         <ImageAiPreview
           v-if="imagePath"
           :image-path="imagePath"
@@ -157,7 +156,6 @@
             <text class="section-title">保修信息</text>
             <text class="section-caption">选填，起止日期需成对填写</text>
           </view>
-          <text class="section-index">02</text>
         </view>
         <FormField label="保修开始日期" :error="errors.warrantyDates">
           <GearPicker mode="date" :value="warrantyStart" @change="onWarrantyStartChange">
@@ -493,12 +491,12 @@ async function onSave(): Promise<void> {
 
 .page {
   min-height: 100vh;
-  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  padding: 32rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .page-intro {
-  padding: 8rpx 8rpx 20rpx;
+  padding: 0 4rpx 32rpx;
 }
 
 .eyebrow {
@@ -510,8 +508,7 @@ async function onSave(): Promise<void> {
 
 .page-title {
   display: block;
-  margin-top: 8rpx;
-  font-size: 44rpx;
+  font-size: 42rpx;
   font-weight: 700;
   line-height: 1.25;
   color: $gf-text-1;
@@ -527,10 +524,10 @@ async function onSave(): Promise<void> {
 }
 
 .card {
-  padding: 12rpx $gf-space-lg 18rpx;
+  padding: 28rpx $gf-space-lg 24rpx;
   background-color: $gf-bg-card;
   border-radius: $gf-radius-lg;
-  border: 1rpx solid $gf-line;
+  border: 1rpx solid #edf0f3;
   box-shadow: $gf-shadow-sm;
   margin-bottom: $gf-space-md;
   box-sizing: border-box;
@@ -539,9 +536,9 @@ async function onSave(): Promise<void> {
 .section-heading {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 12rpx 0 2rpx;
+  padding: 0 0 12rpx;
 }
 
 .section-heading > view {
@@ -590,9 +587,9 @@ async function onSave(): Promise<void> {
   font-size: $gf-font-md;
   line-height: $gf-control-height;
   color: $gf-text-1;
-  background-color: $gf-bg-card;
-  border: 1rpx solid $gf-line;
-  border-radius: $gf-control-radius;
+  background-color: #f7f8fa;
+  border: 1rpx solid #edf0f3;
+  border-radius: 14rpx;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -621,9 +618,9 @@ async function onSave(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding: 0 20rpx 0 24rpx;
-  background-color: $gf-bg-card;
-  border: 1rpx solid $gf-line;
-  border-radius: $gf-control-radius;
+  background-color: #f7f8fa;
+  border: 1rpx solid #edf0f3;
+  border-radius: 14rpx;
   box-sizing: border-box;
 }
 

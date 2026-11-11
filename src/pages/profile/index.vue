@@ -208,7 +208,7 @@ function askConfirmationText(): void {
 <style scoped lang="scss">
 .page {
   min-height: 100vh;
-  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  padding: 40rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 

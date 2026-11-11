@@ -307,12 +307,12 @@ onShow(() => {
 }
 .page {
   min-height: 100vh;
-  padding: 24rpx $gf-space-md calc(64rpx + env(safe-area-inset-bottom));
+  padding: 40rpx 32rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .masthead {
-  padding: 8rpx 8rpx 4rpx;
+  padding: 0;
   margin-bottom: $gf-space-md;
 }
 
@@ -367,8 +367,7 @@ onShow(() => {
   padding: 10rpx $gf-space-md;
   background-color: $gf-bg-card;
   border: 1rpx solid $gf-line;
-  border-left: 5rpx solid $gf-color-primary;
-  border-radius: $gf-control-radius;
+  border-radius: 16rpx;
   box-shadow: $gf-shadow-sm;
   box-sizing: border-box;
 }
@@ -398,7 +397,7 @@ onShow(() => {
 .asset-band {
   margin-bottom: $gf-space-sm;
   padding: $gf-space-lg;
-  background-color: $gf-color-primary;
+  background-color: #263f5b;
   border-radius: $gf-radius-lg;
   box-shadow: $gf-shadow-sm;
   box-sizing: border-box;
@@ -464,14 +463,9 @@ onShow(() => {
   padding: $gf-space-md;
   background-color: $gf-bg-card;
   border: 1rpx solid $gf-line;
-  border-top: 6rpx solid $gf-text-4;
-  border-radius: $gf-radius-md;
+  border-radius: $gf-radius-lg;
   box-shadow: $gf-shadow-sm;
   box-sizing: border-box;
-}
-
-.metric-cell.metric-accent {
-  border-top-color: $gf-color-warning;
 }
 
 .metric-label,

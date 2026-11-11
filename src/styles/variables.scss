@@ -17,22 +17,22 @@ $gf-color-danger-weak: #fce8e6;
 /* 文字 */
 $gf-text-1: #202124;
 $gf-text-2: #5f6368;
-$gf-text-3: #80868b;
+$gf-text-3: #6f7782;
 $gf-text-4: #bdc1c6;
 
 /* 背景与分割 */
-$gf-bg-page: #f8f9fa;
+$gf-bg-page: #f5f7fa;
 $gf-bg-card: #ffffff;
 $gf-bg-subtle: #f1f3f4;
-$gf-line: #dadce0;
+$gf-line: #e8ebef;
 
 /* 轻量层次：以边框为主，阴影只用于可交互表面。 */
-$gf-shadow-sm: 0 2rpx 10rpx rgba(32, 33, 36, 0.06);
+$gf-shadow-sm: 0 4rpx 18rpx rgba(32, 42, 58, 0.035);
 
 /* 圆角 */
 $gf-radius-sm: 8rpx;
 $gf-radius-md: 12rpx;
-$gf-radius-lg: 16rpx;
+$gf-radius-lg: 24rpx;
 
 /* 间距 */
 $gf-space-xs: 8rpx;
