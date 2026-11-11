@@ -27,6 +27,25 @@ function cloudbaseSync(): Plugin {
       } else if (existsSync(sourceDir)) {
         cpSync(sourceDir, cloudOutput, { recursive: true })
       }
+      // Wot UI's default icon font points to an external CDN. Mini programs
+      // cannot load local font URLs, so embed the package's own font in WXSS.
+      const iconCss = resolve(outDir, 'node-modules/@wot-ui/ui/components/wd-icon/wd-icon.wxss')
+      if (existsSync(iconCss)) {
+        const css = readFileSync(iconCss, 'utf8')
+        const fontFace = /@font-face\s*\{\s*font-family:\s*["']?wd-icons["']?;[^}]*\}/
+        if (!fontFace.test(css))
+          throw new Error('Wot icon font format changed; inspect before release')
+        const font = readFileSync(
+          resolve(__dirname, 'node_modules/@wot-ui/ui/components/wd-icon/iconfont.ttf'),
+        )
+        writeFileSync(
+          iconCss,
+          css.replace(
+            fontFace,
+            `@font-face{font-family:wd-icons;src:url(data:font/ttf;base64,${font.toString('base64')}) format('truetype')}`,
+          ),
+        )
+      }
       const configPath = resolve(outDir, 'project.config.json')
       if (existsSync(configPath)) {
         const projectConfig = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<
@@ -57,7 +76,7 @@ function cloudbaseSync(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(async () => ({
   // 允许客户端使用 CLOUDBASE_* / APP_* 前缀的公开环境变量（均不含密钥）
   envPrefix: ['VITE_', 'CLOUDBASE_', 'APP_'],
   build: {
@@ -65,5 +84,6 @@ export default defineConfig({
     // 模式下的上传解析器报 Unexpected token），async/await 原生保留不膨胀
     target: 'es2018',
   },
-  plugins: [uni(), cloudbaseSync()],
-})
+  optimizeDeps: { exclude: ['@wot-ui/ui'] },
+  plugins: [uni(), (await import('unocss/vite')).default(), cloudbaseSync()],
+}))

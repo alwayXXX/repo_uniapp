@@ -22,7 +22,9 @@ onLaunch(() => {
 })
 </script>
 
-<style>
+<style lang="scss">
+@import '@wot-ui/ui/styles/theme/index.scss';
+
 /* Shared baseline: keep native controls readable across WeChat iOS and Android. */
 page {
   min-height: 100%;
@@ -30,6 +32,7 @@ page {
   font-size: 28rpx;
   color: #202124;
   font-family: 'Noto Sans SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --wot-blue-6: #1a73e8;
 }
 
 view,
@@ -55,5 +58,24 @@ button {
 
 button::after {
   border: 0;
+}
+
+/* Wot renders its own input root. Keep a visible touch target in forms. */
+.wd-input.gf-wot-input,
+.wd-textarea.gf-wot-textarea {
+  border: 1rpx solid #dadce0;
+  border-radius: 12rpx;
+  box-sizing: border-box;
+  background: #fff;
+}
+.wd-input.gf-wot-input {
+  min-height: 88rpx;
+  --wot-input-padding: 0 24rpx;
+  --wot-input-inner-height: 88rpx;
+}
+.wd-textarea.gf-wot-textarea {
+  min-height: 176rpx;
+  --wot-textarea-padding: 20rpx 24rpx;
+  --wot-textarea-inner-min-height: 130rpx;
 }
 </style>
