@@ -7,24 +7,49 @@
         <text class="range-note">{{ selectedRange.label }}</text>
       </view>
       <view class="controls">
-        <GearPicker mode="selector" :range="rangeLabels" @change="onRangeChange">
-          <view class="control-chip">
-            <text class="control-label">范围</text>
-            <text class="control-value">{{ selectedRange.label }}</text>
-          </view>
-        </GearPicker>
-        <GearPicker mode="selector" :range="categoryLabels" @change="onCategoryChange">
-          <view class="control-chip">
-            <text class="control-label">分类</text>
-            <text class="control-value">{{ categoryLabel }}</text>
-          </view>
-        </GearPicker>
+        <view class="control-column">
+          <GearPicker
+            mode="selector"
+            :range="rangeLabels"
+            :value="rangeIndex"
+            @change="onRangeChange"
+          >
+            <view class="control-chip">
+              <view class="control-copy">
+                <text class="control-label">范围</text>
+                <text class="control-value">{{ selectedRange.label }}</text>
+              </view>
+              <wd-icon name="arrow-down" size="14px" color="#77889c" />
+            </view>
+          </GearPicker>
+        </view>
+        <view class="control-column">
+          <GearPicker
+            mode="selector"
+            :range="categoryLabels"
+            :value="categoryIndex"
+            @change="onCategoryChange"
+          >
+            <view class="control-chip">
+              <view class="control-copy">
+                <text class="control-label">分类</text>
+                <text class="control-value">{{ categoryLabel }}</text>
+              </view>
+              <wd-icon name="arrow-down" size="14px" color="#77889c" />
+            </view>
+          </GearPicker>
+        </view>
       </view>
     </view>
 
-    <wd-button type="primary" variant="soft" class="annual-entry" @click="openAnnualReport"
-      >查看年度设备报告 ›</wd-button
-    >
+    <button class="annual-entry" @click="openAnnualReport">
+      <view class="annual-icon"><wd-icon name="calendar-line" size="23px" color="#2468be" /></view>
+      <view class="annual-copy">
+        <text class="annual-title">年度设备报告</text>
+        <text class="annual-subtitle">回看设备变化与年度支出</text>
+      </view>
+      <view class="annual-arrow"><wd-icon name="arrow-right" size="16px" color="#2468be" /></view>
+    </button>
     <StatusView
       :state="pageState"
       :retry-loading="pageState === 'loading'"
@@ -192,7 +217,13 @@ const categories = ref<DeviceCategory[]>([])
 const overview = ref<StatisticsOverview | null>(null)
 
 const selectedRange = computed(() => getStatisticsDateRange(selectedPreset.value))
+const rangeIndex = computed(() => Math.max(0, RANGE_PRESETS.indexOf(selectedPreset.value)))
 const categoryLabels = computed(() => ['全部分类', ...categories.value.map((item) => item.name)])
+const categoryIndex = computed(() =>
+  selectedCategoryId.value
+    ? categories.value.findIndex((item) => item.id === selectedCategoryId.value) + 1
+    : 0,
+)
 const categoryLabel = computed(() => {
   if (selectedCategoryId.value === '') return '全部分类'
   return categories.value.find((item) => item.id === selectedCategoryId.value)?.name ?? '全部分类'
@@ -301,10 +332,58 @@ onShow(() => {
 
 <style scoped lang="scss">
 .annual-entry {
-  margin: 12rpx 0 24rpx;
-  color: $gf-color-primary;
-  background: $gf-color-primary-weak;
-  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 132rpx;
+  margin: 8rpx 0 28rpx;
+  padding: 24rpx;
+  gap: 20rpx;
+  color: #173451;
+  background: linear-gradient(110deg, #eaf3ff, #f4f9ff);
+  border: 1rpx solid #dceaff;
+  border-radius: 24rpx;
+  text-align: left;
+  line-height: normal;
+}
+.annual-icon,
+.annual-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.annual-icon {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 20rpx;
+  background: #fff;
+}
+.annual-copy {
+  flex: 1;
+  min-width: 0;
+}
+.annual-title,
+.annual-subtitle {
+  display: block;
+}
+.annual-title {
+  color: #173451;
+  font-size: 29rpx;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.annual-subtitle {
+  margin-top: 6rpx;
+  color: #5f7287;
+  font-size: 22rpx;
+  line-height: 1.4;
+}
+.annual-arrow {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
 }
 .page {
   min-height: 100vh;
@@ -353,25 +432,34 @@ onShow(() => {
 .controls {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
   gap: $gf-space-sm;
   margin-top: $gf-space-md;
 }
 
-.controls picker {
+.control-column {
   min-width: 0;
-  flex: 1 1 260rpx;
+  flex: 1;
 }
 
 .control-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  width: 100%;
   min-width: 0;
-  height: 78rpx;
-  padding: 10rpx $gf-space-md;
+  min-height: 48px;
+  padding: 12rpx $gf-space-md;
   background-color: $gf-bg-card;
   border: 1rpx solid $gf-line;
   border-radius: 16rpx;
   box-shadow: $gf-shadow-sm;
   box-sizing: border-box;
+}
+
+.control-copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .control-label,
